@@ -1,0 +1,27 @@
+{# Orarul in cifre: configurarile de filtre salvate cu nume si salvarea celei curente.
+   Asteapta `filtre_salvate` si `q` (filtrele curente, ca parametri de adresa). #}
+<section class="sectiune filtre-salvate" aria-labelledby="t-salvate">
+  <h2 id="t-salvate" class="sr-only">Filtre salvate</h2>
+  {% if request.query_params.get('salvat') %}<p class="reusit" role="status">Configurarea a fost salvată.</p>{% endif %}
+  <div class="salvate-rand">
+    <span class="bife-titlu">Filtre salvate</span>
+    {% for x in filtre_salvate %}
+      <span class="salvat {{ 'activ' if x.parametri == q }}">
+        <a href="/admin/statistici?{{ x.parametri }}" title="salvat de {{ x.creat_de }}, {{ x.creat_la.strftime('%d.%m.%Y') }}">{{ x.nume }}</a>
+        <form method="post" action="/admin/statistici/filtre/{{ x.id }}/sterge" onsubmit="return confirm('Ștergi configurarea „{{ x.nume }}”?')">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <input type="hidden" name="inapoi" value="{{ q }}">
+          <button type="submit" title="Șterge configurarea" aria-label="Șterge configurarea {{ x.nume }}">×</button>
+        </form>
+      </span>
+    {% else %}
+      <span class="nota">niciuna încă</span>
+    {% endfor %}
+    <form method="post" action="/admin/statistici/filtre" class="salveaza-filtru">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="parametri" value="{{ q }}">
+      <input type="text" name="nume" required maxlength="80" placeholder="numele configurării curente" aria-label="Numele configurării">
+      <button type="submit" class="buton">Salvează filtrele</button>
+    </form>
+  </div>
+</section>

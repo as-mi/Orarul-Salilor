@@ -15,9 +15,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from orar.db.models import FiltruSalvat, Grupa, Sala
+from orar.db.models import FiltruSalvat, Sala
 from orar.db.orare import orare_vii
-from orar.db.statistici import METRICI, Filtre, calculeaza, grupe_de_baza
+from orar.db.statistici import METRICI, Filtre, GrupaTinta, calculeaza, grupe_de_baza
 from orar.domain.grid import ORA_MAX, ORA_MIN, ZILE
 from orar.domain.hierarchy import DENUMIRI_SPECIALIZARE
 from orar.web.auth import Cont, cere_admin, verifica_csrf
@@ -33,6 +33,33 @@ DOAR_AFISARE = ("celula", "salvat")
 
 def _intre(valoare: int, minim: int, maxim: int) -> int:
     return max(minim, min(maxim, valoare))
+
+
+def _optiuni_filtre(de_baza: list[GrupaTinta], sali: list[Sala]) -> dict[str, object]:
+    """Ce se poate bifa in formularul de filtre, dedus din orarul ales: doar specializarile,
+    anii, seriile si etajele care chiar exista in el."""
+    coduri = {g.specializare for g in de_baza if g.specializare}
+    cunoscute = [c for c in DENUMIRI_SPECIALIZARE if c in coduri]
+    return {
+        "specializari": [
+            (c, DENUMIRI_SPECIALIZARE.get(c, c))
+            for c in (*cunoscute, *sorted(coduri - set(cunoscute)))
+        ],
+        "ani": [
+            (a, f"{'Master' if a[0] == 'M' else 'Licență'} · anul {a[1:]}")
+            for a in sorted({g.an for g in de_baza if g.an})
+        ],
+        "serii": sorted({(g.serie, g.serie_nume) for g in de_baza if g.serie}, key=lambda x: x[1]),
+        "grupe": de_baza,
+        "tipuri": TIPURI,
+        "zile": ZILE,
+        "ore": list(range(ORA_MIN, ORA_MAX + 1)),
+        "feluri_sala": FELURI_SALA,
+        # etajul e prima cifra din numele salii
+        "etaje": sorted({next((c for c in x.nume if c.isdigit()), "") for x in sali} - {""}),
+        "sali": sali,
+        "nr_sali_total": len(sali),
+    }
 
 
 @router.get("", response_class=HTMLResponse)
@@ -93,7 +120,6 @@ def statistici(
 
     st = calculeaza(s, orar, f) if orar else None
     de_baza = grupe_de_baza(s, orar.an_univ) if orar else []
-    coduri = {g.specializare for g in de_baza if g.specializare}
     sali_fizice = list(s.scalars(select(Sala).where(Sala.tip == "fizica").order_by(Sala.nume)))
 
     # adresa fara parametrii de afisare: ce se salveaza si de unde pornesc linkurile celulelor
@@ -119,33 +145,8 @@ def statistici(
             "q": urlencode(parametri),
             "q_fara_metrica": urlencode([(k, v) for k, v in parametri if k != "metrica"]),
             "filtre_salvate": list(s.scalars(select(FiltruSalvat).order_by(FiltruSalvat.nume))),
-            # optiunile filtrelor
-            "specializari": [
-                (c, DENUMIRI_SPECIALIZARE.get(c, c))
-                for c in (
-                    *[c for c in DENUMIRI_SPECIALIZARE if c in coduri],
-                    *sorted(coduri - set(DENUMIRI_SPECIALIZARE)),
-                )
-            ],
-            "ani": [
-                (a, f"{'Master' if a[0] == 'M' else 'Licență'} · anul {a[1:]}")
-                for a in sorted({g.an for g in de_baza if g.an})
-            ],
-            "serii": sorted(
-                {(g.serie, g.serie_nume) for g in de_baza if g.serie}, key=lambda x: x[1]
-            ),
-            "grupe": de_baza,
-            "tipuri": TIPURI,
-            "zile": ZILE,
-            "ore": list(range(ORA_MIN, ORA_MAX + 1)),
-            "feluri_sala": FELURI_SALA,
-            "etaje": sorted(
-                {next((c for c in x.nume if c.isdigit()), "") for x in sali_fizice} - {""}
-            ),
-            "sali": sali_fizice,
-            "nr_sali_total": len(sali_fizice),
+            **_optiuni_filtre(de_baza, sali_fizice),
             "nr_filtre": sum(1 for k, _ in parametri if k not in ("metrica", "perioada")),
-            "nume_grupe": {g.id: g.nume for g in s.scalars(select(Grupa))} if deschisa else {},
         },
     )
 

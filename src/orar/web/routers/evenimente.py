@@ -39,8 +39,6 @@ LUNI = (
 )  # fmt: skip
 ZILE_RO = ("luni", "marți", "miercuri", "joi", "vineri", "sâmbătă", "duminică")
 ETICHETE_FEL = {"asmi": "Activitate ASMI", "alta": "Altă activitate"}
-#: Unde se tine: intr-o sala a facultatii, in alt loc, sau nicaieri anume.
-LOCURI = ("sala", "alt", "fara")
 #: Valoarea din formular pentru "altă culoare": culoarea vine in campul `culoare_proprie`.
 CULOARE_PROPRIE = "proprie"
 _RE_CULOARE = re.compile(r"#[0-9a-f]{6}")
@@ -218,6 +216,21 @@ def _libere(s: Session, zi: date, inceput: time, sfarsit: time, fara: int | None
     return libere, orar
 
 
+def _context_sali(
+    s: Session, zi: date, inceput: time, sfarsit: time, fara: int | None
+) -> dict[str, object]:
+    """Ce are nevoie `_sali_libere.html` ca sa arate salile libere intr-un interval."""
+    libere, orar = _libere(s, zi, inceput, sfarsit, fara)
+    return {
+        "libere": libere,
+        "orar": orar,
+        "zi_cautata": f"{ZILE_RO[zi.weekday()]}, {zi:%d.%m.%Y}",
+        "interval": f"{inceput:%H:%M}-{sfarsit:%H:%M}",
+        "weekend": zi.weekday() >= 5,
+        "in_semestru_cautat": calendar(s).saptamana(zi) is not None,
+    }
+
+
 @router.get("/admin/evenimente/sali-libere", response_class=HTMLResponse)
 def cauta_sali(
     request: Request,
@@ -237,17 +250,9 @@ def cauta_sali(
     elif inceput >= sfarsit:
         ctx["eroare_sali"] = "Ora de sfârșit trebuie să fie după cea de început."
     else:
-        libere, orar = _libere(
+        ctx |= _context_sali(
             s, zi, inceput, sfarsit, int(eveniment) if eveniment.isdigit() else None
         )
-        ctx |= {
-            "libere": libere,
-            "orar": orar,
-            "zi_cautata": f"{ZILE_RO[zi.weekday()]}, {zi:%d.%m.%Y}",
-            "interval": f"{inceput:%H:%M}-{sfarsit:%H:%M}",
-            "weekend": zi.weekday() >= 5,
-            "in_semestru_cautat": calendar(s).saptamana(zi) is not None,
-        }
     return templates.TemplateResponse(request=request, name="_sali_libere.html", context=ctx)
 
 
@@ -290,15 +295,7 @@ def _formular(
     ctx_sali: dict[str, object] = {"libere": None, "eroare_sali": "", "sala_aleasa": v["sala"]}
     zi, inceput, sfarsit = _data(v["data_inceput"]), _ora(v["ora_inceput"]), _ora(v["ora_sfarsit"])
     if zi and inceput and sfarsit and inceput < sfarsit:
-        libere, orar = _libere(s, zi, inceput, sfarsit, e.id if e else None)
-        ctx_sali |= {
-            "libere": libere,
-            "orar": orar,
-            "zi_cautata": f"{ZILE_RO[zi.weekday()]}, {zi:%d.%m.%Y}",
-            "interval": f"{inceput:%H:%M}-{sfarsit:%H:%M}",
-            "weekend": zi.weekday() >= 5,
-            "in_semestru_cautat": calendar(s).saptamana(zi) is not None,
-        }
+        ctx_sali |= _context_sali(s, zi, inceput, sfarsit, e.id if e else None)
     return templates.TemplateResponse(
         request=request,
         name="admin_eveniment.html",

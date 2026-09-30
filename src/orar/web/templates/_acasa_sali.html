@@ -1,0 +1,28 @@
+{# Salile de pe pagina principala, pe etaje (prima cifra din nume) si pe feluri.
+   Asteapta `etaje`, `feluri_sali`, `qv`. #}
+<section class="sectiune acasa">
+  <h2>Săli</h2>
+  {# Ca la grupe: un rand pe etaj (prima cifra din numele salii), o coloana pe fel de sala. #}
+  <div class="nivel" style="--ani: {{ feluri_sali|length }}">
+    <h3 class="nivel-titlu">Pe etaje</h3>
+    {% for e in etaje %}
+      <div class="domeniu">
+        <h4>{{ e.nume }}</h4>
+        {% for fel in feluri_sali %}
+          {% set ale_lui = e.sali.get(fel, []) %}
+          {% if ale_lui %}
+            <div class="an-celula">
+              <span class="an-link">{{ fel }}</span>
+              <div class="pastile">
+                {% for s in ale_lui %}<a class="pastila-link sala" href="/sala/{{ s.slug }}{{ qv }}">{{ s.nume }}</a>{% endfor %}
+              </div>
+            </div>
+          {% else %}
+            <div class="an-celula gol" aria-hidden="true"></div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+  <p><a class="mai-mult" href="/sala{{ qv }}">vezi toate sălile, cu gradul de ocupare →</a></p>
+</section>

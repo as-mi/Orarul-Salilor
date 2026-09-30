@@ -273,7 +273,7 @@ poate avea câteva sute până sunt confirmate.
 | `src/orar/db/` | Modelele, interogările și migrările. Tot aici: versiunile orarului, corecțiile, evenimentele, statisticile. |
 | `src/orar/ingest/` | Drumul de la PDF la bază: captură, segmentare, OCR, vocabular, verificarea cu orarul profesorilor, consolidare. |
 | `src/orar/worker/` | Sincronizarea cu pagina facultății, verificarea zilnică și încărcarea pornită din panou. |
-| `src/orar/web/` | Situl: FastAPI, șabloane Jinja2, HTMX, CSS scris de mână. |
+| `src/orar/web/` | Situl: FastAPI, șabloane Jinja2, HTMX. Paginile stau în `templates/`, cu bucățile refolosite în fișierele care încep cu `_`. Stilurile sunt în `static/css/`, câte un fișier pe zonă a sitului, iar scripturile în `static/js/`. |
 | `tests/` | Testele și orarul de referință (`tests/golden/date.json`). |
 | `docs/` | Descrierea formatului orarului și a planurilor de învățământ. |
 

@@ -1,0 +1,33 @@
+{# "Toate grupele" de pe pagina principala: licenta / master, cu un rand pe domeniu si o
+   coloana pe an. Asteapta `niveluri` (vezi `routers/index.py`) si `qv`. #}
+<section class="sectiune acasa">
+  <h2>Toate grupele</h2>
+  {% for nivel in niveluri %}
+    {# Un rand pe domeniu, o coloana pe an: "Anul 2" cade in acelasi loc la toate domeniile. #}
+    {% set ani = nivel.ani %}
+    <div class="nivel {{ nivel.cheie }}" style="--ani: {{ ani|length }}">
+      <h3 class="nivel-titlu">{{ nivel.nume }}</h3>
+      {% for d in nivel.domenii %}
+        <div class="domeniu">
+          <h4>{{ d.nume }}</h4>
+          {% for an in ani %}
+            {% set a = d.ani|selectattr('an', 'equalto', an)|first %}
+            {% if a %}
+              <div class="an-celula">
+                <a class="an-link" href="/grupa/{{ a.nod.slug }}{{ qv }}" title="Orarul întregului an">Anul {{ a.an }}</a>
+                <div class="pastile">
+                  {% for g in a.grupe %}<a class="pastila-link" href="/grupa/{{ g.slug }}{{ qv }}">{{ g.nume }}</a>{% endfor %}
+                  {# Un an fara pagini de grupa (doar optionale) apare cu pachetele lui. #}
+                  {% for p in a.pachete %}<a class="pastila-link mic" href="/grupa/{{ p.slug }}{{ qv }}">{{ p.nume }}</a>{% endfor %}
+                </div>
+              </div>
+            {% else %}
+              {# domeniul n-are anul acesta: celula goala, ca tabelul sa ramana intreg #}
+              <div class="an-celula gol" aria-hidden="true"></div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endfor %}
+</section>

@@ -3,108 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block titlu %}Orarul Sălilor{% endblock %} - FMI</title>
-  <link rel="stylesheet" href="{{ static_versionat(request, 'orar.css') }}">
+  <title>{% block titlu_complet %}{% block titlu %}Orarul Sălilor{% endblock %} - FMI{% endblock %}</title>
+  {# CSS scris de mana, fara build: cate un fisier pe zona a sitului. Ordinea conteaza --
+     `baza.css` defineste culorile, iar fisierele de mai jos le pot rafina pe cele de mai sus. #}
+  {% for foaie in ('baza', 'grila', 'acasa', 'formulare', 'verificare', 'unelte-orar', 'admin', 'evenimente', 'statistici') %}
+    <link rel="stylesheet" href="{{ static_versionat(request, 'css/' ~ foaie ~ '.css') }}">
+  {% endfor %}
   <script src="{{ static_versionat(request, 'htmx.min.js') }}" defer></script>
+  <script src="{{ static_versionat(request, 'js/sit.js') }}" defer></script>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>🗓️</text></svg>">
 </head>
 <body>
-<header class="bara">
-  <a class="marca" href="/">
-    <img class="marca-logo" src="{{ static_versionat(request, 'asmi.png') }}" width="28" height="28"
-         alt="ASMI - Asociația Studenților la Matematică și Informatică">
-    <span>Orarul&nbsp;Sălilor <span class="marca-sub">FMI</span></span>
-  </a>
-
-  <div class="cauta" role="search">
-    <svg class="cauta-icon" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none"
-         stroke="currentColor" stroke-width="2" stroke-linecap="round">
-      <circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4.5 4.5"/>
-    </svg>
-    <input type="search" name="q" placeholder="Caută o grupă sau o sală (244, Amf.701, L.410)"
-           hx-get="/cauta" hx-trigger="input changed delay:200ms, search"
-           hx-target="#rezultate" autocomplete="off" aria-label="Caută o grupă sau o sală">
-    <div id="rezultate" class="rezultate"></div>
-  </div>
-
-  <div class="bara-dreapta">
-  {# Saptamana academica, doar in timpul semestrului. #}
-  {% if numar_saptamana is defined and in_semestru %}
-  <div class="saptamana {{ 'impara' if paritate.value == 'SI' else 'para' }}"
-       title="Săptămâna academică curentă, calculată din ancora publicată de FMI">
-    săptămâna <strong>{{ numar_saptamana }}</strong> · <strong>{{ paritate.eticheta }}</strong>
-    <span class="pastila">{{ paritate.value }}</span>
-  </div>
-  {% endif %}
-
-  <nav class="cont">
-    {% if cont %}
-      {# Adminii au panoul; ceilalti au orarul lor si un meniu al contului. #}
-      {% if cont.e_admin %}
-        <a class="buton" href="/admin" title="Panoul de administrare">admin</a>
-        <form method="post" action="/logout">
-          <input type="hidden" name="csrf" value="{{ csrf }}">
-          <button type="submit" class="buton">Log out</button>
-        </form>
-      {% else %}
-        {% set parti = cont.nume.split() %}
-        <a class="buton plin" href="/orarul-meu" title="Orarul grupei tale, cu preferințele tale">Orarul meu</a>
-        <details class="meniu-cont">
-          <summary title="Contul tău" aria-label="Contul tău: {{ cont.nume }}">
-            <span class="avatar" aria-hidden="true">{{ (parti[0][:1] ~ (parti[-1][:1] if parti|length > 1 else ''))|upper }}</span>
-            <span class="meniu-cont-nume">{{ parti[0] }}</span>
-          </summary>
-          <div class="meniu-cont-panou">
-            <div class="meniu-cont-cine">
-              <strong>{{ cont.nume }}</strong>
-              {% if cont.user and cont.user.email %}<small>{{ cont.user.email }}</small>{% endif %}
-              <small>{% if cont.user and cont.user.rol == 'profesor' and cont.user.profesor %}profesor{% elif cont.user and cont.user.grupa %}grupa {{ cont.user.grupa.nume }}{% else %}nicio grupă aleasă{% endif %}</small>
-            </div>
-            <a href="/orarul-meu">Orarul meu</a>
-            <a href="/account">Contul și grupa mea</a>
-            <form method="post" action="/logout">
-              <input type="hidden" name="csrf" value="{{ csrf }}">
-              <button type="submit">Log out</button>
-            </form>
-          </div>
-        </details>
-        <script>
-          // meniul contului se inchide la un click in afara lui sau la Escape
-          (() => {
-            const meniu = document.querySelector(".meniu-cont");
-            document.addEventListener("click", (e) => { if (!meniu.contains(e.target)) meniu.open = false; });
-            document.addEventListener("keydown", (e) => { if (e.key === "Escape") meniu.open = false; });
-          })();
-        </script>
-      {% endif %}
-    {% else %}
-      <a class="buton" href="/login">Log in</a>
-      <a class="buton plin" href="/signup">Sign up</a>
-    {% endif %}
-  </nav>
-  </div>
-</header>
+{% include "_bara.html" %}
 
 <main>
   {% block continut %}{% endblock %}
 </main>
 
-<footer class="subsol">
-  <div class="subsol-rand">
-    <span><a href="/calendar-asmi">Calendar ASMI</a> · Sursa tuturor orarelor:
-      <a href="https://fmi.unibuc.ro/orar/" rel="noreferrer">fmi.unibuc.ro/orar</a>
-      - orarul public al Facultății de Matematică și Informatică, Universitatea din București.</span>
-    <span>
-      {%- if total_ore is defined %}{{ total_ore }} activități{% endif %}
-      {%- if sursa_orar and sursa_orar.actualizat %} · orar publicat
-        {{ "%02d.%02d.%04d"|format(sursa_orar.actualizat.day, sursa_orar.actualizat.month, sursa_orar.actualizat.year) }}
-        {%- if not sursa_orar.la_zi %} <strong>(mai nou decât ce avem în bază)</strong>{% endif %}
-      {%- endif %}
-    </span>
-  </div>
-  <p class="subsol-nota">Orarul de aici este citit automat din documentele facultății și
-    <strong>poate cuprinde greșeli</strong>. În caz de dubiu, orarul oficial este cel de pe
-    <a href="https://fmi.unibuc.ro/orar/" rel="noreferrer">fmi.unibuc.ro/orar</a>.</p>
-</footer>
+{% include "_subsol.html" %}
 </body>
 </html>

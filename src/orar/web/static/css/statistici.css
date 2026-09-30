@@ -1,0 +1,43 @@
+/* Orarul in cifre: filtrele, configurarile salvate si grila de statistici. */
+
+/* ---------------- orarul de statistici ---------------- */
+
+.salvate-rand { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; }
+.salvat { display: inline-flex; align-items: center; border: 1px solid var(--linie-tare); border-radius: 999px; background: var(--suprafata); font-size: .84rem; }
+.salvat.activ { border-color: var(--accent); background: var(--accent-slab); }
+.salvat a { padding: .2rem .2rem .2rem .7rem; color: var(--text); font-weight: 600; }
+.salvat form { display: inline-flex; }
+.salvat button { border: 0; background: none; color: var(--text-slab); cursor: pointer; font: inherit; padding: .2rem .55rem .2rem .3rem; border-radius: 0 999px 999px 0; }
+.salvat button:hover { color: #b4342b; }
+.salveaza-filtru { display: inline-flex; gap: .4rem; margin-left: auto; }
+.salveaza-filtru input, .statistici-filtre input[type="text"], .statistici-filtre input[type="number"], .statistici-filtre select {
+  font: inherit; font-size: .88rem; padding: .35rem .5rem;
+  border: 1px solid var(--linie-tare); border-radius: 6px; background: var(--fundal); color: var(--text);
+}
+.salveaza-filtru input { width: 15rem; }
+.salveaza-filtru .buton, .filtre-rand .buton { cursor: pointer; font: inherit; font-size: .86rem; }
+
+.statistici-filtre { display: flex; flex-direction: column; gap: .6rem; margin-top: 1rem; }
+.filtre-rand { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .6rem .8rem; }
+.filtre-rand label { display: flex; flex-direction: column; gap: .2rem; min-width: 9rem; }
+.filtre-rand label > span, .filtre-grup > summary { font-size: .84rem; font-weight: 600; }
+.filtre-rand small, .filtre-grup small { font-weight: 400; color: var(--text-slab); font-size: .76rem; }
+.filtre-grup { border: 1px solid var(--linie); border-radius: var(--radius); background: var(--suprafata); padding: .55rem .8rem; }
+.filtre-grup > summary { cursor: pointer; }
+.filtre-grup[open] > summary { margin-bottom: .5rem; }
+.filtre-grup .bife-grup { margin-bottom: .45rem; }
+.filtre-grup .bifa { font-size: .84rem; padding: .1rem 0; }
+.bife-rand.dese { gap: 0 .9rem; max-height: 11rem; overflow: auto; }
+
+.metrici { display: flex; flex-wrap: wrap; gap: .3rem; margin: .4rem 0 .2rem; }
+.stat-grila { width: 100%; min-width: 46rem; border-collapse: separate; border-spacing: 3px; table-layout: fixed; }
+.stat-grila th { font-size: .78rem; color: var(--text-slab); font-weight: 600; padding: .2rem; }
+.stat-grila thead th small { font-weight: 400; opacity: .7; }
+.stat-grila tbody th { text-align: right; padding-right: .5rem; width: 5.2rem; }
+.stat-grila td { padding: 0; border-radius: 6px; background: color-mix(in srgb, var(--accent) var(--grad), var(--suprafata-2)); }
+.stat-grila td a { display: flex; flex-direction: column; align-items: center; padding: .45rem .2rem; color: var(--text); line-height: 1.2; border-radius: 6px; }
+.stat-grila td a:hover { text-decoration: none; outline: 2px solid var(--accent); }
+.stat-grila td.deschisa a { outline: 2px solid var(--text); }
+.stat-grila td strong { font-size: 1rem; font-variant-numeric: tabular-nums; }
+.stat-grila td small { font-size: .68rem; opacity: .75; }
+@media (max-width: 720px) { .salveaza-filtru { margin-left: 0; width: 100%; } .salveaza-filtru input { flex: 1; width: auto; } }

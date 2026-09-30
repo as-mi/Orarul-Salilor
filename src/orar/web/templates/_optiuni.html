@@ -1,0 +1,60 @@
+{# Dropdownul "Opționale și facultative" de pe pagina unei grupe: trei niveluri de bife
+   (tot > materie > activitate), conduse de `static/js/optiuni.js`. Alegerea se tine in
+   cookie sau, pe orarul propriu, in cont. Asteapta `optiuni`, `nr_optiuni`,
+   `nr_optiuni_vizibile` si `grupa`. #}
+{# Ce optionale / facultative / limbi se vad. Alegerea se tine in cookie, pe pagina. #}
+<details class="optiuni">
+  <summary class="filtru {{ 'activ' if nr_optiuni_vizibile < nr_optiuni }}">
+    Opționale și facultative
+    <span class="numar">{{ nr_optiuni_vizibile }}/{{ nr_optiuni }}</span>
+  </summary>
+  <form method="post" action="/grupa/{{ grupa.slug }}/afisare" class="panou-optiuni">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="inapoi" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+    <label class="bifa toate">
+      <input type="checkbox" data-toate {{ 'checked' if nr_optiuni_vizibile == nr_optiuni }}>
+      <strong>Selectează tot</strong>
+    </label>
+    {% for grup in optiuni %}
+      <fieldset>
+        <legend>{{ grup.categorie.eticheta }}</legend>
+        {% for m in grup.materii %}
+          {% set n = m.activitati|length %}
+          <input type="hidden" name="materii" value="{{ m.slug }}">
+          <div class="materie" data-materie data-partiala="{{ 1 if 0 < m.vizibile < n else 0 }}">
+            <div class="materie-cap">
+              {# Bifa materiei doar comanda bifele activitatilor (JS); valorile trimise
+                 sunt ale activitatilor, deci fara JS se aleg direct acelea. #}
+              <label class="bifa" title="{{ m.pachete|join(' · ') }}">
+                <input type="checkbox" data-grup {{ 'checked' if m.vizibile == n }}>
+                <span>{{ m.nume }}
+                  {%- if m.denumire %}<small>{{ m.denumire }}</small>{% endif -%}
+                </span>
+              </label>
+              <button type="button" class="extinde" aria-expanded="true"
+                      aria-label="Activitățile pentru {{ m.nume }}">
+                <span class="numar">{{ m.vizibile }}/{{ n }}</span>
+              </button>
+            </div>
+            <div class="activitati">
+              {% for a in m.activitati %}
+                <input type="hidden" name="oferite" value="{{ a.cheie }}">
+                <label class="bifa activitate">
+                  <input type="checkbox" name="vizibile" value="{{ a.cheie }}" {{ 'checked' if a.vizibila }}>
+                  <span><span><strong>{{ a.tip }}</strong> · {{ a.cand }}</span>
+                    {%- if a.detalii %}<small>{{ a.detalii|join(' · ') }}</small>{% endif -%}
+                  </span>
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </fieldset>
+    {% endfor %}
+    <div class="actiuni">
+      <button type="submit" class="principal">Aplică</button>
+      <small>{% if orarul_meu %}se ține minte în contul tău{% else %}se ține minte în acest browser, pentru {{ grupa.nume }}{% endif %}</small>
+    </div>
+  </form>
+</details>
+<script src="{{ static_versionat(request, 'js/optiuni.js') }}" defer></script>

@@ -30,5 +30,5 @@
 {# O singura data pe pagina: optiunile pentru dropdownurile `lenes` si scriptul. #}
 {% macro resurse_profesori(lista, alt, request) %}
   <template id="optiuni-profesori">{% for p in lista %}<option value="{{ p }}">{{ p }}</option>{% endfor %}<option value="{{ alt }}">alt nume…</option></template>
-  <script src="{{ static_versionat(request, 'profesori.js') }}" data-alt="{{ alt }}" defer></script>
+  <script src="{{ static_versionat(request, 'js/profesori.js') }}" data-alt="{{ alt }}" defer></script>
 {% endmacro %}

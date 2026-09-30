@@ -1,0 +1,31 @@
+{# Selectorul in trepte de pe pagina principala: taburile Grupe / Sali. Porneste ascuns si il
+   arata `static/js/acasa.js`; fara JavaScript raman listele de dedesubt, care duc in aceleasi
+   locuri. Asteapta `sali` si `qv`; datele listelor vin din `#alege-date`. #}
+<section class="alege" id="alege" data-qv="{{ qv }}" hidden>
+  <div class="alege-taburi" role="tablist" aria-label="Ce orar cauți">
+    <button type="button" role="tab" id="tab-grupe" aria-controls="panou-grupe" aria-selected="true">Grupe</button>
+    <button type="button" role="tab" id="tab-sali" aria-controls="panou-sali" aria-selected="false" tabindex="-1">Săli</button>
+  </div>
+
+  <form class="alege-panou" id="panou-grupe" role="tabpanel" aria-labelledby="tab-grupe">
+    <label><span>Nivel</span>
+      <select id="alege-nivel"><option value="">alege nivelul</option></select></label>
+    <label><span>Domeniu</span>
+      <select id="alege-domeniu" disabled><option value="">alege domeniul</option></select></label>
+    <label><span>An</span>
+      <select id="alege-an" disabled><option value="">alege anul</option></select></label>
+    <label><span>Grupă</span>
+      <select id="alege-grupa" disabled><option value="">alege grupa</option></select></label>
+    <button type="submit" class="buton plin" disabled>Vezi orarul</button>
+  </form>
+
+  <form class="alege-panou" id="panou-sali" role="tabpanel" aria-labelledby="tab-sali" hidden>
+    <label class="lat"><span>Sală</span>
+      <select id="alege-sala">
+        <option value="">alege sala</option>
+        {% for s in sali %}<option value="{{ s.slug }}">{{ s.nume }}</option>{% endfor %}
+      </select></label>
+    <button type="submit" class="buton plin" disabled>Vezi orarul sălii</button>
+    <a class="mai-mult" href="/sala{{ qv }}">toate sălile, cu gradul de ocupare →</a>
+  </form>
+</section>

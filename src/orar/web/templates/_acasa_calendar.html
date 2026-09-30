@@ -1,0 +1,21 @@
+{# Caseta calendarului ASMI de pe pagina principala: urmatoarele evenimente si drumul spre
+   `/calendar-asmi`. Asteapta `evenimente_asmi` si `luni_scurte`. #}
+<a class="caseta-asmi" href="/calendar-asmi" aria-label="Calendar ASMI: evenimentele asociației">
+  <span class="caseta-asmi-cap">
+    <img src="{{ static_versionat(request, 'asmi.png') }}" width="40" height="40" alt="">
+    <span><strong>Calendar ASMI</strong><small>evenimente, termene și înscrieri</small></span>
+  </span>
+  {% if evenimente_asmi %}
+    <span class="caseta-asmi-lista">
+      {% for e in evenimente_asmi %}
+        <span class="caseta-asmi-ev{{ ' ' ~ e.clasa_culoare if e.clasa_culoare }}"{% if e.stil_culoare %} style="{{ e.stil_culoare }}"{% endif %}>
+          <span class="ev-zi"><strong>{{ e.data_inceput.day }}</strong>{{ luni_scurte[e.data_inceput.month - 1] }}</span>
+          <span class="ev-nume">{{ e.titlu }}<small>{% if e.pe_mai_multe_zile %}până pe {{ e.data_sfarsit.day }} {{ luni_scurte[e.data_sfarsit.month - 1] }}{% elif e.ora_inceput %}ora {{ e.ora_inceput.strftime('%H:%M') }}{% if e.sala %} · {{ e.sala.nume }}{% elif e.loc %} · {{ e.loc }}{% endif %}{% else %}toată ziua{% endif %}</small></span>
+        </span>
+      {% endfor %}
+    </span>
+  {% else %}
+    <span class="caseta-asmi-gol">Niciun eveniment anunțat deocamdată.</span>
+  {% endif %}
+  <span class="caseta-asmi-mai">Vezi tot calendarul →</span>
+</a>

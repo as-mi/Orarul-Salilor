@@ -40,7 +40,7 @@ templates = Jinja2Templates(
 
 
 def _static_versionat(request, path: str) -> str:  # noqa: ANN001
-    """URL-ul unui fisier static, cu data modificarii lui in query (`orar.css?v=...`).
+    """URL-ul unui fisier static, cu data modificarii lui in query (`css/baza.css?v=...`).
 
     StaticFiles nu trimite `Cache-Control`, iar URL-ul ramane acelasi de la o versiune la
     alta, asa ca Firefox isi pastreaza CSS-ul vechi dupa un update -- sablonul nou apare cu

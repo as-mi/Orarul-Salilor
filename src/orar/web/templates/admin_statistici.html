@@ -1,14 +1,6 @@
 {% extends "base.html" %}
 {% block titlu %}Statistici{% endblock %}
 
-{% macro bife(nume, optiuni, alese) %}
-  <div class="bife-rand">
-    {% for valoare, eticheta in optiuni %}
-      <label class="bifa"><input type="checkbox" name="{{ nume }}" value="{{ valoare }}" {{ 'checked' if valoare in alese }}><span>{{ eticheta }}</span></label>
-    {% endfor %}
-  </div>
-{% endmacro %}
-
 {% block continut %}
 <section class="antet">
   <nav class="firimituri"><a href="/admin">administrare</a><span>›</span><strong>statistici</strong></nav>
@@ -21,148 +13,10 @@
   <div class="panou-gol"><p>Niciun orar încărcat încă.</p></div>
 {% else %}
 
-{# Configurarile salvate: un click le redeschide. #}
-<section class="sectiune filtre-salvate" aria-labelledby="t-salvate">
-  <h2 id="t-salvate" class="sr-only">Filtre salvate</h2>
-  {% if request.query_params.get('salvat') %}<p class="reusit" role="status">Configurarea a fost salvată.</p>{% endif %}
-  <div class="salvate-rand">
-    <span class="bife-titlu">Filtre salvate</span>
-    {% for x in filtre_salvate %}
-      <span class="salvat {{ 'activ' if x.parametri == q }}">
-        <a href="/admin/statistici?{{ x.parametri }}" title="salvat de {{ x.creat_de }}, {{ x.creat_la.strftime('%d.%m.%Y') }}">{{ x.nume }}</a>
-        <form method="post" action="/admin/statistici/filtre/{{ x.id }}/sterge" onsubmit="return confirm('Ștergi configurarea „{{ x.nume }}”?')">
-          <input type="hidden" name="csrf" value="{{ csrf }}">
-          <input type="hidden" name="inapoi" value="{{ q }}">
-          <button type="submit" title="Șterge configurarea" aria-label="Șterge configurarea {{ x.nume }}">×</button>
-        </form>
-      </span>
-    {% else %}
-      <span class="nota">niciuna încă</span>
-    {% endfor %}
-    <form method="post" action="/admin/statistici/filtre" class="salveaza-filtru">
-      <input type="hidden" name="csrf" value="{{ csrf }}">
-      <input type="hidden" name="parametri" value="{{ q }}">
-      <input type="text" name="nume" required maxlength="80" placeholder="numele configurării curente" aria-label="Numele configurării">
-      <button type="submit" class="buton">Salvează filtrele</button>
-    </form>
-  </div>
-</section>
+{% include "_statistici_salvate.html" %}
 
-<form method="get" action="/admin/statistici" class="statistici-filtre" id="filtre">
-  <div class="filtre-rand">
-    <label><span>Orarul</span>
-      <select name="perioada">
-        {% for o in orare %}<option value="{{ o.perioada.id }}" {{ 'selected' if o.perioada.id == orar.id }}>{{ o.eticheta }}</option>{% endfor %}
-      </select></label>
-    <label><span>Ce arată celulele</span>
-      <select name="metrica">
-        {% for cheie, nume in metrici %}<option value="{{ cheie }}" {{ 'selected' if cheie == metrica }}>{{ nume }}</option>{% endfor %}
-      </select></label>
-    <label><span>Săptămâna</span>
-      <select name="saptamana">
-        <option value="">toate (vârful)</option>
-        <option value="SI" {{ 'selected' if f.saptamana == 'SI' }}>impare (vârful)</option>
-        <option value="SP" {{ 'selected' if f.saptamana == 'SP' }}>pare (vârful)</option>
-        {% for n in range(1, 15) %}<option value="{{ n }}" {{ 'selected' if f.saptamana == n|string }}>săptămâna {{ n }}</option>{% endfor %}
-      </select></label>
-    <button type="submit" class="buton plin">Aplică filtrele</button>
-    {% if nr_filtre %}<a class="buton" href="/admin/statistici?perioada={{ orar.id }}">Șterge filtrele ({{ nr_filtre }})</a>{% endif %}
-  </div>
-
-  <details class="filtre-grup" open>
-    <summary>Publicul <small>ale cui ore se numără</small></summary>
-    <div class="bife-grup"><span class="bife-titlu">Specializări</span>{{ bife('specializari', specializari, f.specializari) }}</div>
-    <div class="bife-grup"><span class="bife-titlu">Ani</span>{{ bife('ani', ani, f.ani) }}</div>
-    <div class="bife-grup"><span class="bife-titlu">Serii</span>{{ bife('serii', serii, f.serii) }}</div>
-    <details class="mai-multe" {{ 'open' if f.grupe }}>
-      <summary>Grupe anume…</summary>
-      <div class="bife-rand dese">
-        {% for g in grupe %}
-          <label class="bifa"><input type="checkbox" name="grupe" value="{{ g.slug }}" {{ 'checked' if g.slug in f.grupe }}><span>{{ g.nume }}</span></label>
-        {% endfor %}
-      </div>
-    </details>
-  </details>
-
-  <details class="filtre-grup" {{ 'open' if f.tipuri or f.optionale or f.zile or f.profesor or f.materie or f.ora_de_la != ore[0] or f.ora_pana_la != ore[-1] }}>
-    <summary>Activitățile <small>tip, zile, ore, profesor, materie</small></summary>
-    <div class="bife-grup"><span class="bife-titlu">Tipul</span>{{ bife('tipuri', tipuri, f.tipuri) }}</div>
-    <div class="bife-grup"><span class="bife-titlu">Zilele</span>
-      <div class="bife-rand">
-        {% for z in zile %}<label class="bifa"><input type="checkbox" name="zile" value="{{ z }}" {{ 'checked' if z in f.zile }}><span>{{ z }}</span></label>{% endfor %}
-      </div></div>
-    <div class="filtre-rand">
-      <label><span>De la ora</span>
-        <select name="ora_de_la">{% for h in ore[:-1] %}<option value="{{ h }}" {{ 'selected' if h == f.ora_de_la }}>{{ h }}:00</option>{% endfor %}</select></label>
-      <label><span>Până la ora</span>
-        <select name="ora_pana_la">{% for h in ore[1:] %}<option value="{{ h }}" {{ 'selected' if h == f.ora_pana_la }}>{{ h }}:00</option>{% endfor %}</select></label>
-      <label><span>Profesor <small>o parte din nume</small></span>
-        <input type="text" name="profesor" value="{{ f.profesor }}" autocomplete="off"></label>
-      <label><span>Materie <small>o parte din nume</small></span>
-        <input type="text" name="materie" value="{{ f.materie }}" autocomplete="off"></label>
-    </div>
-    <label class="bifa"><input type="checkbox" name="optionale" value="true" {{ 'checked' if f.optionale }}>
-      <span>numără și opționalele, facultativele și limbile străine <small>- nu se știe cine le-a ales: fiecare se socotește cât o grupă</small></span></label>
-  </details>
-
-  <details class="filtre-grup" {{ 'open' if f.feluri_sala or f.etaje or f.sali or f.prag_plin != 100 }}>
-    <summary>Sălile <small>fel, etaj, săli anume, când e „plină”</small></summary>
-    <div class="bife-grup"><span class="bife-titlu">Felul</span>{{ bife('feluri_sala', feluri_sala, f.feluri_sala) }}</div>
-    <div class="bife-grup"><span class="bife-titlu">Etajul</span>
-      <div class="bife-rand">
-        {% for e in etaje %}<label class="bifa"><input type="checkbox" name="etaje" value="{{ e }}" {{ 'checked' if e in f.etaje }}><span>etajul {{ e }}</span></label>{% endfor %}
-      </div></div>
-    <details class="mai-multe" {{ 'open' if f.sali }}>
-      <summary>Săli anume…</summary>
-      <div class="bife-rand dese">
-        {% for x in sali %}
-          <label class="bifa"><input type="checkbox" name="sali" value="{{ x.slug }}" {{ 'checked' if x.slug in f.sali }}><span>{{ x.nume }}{% if x.nr_locuri %} <small>{{ x.nr_locuri }}</small>{% endif %}</span></label>
-        {% endfor %}
-      </div>
-    </details>
-    <div class="filtre-rand">
-      <label><span>O sală e plină de la <small>% din locuri</small></span>
-        <input type="number" name="prag_plin" min="1" max="300" value="{{ f.prag_plin }}"></label>
-    </div>
-  </details>
-
-  <details class="filtre-grup" {{ 'open' if f.marime_semigrupa != 15 or f.marime_grupa != 30 }}>
-    <summary>Mărimile asumate <small>câți oameni are o semigrupă și o grupă</small></summary>
-    <div class="filtre-rand">
-      <label><span>O semigrupă</span><input type="number" name="marime_semigrupa" min="1" max="500" value="{{ f.marime_semigrupa }}"></label>
-      <label><span>O grupă</span><input type="number" name="marime_grupa" min="1" max="500" value="{{ f.marime_grupa }}"></label>
-    </div>
-    <p class="nota">Un curs de serie sau de an are atâția oameni câte grupe are seria sau anul: patru grupe a câte 30 fac 120.</p>
-  </details>
-</form>
-<script>
-  // Fiecare grup de bife primeste un "toate", care il bifeaza sau il debifeaza dintr-un click
-  // si tine pasul cu bifele lui (liniuta cand sunt bifate doar unele).
-  for (const grup of document.querySelectorAll("#filtre .bife-rand")) {
-    const bifele = [...grup.querySelectorAll('input[type="checkbox"]')];
-    if (bifele.length < 2) continue;
-    const eticheta = document.createElement("label");
-    eticheta.className = "bifa toate";
-    eticheta.innerHTML = '<input type="checkbox"><span><strong>toate</strong></span>';
-    const toate = eticheta.firstElementChild;
-    grup.prepend(eticheta);
-    const tine_pasul = () => {
-      const bifate = bifele.filter((b) => b.checked).length;
-      toate.checked = bifate === bifele.length;
-      toate.indeterminate = bifate > 0 && !toate.checked;
-    };
-    toate.addEventListener("change", () => { bifele.forEach((b) => { b.checked = toate.checked; }); tine_pasul(); });
-    bifele.forEach((b) => b.addEventListener("change", tine_pasul));
-    tine_pasul();
-  }
-
-  // valorile implicite nu au ce cauta in adresa: o tin scurta si usor de salvat
-  document.getElementById("filtre").addEventListener("submit", (e) => {
-    const implicite = { ora_de_la: "{{ ore[0] }}", ora_pana_la: "{{ ore[-1] }}", marime_semigrupa: "15", marime_grupa: "30", prag_plin: "100", metrica: "persoane", saptamana: "", profesor: "", materie: "" };
-    for (const camp of e.target.elements)
-      if (camp.name in implicite && camp.value === implicite[camp.name]) camp.disabled = true;
-  });
-</script>
+{% include "_statistici_filtre.html" %}
+<script src="{{ static_versionat(request, 'js/statistici.js') }}" defer></script>
 
 <section class="sectiune" aria-labelledby="t-grila">
   <div class="sumar">
@@ -208,40 +62,6 @@
   <p class="nota">Cu cât celula e mai închisă, cu atât valoarea e mai mare. Apasă pe o celulă ca să vezi activitățile din ea.</p>
 </section>
 
-{% if deschisa %}
-  <section class="sectiune panou" id="celula" aria-labelledby="t-celula">
-    <h2 id="t-celula">{{ deschisa.zi }}, {{ deschisa.ora }}:00-{{ deschisa.ora + 1 }}:00</h2>
-    <div class="sumar">
-      <span class="fapt"><strong>{{ deschisa.persoane }}</strong> cu ore ({{ st.valoare(deschisa, 'procent') }}% din public)</span>
-      <span class="fapt"><strong>{{ st.valoare(deschisa, 'libere') }}</strong> liberi</span>
-      <span class="fapt"><strong>{{ deschisa.sali }}</strong> săli ocupate, <strong>{{ deschisa.pline }}</strong> pline</span>
-    </div>
-    {% if deschisa.detalii %}
-      <div class="tabel-scroll">
-        <table class="tabel-sali">
-          <thead><tr><th>Activitate</th><th>Pentru</th><th>Profesor</th><th>Sala</th><th>Oameni</th><th>Din public</th></tr></thead>
-          <tbody>
-            {% for d in deschisa.detalii|sort(attribute='din_tinta', reverse=true) %}
-              {% set o = d.ora %}
-              <tr>
-                <td>{{ o.materie.nume if o.materie else '-' }}{% if o.tip_ora_materie %} <small>({{ o.tip_ora_materie }})</small>{% endif %}
-                  {%- if o.frecventa %} <span class="pastila neutra">{{ o.frecventa }}</span>{% endif %}
-                  {%- if o.saptamani %} <span class="pastila neutra">{{ o.saptamani }}</span>{% endif %}</td>
-                <td><a href="/grupa/{{ o.grupa.slug }}">{{ o.grupa.nume }}</a>{% if o.semigrupa %} · {{ o.semigrupa.replace('_', ' ') }}{% endif %}</td>
-                <td>{{ o.profesor.nume if o.profesor else '-' }}</td>
-                <td>{% if o.sala %}<a href="/sala/{{ o.sala.slug }}">{{ o.sala.nume }}</a>{% if o.sala.nr_locuri %} <small>{{ o.sala.nr_locuri }} locuri</small>{% endif %}
-                  {%- if d.plina %} <span class="pastila">plină</span>{% endif %}{% else %}-{% endif %}</td>
-                <td>{{ d.public }}</td>
-                <td>{{ d.din_tinta }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% else %}
-      <p class="nota">Nicio activitate a publicului ales în acest interval: toată lumea e liberă.</p>
-    {% endif %}
-  </section>
-{% endif %}
+{% include "_statistici_celula.html" %}
 {% endif %}
 {% endblock %}

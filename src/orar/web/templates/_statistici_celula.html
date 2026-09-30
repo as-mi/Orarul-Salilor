@@ -1,0 +1,36 @@
+{# Orarul in cifre: activitatile din celula deschisa. Asteapta `deschisa` (o `Celula`) si `st`. #}
+{% if deschisa %}
+  <section class="sectiune panou" id="celula" aria-labelledby="t-celula">
+    <h2 id="t-celula">{{ deschisa.zi }}, {{ deschisa.ora }}:00-{{ deschisa.ora + 1 }}:00</h2>
+    <div class="sumar">
+      <span class="fapt"><strong>{{ deschisa.persoane }}</strong> cu ore ({{ st.valoare(deschisa, 'procent') }}% din public)</span>
+      <span class="fapt"><strong>{{ st.valoare(deschisa, 'libere') }}</strong> liberi</span>
+      <span class="fapt"><strong>{{ deschisa.sali }}</strong> săli ocupate, <strong>{{ deschisa.pline }}</strong> pline</span>
+    </div>
+    {% if deschisa.detalii %}
+      <div class="tabel-scroll">
+        <table class="tabel-sali">
+          <thead><tr><th>Activitate</th><th>Pentru</th><th>Profesor</th><th>Sala</th><th>Oameni</th><th>Din public</th></tr></thead>
+          <tbody>
+            {% for d in deschisa.detalii|sort(attribute='din_tinta', reverse=true) %}
+              {% set o = d.ora %}
+              <tr>
+                <td>{{ o.materie.nume if o.materie else '-' }}{% if o.tip_ora_materie %} <small>({{ o.tip_ora_materie }})</small>{% endif %}
+                  {%- if o.frecventa %} <span class="pastila neutra">{{ o.frecventa }}</span>{% endif %}
+                  {%- if o.saptamani %} <span class="pastila neutra">{{ o.saptamani }}</span>{% endif %}</td>
+                <td><a href="/grupa/{{ o.grupa.slug }}">{{ o.grupa.nume }}</a>{% if o.semigrupa %} · {{ o.semigrupa.replace('_', ' ') }}{% endif %}</td>
+                <td>{{ o.profesor.nume if o.profesor else '-' }}</td>
+                <td>{% if o.sala %}<a href="/sala/{{ o.sala.slug }}">{{ o.sala.nume }}</a>{% if o.sala.nr_locuri %} <small>{{ o.sala.nr_locuri }} locuri</small>{% endif %}
+                  {%- if d.plina %} <span class="pastila">plină</span>{% endif %}{% else %}-{% endif %}</td>
+                <td>{{ d.public }}</td>
+                <td>{{ d.din_tinta }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="nota">Nicio activitate a publicului ales în acest interval: toată lumea e liberă.</p>
+    {% endif %}
+  </section>
+{% endif %}

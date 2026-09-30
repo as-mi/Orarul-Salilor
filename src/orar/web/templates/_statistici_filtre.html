@@ -1,0 +1,98 @@
+{# Orarul in cifre: formularul cu toate filtrele. Totul merge in adresa (GET), ca o
+   configurare sa poata fi salvata sau trimisa ca link. Asteapta `f` (filtrele curente) si
+   listele de optiuni din `routers/statistici.py`. #}
+{% macro bife(nume, optiuni, alese) %}
+  <div class="bife-rand">
+    {% for valoare, eticheta in optiuni %}
+      <label class="bifa"><input type="checkbox" name="{{ nume }}" value="{{ valoare }}" {{ 'checked' if valoare in alese }}><span>{{ eticheta }}</span></label>
+    {% endfor %}
+  </div>
+{% endmacro %}
+<form method="get" action="/admin/statistici" class="statistici-filtre" id="filtre"
+      data-ora-min="{{ ore[0] }}" data-ora-max="{{ ore[-1] }}">
+  <div class="filtre-rand">
+    <label><span>Orarul</span>
+      <select name="perioada">
+        {% for o in orare %}<option value="{{ o.perioada.id }}" {{ 'selected' if o.perioada.id == orar.id }}>{{ o.eticheta }}</option>{% endfor %}
+      </select></label>
+    <label><span>Ce arată celulele</span>
+      <select name="metrica">
+        {% for cheie, nume in metrici %}<option value="{{ cheie }}" {{ 'selected' if cheie == metrica }}>{{ nume }}</option>{% endfor %}
+      </select></label>
+    <label><span>Săptămâna</span>
+      <select name="saptamana">
+        <option value="">toate (vârful)</option>
+        <option value="SI" {{ 'selected' if f.saptamana == 'SI' }}>impare (vârful)</option>
+        <option value="SP" {{ 'selected' if f.saptamana == 'SP' }}>pare (vârful)</option>
+        {% for n in range(1, 15) %}<option value="{{ n }}" {{ 'selected' if f.saptamana == n|string }}>săptămâna {{ n }}</option>{% endfor %}
+      </select></label>
+    <button type="submit" class="buton plin">Aplică filtrele</button>
+    {% if nr_filtre %}<a class="buton" href="/admin/statistici?perioada={{ orar.id }}">Șterge filtrele ({{ nr_filtre }})</a>{% endif %}
+  </div>
+
+  <details class="filtre-grup" open>
+    <summary>Publicul <small>ale cui ore se numără</small></summary>
+    <div class="bife-grup"><span class="bife-titlu">Specializări</span>{{ bife('specializari', specializari, f.specializari) }}</div>
+    <div class="bife-grup"><span class="bife-titlu">Ani</span>{{ bife('ani', ani, f.ani) }}</div>
+    <div class="bife-grup"><span class="bife-titlu">Serii</span>{{ bife('serii', serii, f.serii) }}</div>
+    <details class="mai-multe" {{ 'open' if f.grupe }}>
+      <summary>Grupe anume…</summary>
+      <div class="bife-rand dese">
+        {% for g in grupe %}
+          <label class="bifa"><input type="checkbox" name="grupe" value="{{ g.slug }}" {{ 'checked' if g.slug in f.grupe }}><span>{{ g.nume }}</span></label>
+        {% endfor %}
+      </div>
+    </details>
+  </details>
+
+  <details class="filtre-grup" {{ 'open' if f.tipuri or f.optionale or f.zile or f.profesor or f.materie or f.ora_de_la != ore[0] or f.ora_pana_la != ore[-1] }}>
+    <summary>Activitățile <small>tip, zile, ore, profesor, materie</small></summary>
+    <div class="bife-grup"><span class="bife-titlu">Tipul</span>{{ bife('tipuri', tipuri, f.tipuri) }}</div>
+    <div class="bife-grup"><span class="bife-titlu">Zilele</span>
+      <div class="bife-rand">
+        {% for z in zile %}<label class="bifa"><input type="checkbox" name="zile" value="{{ z }}" {{ 'checked' if z in f.zile }}><span>{{ z }}</span></label>{% endfor %}
+      </div></div>
+    <div class="filtre-rand">
+      <label><span>De la ora</span>
+        <select name="ora_de_la">{% for h in ore[:-1] %}<option value="{{ h }}" {{ 'selected' if h == f.ora_de_la }}>{{ h }}:00</option>{% endfor %}</select></label>
+      <label><span>Până la ora</span>
+        <select name="ora_pana_la">{% for h in ore[1:] %}<option value="{{ h }}" {{ 'selected' if h == f.ora_pana_la }}>{{ h }}:00</option>{% endfor %}</select></label>
+      <label><span>Profesor <small>o parte din nume</small></span>
+        <input type="text" name="profesor" value="{{ f.profesor }}" autocomplete="off"></label>
+      <label><span>Materie <small>o parte din nume</small></span>
+        <input type="text" name="materie" value="{{ f.materie }}" autocomplete="off"></label>
+    </div>
+    <label class="bifa"><input type="checkbox" name="optionale" value="true" {{ 'checked' if f.optionale }}>
+      <span>numără și opționalele, facultativele și limbile străine <small>- nu se știe cine le-a ales: fiecare se socotește cât o grupă</small></span></label>
+  </details>
+
+  <details class="filtre-grup" {{ 'open' if f.feluri_sala or f.etaje or f.sali or f.prag_plin != 100 }}>
+    <summary>Sălile <small>fel, etaj, săli anume, când e „plină”</small></summary>
+    <div class="bife-grup"><span class="bife-titlu">Felul</span>{{ bife('feluri_sala', feluri_sala, f.feluri_sala) }}</div>
+    <div class="bife-grup"><span class="bife-titlu">Etajul</span>
+      <div class="bife-rand">
+        {% for e in etaje %}<label class="bifa"><input type="checkbox" name="etaje" value="{{ e }}" {{ 'checked' if e in f.etaje }}><span>etajul {{ e }}</span></label>{% endfor %}
+      </div></div>
+    <details class="mai-multe" {{ 'open' if f.sali }}>
+      <summary>Săli anume…</summary>
+      <div class="bife-rand dese">
+        {% for x in sali %}
+          <label class="bifa"><input type="checkbox" name="sali" value="{{ x.slug }}" {{ 'checked' if x.slug in f.sali }}><span>{{ x.nume }}{% if x.nr_locuri %} <small>{{ x.nr_locuri }}</small>{% endif %}</span></label>
+        {% endfor %}
+      </div>
+    </details>
+    <div class="filtre-rand">
+      <label><span>O sală e plină de la <small>% din locuri</small></span>
+        <input type="number" name="prag_plin" min="1" max="300" value="{{ f.prag_plin }}"></label>
+    </div>
+  </details>
+
+  <details class="filtre-grup" {{ 'open' if f.marime_semigrupa != 15 or f.marime_grupa != 30 }}>
+    <summary>Mărimile asumate <small>câți oameni are o semigrupă și o grupă</small></summary>
+    <div class="filtre-rand">
+      <label><span>O semigrupă</span><input type="number" name="marime_semigrupa" min="1" max="500" value="{{ f.marime_semigrupa }}"></label>
+      <label><span>O grupă</span><input type="number" name="marime_grupa" min="1" max="500" value="{{ f.marime_grupa }}"></label>
+    </div>
+    <p class="nota">Un curs de serie sau de an are atâția oameni câte grupe are seria sau anul: patru grupe a câte 30 fac 120.</p>
+  </details>
+</form>

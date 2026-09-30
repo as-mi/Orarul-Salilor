@@ -1,0 +1,19 @@
+{# Subsolul fiecarei pagini: sursa orarelor si avertismentul ca pot contine greseli.
+   Optional `total_ore` si `sursa_orar`. #}
+<footer class="subsol">
+  <div class="subsol-rand">
+    <span><a href="/calendar-asmi">Calendar ASMI</a> · Sursa tuturor orarelor:
+      <a href="https://fmi.unibuc.ro/orar/" rel="noreferrer">fmi.unibuc.ro/orar</a>
+      - orarul public al Facultății de Matematică și Informatică, Universitatea din București.</span>
+    <span>
+      {%- if total_ore is defined %}{{ total_ore }} activități{% endif %}
+      {%- if sursa_orar and sursa_orar.actualizat %} · orar publicat
+        {{ "%02d.%02d.%04d"|format(sursa_orar.actualizat.day, sursa_orar.actualizat.month, sursa_orar.actualizat.year) }}
+        {%- if not sursa_orar.la_zi %} <strong>(mai nou decât ce avem în bază)</strong>{% endif %}
+      {%- endif %}
+    </span>
+  </div>
+  <p class="subsol-nota">Orarul de aici este citit automat din documentele facultății și
+    <strong>poate cuprinde greșeli</strong>. În caz de dubiu, orarul oficial este cel de pe
+    <a href="https://fmi.unibuc.ro/orar/" rel="noreferrer">fmi.unibuc.ro/orar</a>.</p>
+</footer>

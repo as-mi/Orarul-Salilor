@@ -1,0 +1,158 @@
+/* Temelia: culorile (tema deschisa si cea inchisa), corpul paginii, bara de sus cu
+   cautarea, structura paginii (firimituri, sumar, filtre). Se incarca primul: celelalte
+   fisiere folosesc variabilele definite aici. */
+
+:root {
+  --fundal: #fbfbfd;
+  --suprafata: #ffffff;
+  --suprafata-2: #f4f5f8;
+  --text: #14161c;
+  --text-slab: #5d6472;
+  --linie: #e3e6ec;
+  --linie-tare: #c8cdd8;
+  --accent: #2f5de6;
+  --accent-slab: #eaefff;
+
+  --curs: #ffd9a8;      --curs-linie: #e8a13c;
+  --seminar: #cdeac0;   --seminar-linie: #6aa84f;
+  --lab: #bcd8f5;       --lab-linie: #4a8fd4;
+  --proiect: #e6cdf0;   --proiect-linie: #a568c4;
+  --alta: #e4e6eb;      --alta-linie: #a8afbd;
+
+  --eticheta-lat: 4.5rem;
+  --radius: 7px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundal: #0f1116;
+    --suprafata: #171a21;
+    --suprafata-2: #1e222b;
+    --text: #e8eaf0;
+    --text-slab: #99a1b3;
+    --linie: #282d38;
+    --linie-tare: #3a4150;
+    --accent: #7d9bff;
+    --accent-slab: #1c2440;
+
+    --curs: #5c4520;      --curs-linie: #b8862f;
+    --seminar: #2f4a28;   --seminar-linie: #6aa84f;
+    --lab: #23405e;       --lab-linie: #4a8fd4;
+    --proiect: #452e52;   --proiect-linie: #a568c4;
+    --alta: #2b3039;      --alta-linie: #626b7d;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fundal);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1 { font-size: 1.7rem; margin: .3rem 0 .6rem; letter-spacing: -.02em; }
+h2 { font-size: 1.1rem; margin: 1.6rem 0 .7rem; }
+h3 { font-size: .95rem; margin: 0 0 .45rem; color: var(--text-slab); font-weight: 600; }
+
+/* `hidden` castiga in fata oricarui `display` pus de o clasa */
+[hidden] { display: none !important; }
+
+/* ---------------- bara de sus ---------------- */
+
+/* marca la stanga, cautarea pe mijloc, contul la dreapta */
+.bara {
+  display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, 32rem) minmax(max-content, 1fr);
+  align-items: center; gap: .6rem 1rem;
+  padding: .6rem 1.1rem;
+  background: var(--suprafata);
+  border-bottom: 1px solid var(--linie);
+  position: sticky; top: 0; z-index: 50;
+}
+.marca { justify-self: start; }
+.bara-dreapta { justify-self: end; display: flex; align-items: center; gap: .7rem; }
+.marca {
+  display: inline-flex; align-items: center; gap: .5rem;
+  font-weight: 700; font-size: 1.02rem; color: var(--text); letter-spacing: -.02em;
+}
+.marca-logo { width: 28px; height: 28px; border-radius: 4px; flex: none; }
+.marca:hover { text-decoration: none; color: var(--accent); }
+.marca-sub {
+  font-size: .68rem; font-weight: 600; color: var(--text-slab);
+  border: 1px solid var(--linie-tare); border-radius: 4px; padding: .05rem .3rem; margin-left: .2rem;
+  vertical-align: 2px;
+}
+
+.cauta { position: relative; width: 100%; }
+.cauta-icon {
+  position: absolute; left: .7rem; top: 50%; transform: translateY(-50%);
+  color: var(--text-slab); pointer-events: none;
+}
+.cauta:focus-within .cauta-icon { color: var(--accent); }
+.cauta input {
+  width: 100%; padding: .45rem .7rem .45rem 2.15rem;
+  border: 1px solid var(--linie-tare); border-radius: var(--radius);
+  background: var(--fundal); color: var(--text); font: inherit; font-size: .9rem;
+}
+.cauta input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+
+.rezultate { position: absolute; top: calc(100% + .3rem); left: 0; right: 0; z-index: 60; }
+.lista-rezultate {
+  list-style: none; margin: 0; padding: .25rem;
+  background: var(--suprafata); border: 1px solid var(--linie-tare);
+  border-radius: var(--radius); box-shadow: 0 8px 24px rgb(0 0 0 / .13);
+  max-height: 60vh; overflow: auto;
+}
+.lista-rezultate li a {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .35rem .5rem; border-radius: 5px; color: var(--text); font-size: .88rem;
+}
+.lista-rezultate li a:hover { background: var(--accent-slab); text-decoration: none; }
+.lista-rezultate .gol { padding: .45rem .5rem; color: var(--text-slab); font-size: .85rem; }
+.tag {
+  font-size: .62rem; text-transform: uppercase; letter-spacing: .04em;
+  background: var(--suprafata-2); color: var(--text-slab);
+  border-radius: 3px; padding: .1rem .3rem; min-width: 3.4rem; text-align: center;
+}
+.tag.sala { background: var(--accent-slab); color: var(--accent); }
+
+.saptamana {
+  font-size: .82rem; color: var(--text-slab);
+  border: 1px solid var(--linie-tare); border-radius: 999px; padding: .25rem .7rem;
+  white-space: nowrap;
+}
+.saptamana strong { color: var(--text); }
+.pastila {
+  font-size: .68rem; font-weight: 700; border-radius: 3px; padding: .05rem .28rem; margin-left: .25rem;
+  background: var(--accent-slab); color: var(--accent);
+}
+.pastila.neutra { background: var(--suprafata-2); color: var(--text-slab); font-weight: 600; }
+
+/* ---------------- structura paginii ---------------- */
+
+/* subsolul sta jos si cand pagina e mai scurta decat fereastra */
+body { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+main { max-width: 1500px; width: 100%; margin: 0 auto; padding: 1.1rem 1.1rem 3rem; flex: 1 0 auto; }
+
+.firimituri { font-size: .8rem; color: var(--text-slab); display: flex; gap: .35rem; flex-wrap: wrap; }
+.firimituri span { opacity: .5; }
+
+.sumar { display: flex; flex-wrap: wrap; gap: .5rem 1.1rem; font-size: .86rem; color: var(--text-slab); }
+.fapt strong { color: var(--text); }
+.fapt.masura { display: inline-flex; align-items: center; gap: .45rem; }
+
+.filtre { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .8rem; align-items: center; }
+.grup-filtre { display: inline-flex; gap: .3rem; padding-left: .6rem; border-left: 1px solid var(--linie); }
+.filtru {
+  font-size: .8rem; padding: .25rem .6rem; border-radius: 999px;
+  border: 1px solid var(--linie-tare); color: var(--text-slab); background: var(--suprafata);
+}
+.filtru:hover { text-decoration: none; border-color: var(--accent); color: var(--accent); }
+.filtru.activ { background: var(--accent); border-color: var(--accent); color: #fff; }
+.filtru.inert { border-style: dashed; cursor: default; opacity: .8; }
+
+.nota { font-size: .82rem; color: var(--text-slab); margin: .3rem 0 0; }

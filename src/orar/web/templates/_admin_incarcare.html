@@ -1,0 +1,44 @@
+{# Panoul de admin: incarcarea unui orar din linkurile publicate de facultate.
+   Asteapta `incarcare` (starea), `semestru_curent`, `an_curent`. #}
+<section class="sectiune panou" id="orar" aria-labelledby="t-orar">
+  <h2 id="t-orar">Încarcă un orar</h2>
+  <p class="nota">Linkul unui orar cu aceeași structură ca al FMI: PDF-ul aSc publicat pe
+    Google Drive (sau linkul scurt bit.ly către el). Încărcarea durează 10-20 de minute și
+    rulează în fundal. Se înlocuiește doar orarul aceluiași semestru și an - cel vechi rămâne
+    ca versiune anterioară; celelalte orare rămân neatinse.</p>
+
+  {% if request.query_params.get('eroare_orar') %}
+    <p class="avertisment" role="alert">{{ request.query_params.get('eroare_orar') }}</p>
+  {% endif %}
+
+  {% include "_stare_incarcare.html" %}
+
+  <form method="post" action="/admin/orar" class="camp-lista formular-orar" hx-post="/admin/orar" hx-target="#orar" hx-select="#orar" hx-swap="outerHTML" hx-disabled-elt="find button">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>
+      <span>Linkul orarului grupelor</span>
+      <input type="text" name="url_grupe" required inputmode="url" spellcheck="false"
+             placeholder="https://drive.google.com/file/d/…  sau  https://bit.ly/…">
+    </label>
+    <label>
+      <span>Linkul orarului profesorilor <small>obligatoriu - confirmă activitățile și dă numele întregi ale profesorilor</small></span>
+      <input type="text" name="url_profesori" required inputmode="url" spellcheck="false"
+             placeholder="https://drive.google.com/file/d/…">
+    </label>
+    <div class="pe-rand">
+      <label>
+        <span>Semestrul</span>
+        <select name="semestru">
+          <option value="1" {{ 'selected' if semestru_curent == 1 }}>1</option>
+          <option value="2" {{ 'selected' if semestru_curent == 2 }}>2</option>
+        </select>
+      </label>
+      <label>
+        <span>Anul universitar</span>
+        <input type="text" name="an_universitar" value="{{ an_curent }}" required
+               pattern="\d{4}-\d{4}" placeholder="2025-2026">
+      </label>
+    </div>
+    <button type="submit" class="principal" {{ 'disabled' if incarcare.in_lucru }}>Încarcă orarul</button>
+  </form>
+</section>

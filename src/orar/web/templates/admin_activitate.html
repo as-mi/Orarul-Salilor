@@ -104,7 +104,7 @@
         {# Salile cunoscute: cele din tabelul de pe primele pagini ale orarului (cu numarul
            de locuri), plus locatiile externe. O sala care nu e in lista se scrie dedesubt. #}
         {% set cunoscute = namespace(gasita=false) %}
-        <select name="sala" id="alege-sala">
+        <select name="sala" id="alege-sala" data-alta="{{ alta_sala }}">
           {% for eticheta, lista in sali %}
             <optgroup label="{{ eticheta }}">
               {% for x in lista %}
@@ -122,20 +122,7 @@
       <input type="text" name="sala_noua" autocomplete="off" maxlength="80"
              value="{{ v.sala if v.sala and not cunoscute.gasita else '' }}" placeholder="de ex. IMAR 309">
     </label>
-    <script>
-      // Campul pentru o sala noua apare doar cand alegi "altă sală…". Fara JS ramane ascuns
-      // pana il ceri, iar ce scrii in el are oricum intaietate la salvare.
-      (() => {
-        const alege = document.getElementById("alege-sala");
-        const camp = document.getElementById("camp-sala-noua");
-        const sincron = () => {
-          const alta = alege.value === "{{ alta_sala }}";
-          camp.hidden = !alta;
-          if (!alta) camp.querySelector("input").value = "";
-        };
-        alege.addEventListener("change", () => { sincron(); if (!camp.hidden) camp.querySelector("input").focus(); });
-      })();
-    </script>
+    <script src="{{ static_versionat(request, 'js/activitate.js') }}" defer></script>
 
     <details class="mai-multe" {{ 'open' if v.semigrupa or v.frecventa or v.saptamani }}>
       <summary>Doar pentru o semigrupă, doar în unele săptămâni…</summary>

@@ -1,0 +1,69 @@
+{# Bara de sus a fiecarei pagini: marca, cautarea, saptamana academica si contul.
+   Asteapta `cont` si `csrf` (puse de `web/auth.py`) si, optional, contextul saptamanii. #}
+<header class="bara">
+  <a class="marca" href="/">
+    <img class="marca-logo" src="{{ static_versionat(request, 'asmi.png') }}" width="28" height="28"
+         alt="ASMI - Asociația Studenților la Matematică și Informatică">
+    <span>Orarul&nbsp;Sălilor <span class="marca-sub">FMI</span></span>
+  </a>
+
+  <div class="cauta" role="search">
+    <svg class="cauta-icon" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4.5 4.5"/>
+    </svg>
+    <input type="search" name="q" placeholder="Caută o grupă sau o sală (244, Amf.701, L.410)"
+           hx-get="/cauta" hx-trigger="input changed delay:200ms, search"
+           hx-target="#rezultate" autocomplete="off" aria-label="Caută o grupă sau o sală">
+    <div id="rezultate" class="rezultate"></div>
+  </div>
+
+  <div class="bara-dreapta">
+  {# Saptamana academica, doar in timpul semestrului. #}
+  {% if numar_saptamana is defined and in_semestru %}
+  <div class="saptamana {{ 'impara' if paritate.value == 'SI' else 'para' }}"
+       title="Săptămâna academică curentă, calculată din ancora publicată de FMI">
+    săptămâna <strong>{{ numar_saptamana }}</strong> · <strong>{{ paritate.eticheta }}</strong>
+    <span class="pastila">{{ paritate.value }}</span>
+  </div>
+  {% endif %}
+
+  <nav class="cont">
+    {% if cont %}
+      {# Adminii au panoul; ceilalti au orarul lor si un meniu al contului. #}
+      {% if cont.e_admin %}
+        <a class="buton" href="/admin" title="Panoul de administrare">admin</a>
+        <form method="post" action="/logout">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <button type="submit" class="buton">Log out</button>
+        </form>
+      {% else %}
+        {% set parti = cont.nume.split() %}
+        <a class="buton plin" href="/orarul-meu" title="Orarul grupei tale, cu preferințele tale">Orarul meu</a>
+        <details class="meniu-cont">
+          <summary title="Contul tău" aria-label="Contul tău: {{ cont.nume }}">
+            <span class="avatar" aria-hidden="true">{{ (parti[0][:1] ~ (parti[-1][:1] if parti|length > 1 else ''))|upper }}</span>
+            <span class="meniu-cont-nume">{{ parti[0] }}</span>
+          </summary>
+          <div class="meniu-cont-panou">
+            <div class="meniu-cont-cine">
+              <strong>{{ cont.nume }}</strong>
+              {% if cont.user and cont.user.email %}<small>{{ cont.user.email }}</small>{% endif %}
+              <small>{% if cont.user and cont.user.rol == 'profesor' and cont.user.profesor %}profesor{% elif cont.user and cont.user.grupa %}grupa {{ cont.user.grupa.nume }}{% else %}nicio grupă aleasă{% endif %}</small>
+            </div>
+            <a href="/orarul-meu">Orarul meu</a>
+            <a href="/account">Contul și grupa mea</a>
+            <form method="post" action="/logout">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <button type="submit">Log out</button>
+            </form>
+          </div>
+        </details>
+      {% endif %}
+    {% else %}
+      <a class="buton" href="/login">Log in</a>
+      <a class="buton plin" href="/signup">Sign up</a>
+    {% endif %}
+  </nav>
+  </div>
+</header>

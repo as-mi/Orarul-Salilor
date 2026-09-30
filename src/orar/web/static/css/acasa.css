@@ -1,0 +1,155 @@
+/* Pagina principala: selectorul in trepte (Grupe / Sali), caseta calendarului ASMI si
+   tabelele cu toate grupele si salile. */
+
+/* ---------------- index ---------------- */
+
+.hero { padding: 1.4rem 0 .6rem; }
+.hero p { color: var(--text-slab); max-width: 46rem; margin: .2rem 0 0; }
+.sectiune { margin-top: 1.4rem; }
+.familie { margin-bottom: .9rem; }
+.pastile { display: flex; flex-wrap: wrap; gap: .3rem; }
+.pastila-link {
+  font-size: .82rem; padding: .22rem .55rem; border-radius: 5px;
+  border: 1px solid var(--linie-tare); background: var(--suprafata); color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.pastila-link:hover { text-decoration: none; border-color: var(--accent); color: var(--accent); background: var(--accent-slab); }
+.pastila-link.mic { font-size: .76rem; }
+.mai-mult { display: inline-block; margin-top: .5rem; font-size: .84rem; }
+
+/* selectorul in trepte de pe pagina principala: Grupe / Sali */
+/* selectorul si, langa el, caseta calendarului ASMI -- pana la marginea tabelului de grupe */
+.acasa-sus { display: grid; grid-template-columns: minmax(0, 2fr) minmax(17rem, 1fr); gap: 1rem; margin-top: 1rem; align-items: stretch; }
+.acasa-sus > .alege { margin-top: 0; max-width: none; }
+/* cand caseta calendarului e mai inalta, selectorul isi pastreaza inaltimea si sta, cu
+   totul, pe mijlocul ei */
+.acasa-sus > .alege { align-self: center; }
+.acasa-sus > .alege[hidden] + .caseta-asmi { grid-column: 1 / -1; }
+.caseta-asmi {
+  display: flex; flex-direction: column; gap: .7rem; padding: 1rem 1.1rem; color: var(--text);
+  border: 1px solid var(--accent); border-radius: var(--radius); background: var(--accent-slab);
+}
+.caseta-asmi:hover { text-decoration: none; filter: brightness(1.05); box-shadow: 0 2px 10px rgb(0 0 0 / .14); }
+.caseta-asmi:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.caseta-asmi-cap { display: flex; align-items: center; gap: .7rem; }
+.caseta-asmi-cap img { border-radius: 6px; flex: none; }
+.caseta-asmi-cap > span { display: flex; flex-direction: column; }
+.caseta-asmi-cap strong { font-size: 1.25rem; line-height: 1.2; }
+.caseta-asmi small { font-size: .78rem; color: var(--text-slab); font-weight: 400; }
+.caseta-asmi-lista { display: flex; flex-direction: column; gap: .45rem; }
+.caseta-asmi-ev { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+.caseta-asmi-ev .ev-zi {
+  flex: none; width: 2.6rem; padding: .2rem 0; border-radius: 6px; text-align: center;
+  display: flex; flex-direction: column; line-height: 1.1;
+  font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  background: var(--suprafata); color: var(--ev, var(--accent));
+}
+.caseta-asmi-ev .ev-zi strong { font-size: 1rem; }
+.caseta-asmi-ev .ev-nume { display: flex; flex-direction: column; min-width: 0; font-size: .9rem; font-weight: 600; }
+.caseta-asmi-ev .ev-nume, .caseta-asmi-ev .ev-nume small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.caseta-asmi-gol { font-size: .86rem; color: var(--text-slab); }
+.caseta-asmi-mai { margin-top: auto; font-size: .86rem; font-weight: 600; color: var(--accent); }
+@media (max-width: 1000px) { .acasa-sus { grid-template-columns: 1fr; } }
+
+.alege {
+  margin-top: 1rem; max-width: 62rem;
+  border: 1px solid var(--linie); border-radius: var(--radius); background: var(--suprafata);
+}
+.alege-taburi { display: flex; border-bottom: 1px solid var(--linie); }
+.alege-taburi button {
+  cursor: pointer; font: inherit; font-size: .9rem; font-weight: 600; color: var(--text-slab);
+  padding: .6rem 1.1rem; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.alege-taburi button:hover { color: var(--text); }
+.alege-taburi button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.alege-taburi button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.alege-panou { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .7rem; padding: .9rem 1rem 1rem; }
+.alege-panou[hidden] { display: none; }
+.alege-panou label { display: flex; flex-direction: column; gap: .25rem; flex: 1 1 9rem; min-width: 0; }
+.alege-panou label.lat { flex: 0 1 18rem; }
+.alege-panou label > span { font-size: .74rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-slab); }
+.alege-panou select {
+  font: inherit; font-size: .92rem; padding: .45rem .6rem; width: 100%;
+  border: 1px solid var(--linie-tare); border-radius: 6px;
+  background: var(--fundal); color: var(--text);
+}
+.alege-panou select:disabled { opacity: .5; }
+.alege-panou select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.alege-panou .buton { cursor: pointer; font: inherit; font-size: .9rem; padding: .45rem .9rem; }
+.alege-panou .buton:disabled { opacity: .45; cursor: default; filter: none; }
+.alege-panou .mai-mult { margin: 0 0 .5rem; }
+
+/* lista completa: licenta / master, cu un rand pe domeniu si o coloana pe an */
+.nivel { margin-bottom: 1.6rem; }
+.nivel-titlu {
+  font-size: .78rem; text-transform: uppercase; letter-spacing: .06em;
+  padding-bottom: .35rem; border-bottom: 1px solid var(--linie-tare); margin: 0;
+  text-align: center;
+}
+.domeniu {
+  display: grid; grid-template-columns: 13rem repeat(var(--ani, 3), minmax(0, 1fr));
+  gap: .5rem 1.4rem; align-items: start;
+  padding: .75rem 0; border-bottom: 1px solid var(--linie);
+}
+.domeniu h4 { margin: 0; font-size: .95rem; line-height: 1.3; grid-column: 1; }
+.an-celula { min-width: 0; }
+.an-link {
+  display: block; margin-bottom: .3rem;
+  font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-slab);
+}
+a.an-link:hover { color: var(--accent); }
+
+/* licenta si master, pe ecran lat: tabel adevarat -- numele domeniului centrat in celula lui, pe
+   ambele axe, iar anii si grupele centrate in coloanele lor */
+@media (min-width: 1001px) {
+  .nivel { border: 1px solid var(--linie); border-radius: var(--radius); background: var(--suprafata); overflow: hidden; }
+  .nivel .nivel-titlu { padding: .55rem .9rem; border-bottom-color: var(--linie); }
+  .nivel .domeniu { gap: 0; padding: 0; align-items: stretch; }
+  .nivel .domeniu:last-child { border-bottom: 0; }
+  .nivel .domeniu h4 {
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    padding: .8rem .9rem;
+  }
+  .nivel .an-celula {
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    padding: .7rem .8rem; border-left: 1px solid var(--linie); text-align: center;
+  }
+  .nivel .pastile { justify-content: center; }
+}
+
+/* ecrane medii: numele domeniului deasupra, anii pe un rand dedesubt */
+@media (max-width: 1000px) {
+  /* fiecare rand (un domeniu, un etaj) e caseta lui, ca selectorul de sus */
+  .nivel-titlu { border-bottom: 0; padding-bottom: .5rem; }
+  .domeniu {
+    grid-template-columns: repeat(var(--ani, 3), minmax(0, 1fr));
+    padding: .9rem .8rem 1rem; margin-bottom: .7rem;
+    border: 1px solid var(--linie); border-radius: var(--radius); background: var(--suprafata);
+  }
+  .domeniu h4 { grid-column: 1 / -1; }
+}
+
+/* telefon: totul unul sub altul, pe centru */
+@media (max-width: 720px) {
+  .acasa { text-align: center; }
+  .acasa .pastile { justify-content: center; }
+  .hero.acasa p { margin-inline: auto; }
+  .alege { margin-inline: auto; }
+  .caseta-asmi { text-align: left; }
+  .acasa-sus > .alege { margin-inline: 0; width: 100%; }
+  .alege-taburi { justify-content: center; }
+  .alege-panou { flex-direction: column; align-items: stretch; text-align: center; }
+  .alege-panou label, .alege-panou label.lat { flex: none; }
+  .alege-panou select { text-align: center; text-align-last: center; }
+  .alege-panou .mai-mult { margin: 0; }
+  .alege-panou .buton { justify-content: center; text-align: center; }
+  .domeniu { display: block; }
+  .domeniu h4 { margin-bottom: .5rem; }
+  .an-celula + .an-celula { margin-top: .6rem; }
+  .an-celula.gol { display: none; }
+}
+
+.tabel-sali { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.tabel-sali th, .tabel-sali td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid var(--linie); }
+.tabel-sali th { font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-slab); }
+.tabel-sali td { font-variant-numeric: tabular-nums; }

@@ -1,0 +1,170 @@
+/* Grila saptamanala a orarului, folosita pe paginile de grupa, de sala si de profesor:
+   randurile de zile, benzile, blocurile de activitate, legenda, plus ocuparea si
+   suprapunerile de pe pagina unei sali. */
+
+/* ---------------- grila orara ---------------- */
+
+.grila-scroll { overflow-x: auto; margin-top: 1rem; padding-bottom: .3rem; }
+.grila {
+  min-width: 62rem;
+  border: 1px solid var(--linie-tare); border-radius: var(--radius);
+  background: var(--suprafata); overflow: hidden;
+}
+
+/* linia dintre zile e mai groasa si mai inchisa decat cea dintre benzile aceleiasi zile
+   (punctata), ca sa se vada unde incepe alta zi oriunde te-ai uita in grila */
+.rand { display: flex; align-items: stretch; border-top: 2px solid color-mix(in srgb, var(--text-slab) 60%, transparent); }
+.rand:first-child { border-top: 0; }
+.rand.cap { background: var(--suprafata-2); }
+
+.eticheta {
+  flex: 0 0 var(--eticheta-lat); width: var(--eticheta-lat);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 650; font-size: .88rem; color: var(--text-slab);
+  border-right: 1px solid var(--linie-tare); background: var(--suprafata-2);
+}
+.zi-scurt { display: none; }
+
+.benzi { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+/* randul de cap nu are wrapper .benzi, deci banda lui trebuie sa creasca singura,
+   altfel etichetele orare se ingramadesc la stanga si nu se mai aliniaza cu blocurile */
+.rand.cap > .banda { flex: 1 1 auto; min-width: 0; }
+
+.banda {
+  display: grid;
+  grid-template-columns: repeat(var(--coloane), minmax(0, 1fr));
+  grid-auto-rows: minmax(3.4rem, auto);
+  border-top: 1px dashed var(--linie);
+  /* caroiajul orar, desenat o singura data in loc de 12 div-uri goale: o placa de fundal
+     are latimea unei ore si poarta o singura linie, la stanga; placile se repeta singure.
+     Nu `repeating-linear-gradient` cu perioada 100%/coloane: in interiorul placii, 100%
+     e latimea placii, deci ar desena 12 linii pe fiecare ora. */
+  background-image: linear-gradient(to right, var(--linie) 0 1px, transparent 1px);
+  background-size: calc(100% / var(--coloane)) 100%;
+}
+.benzi > .banda:first-child { border-top: 0; }
+
+.banda.goala {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 2.6rem; color: var(--text-slab); font-size: .78rem; font-style: italic; opacity: .6;
+}
+
+.banda.cap-ore { background-image: none; grid-auto-rows: auto; border-top: 0; }
+.cap-ora {
+  grid-row: 1; text-align: center; padding: .3rem .1rem;
+  border-left: 1px solid var(--linie);
+  display: flex; flex-direction: column; line-height: 1.15;
+}
+.cap-ora:first-child { border-left: 0; }
+.cap-ora strong { font-size: .88rem; }
+.cap-ora span { font-size: .65rem; color: var(--text-slab); }
+
+/* ---------------- blocul de activitate ---------------- */
+
+.bloc {
+  grid-row: 1;
+  display: flex; flex-direction: column; gap: .12rem;
+  margin: 2px; padding: .3rem .4rem;
+  border-radius: 5px; border: 1px solid var(--alta-linie); border-left-width: 3px;
+  background: var(--alta);
+  color: var(--text); font-size: .76rem; line-height: 1.25;
+  overflow: hidden; min-width: 0;
+}
+.bloc:hover { text-decoration: none; filter: brightness(1.04); box-shadow: 0 2px 8px rgb(0 0 0 / .16); }
+
+.tip-curs    { background: var(--curs);    border-color: var(--curs-linie); }
+.tip-seminar { background: var(--seminar); border-color: var(--seminar-linie); }
+.tip-lab     { background: var(--lab);     border-color: var(--lab-linie); }
+.tip-proiect { background: var(--proiect); border-color: var(--proiect-linie); }
+
+.bloc-sus { display: flex; align-items: baseline; gap: .3rem; justify-content: space-between; }
+.bloc-materie {
+  font-weight: 650; font-size: .8rem; letter-spacing: -.01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.bloc-mij { display: flex; flex-wrap: wrap; gap: .2rem; }
+.bloc-jos {
+  display: flex; justify-content: space-between; gap: .35rem;
+  margin-top: auto; font-size: .7rem; opacity: .85;
+}
+.bloc-prof, .bloc-loc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bloc-loc { font-weight: 600; flex-shrink: 0; }
+.bloc-sursa {
+  font-size: .63rem; opacity: .75; font-style: italic;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.et {
+  font-size: .62rem; font-weight: 600; border-radius: 3px; padding: 0 .22rem;
+  background: rgb(255 255 255 / .5); white-space: nowrap;
+}
+@media (prefers-color-scheme: dark) { .et { background: rgb(255 255 255 / .13); } }
+.et-frecv { outline: 1px solid currentColor; outline-offset: -1px; }
+
+/* provenienta: doar un semnal discret pe marginea stanga */
+.prov-mostenita  { border-left-style: double; border-left-width: 4px; }
+.prov-semigrupa  { border-left-style: dashed; }
+.prov-partajata  { border-left-style: dotted; border-left-width: 4px; }
+.bloc.inactiv    { opacity: .38; filter: saturate(.4); }
+
+/* ---------------- legenda ---------------- */
+
+.legenda {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .45rem .9rem;
+  margin-top: .8rem; font-size: .76rem; color: var(--text-slab);
+}
+.cheie { display: inline-flex; align-items: center; gap: .3rem; }
+.cheie::before {
+  content: ""; width: .8rem; height: .8rem; border-radius: 3px;
+  background: var(--alta); border: 1px solid var(--alta-linie); border-left-width: 3px;
+}
+.cheie.tip-curs::before    { background: var(--curs);    border-color: var(--curs-linie); }
+.cheie.tip-seminar::before { background: var(--seminar); border-color: var(--seminar-linie); }
+.cheie.tip-lab::before     { background: var(--lab);     border-color: var(--lab-linie); }
+.cheie.tip-proiect::before { background: var(--proiect); border-color: var(--proiect-linie); }
+.cheie.prov-mostenita::before { background: transparent; border-left-style: double; border-left-width: 4px; }
+.cheie.prov-semigrupa::before { background: transparent; border-left-style: dashed; }
+.cheie.prov-partajata::before { background: transparent; border-left-style: dotted; border-left-width: 4px; }
+.cheie.inactiv::before { background: var(--alta); opacity: .38; }
+.cheie.tip-curs, .cheie.tip-seminar, .cheie.tip-lab, .cheie.tip-proiect,
+.cheie.prov-mostenita, .cheie.prov-semigrupa, .cheie.prov-partajata, .cheie.inactiv { background: none; }
+.legenda .sep { width: 1px; height: .9rem; background: var(--linie-tare); }
+
+/* ---------------- ocupare ---------------- */
+
+.bara-ocupare {
+  display: inline-block; width: 5.5rem; height: .45rem;
+  background: var(--suprafata-2); border-radius: 999px; overflow: hidden;
+  vertical-align: middle;
+}
+.bara-ocupare > span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+
+.ocupare-zile { display: flex; gap: .8rem; margin-top: .9rem; }
+.zi-ocupare { display: flex; flex-direction: column; align-items: center; gap: .25rem; font-size: .7rem; }
+.zi-bara {
+  width: 1.6rem; height: 3rem; background: var(--suprafata-2);
+  border-radius: 4px; display: flex; align-items: flex-end; overflow: hidden;
+  border: 1px solid var(--linie);
+}
+.zi-bara > span { width: 100%; background: var(--accent); }
+.zi-nume { color: var(--text-slab); }
+.zi-cifra { color: var(--text-slab); font-variant-numeric: tabular-nums; }
+
+/* ---------------- conflicte ---------------- */
+
+.conflicte {
+  margin-top: 1.2rem; padding: .8rem 1rem;
+  border: 1px solid var(--curs-linie); border-radius: var(--radius);
+  background: color-mix(in srgb, var(--curs) 35%, transparent);
+}
+.conflicte h2 { margin: 0 0 .2rem; font-size: .96rem; }
+.conflicte ul { list-style: none; margin: .6rem 0 0; padding: 0; display: grid; gap: .45rem; }
+.conflicte li {
+  display: grid; grid-template-columns: 8rem 1fr; gap: .2rem .8rem;
+  font-size: .82rem; padding-bottom: .45rem; border-bottom: 1px solid var(--linie);
+}
+.conflicte li:last-child { border-bottom: 0; padding-bottom: 0; }
+.cand { font-weight: 650; font-variant-numeric: tabular-nums; }
+.ce em { font-style: normal; color: var(--text-slab); font-size: .78rem; }
+.vs { color: var(--text-slab); font-size: .72rem; padding: 0 .15rem; }
+.motiv { grid-column: 2; font-size: .74rem; color: var(--text-slab); font-style: italic; }

@@ -1,0 +1,125 @@
+/* Evenimentele cu data (ASMI si alte activitati): blocurile lor din grila, formularul,
+   calendarul public si culorile. */
+
+/* ---------------- evenimente (ASMI si alte activitati cu data) ---------------- */
+
+
+/* in grila: se deosebesc de orele de orar prin culoare si bordura punctata */
+.tip-eveniment-asmi { background: var(--ev-slab, var(--accent-slab)); border-color: var(--ev, var(--accent)); border-style: dashed; }
+.tip-eveniment-alta { background: var(--ev-slab, var(--alta)); border-color: var(--ev, var(--alta-linie)); border-style: dashed; }
+.cheie.tip-eveniment-asmi::before { background: var(--accent-slab); border-color: var(--accent); border-style: dashed; }
+.cheie.tip-eveniment-alta::before { background: var(--alta); border-color: var(--alta-linie); border-style: dashed; }
+
+/* formularul unui eveniment */
+.alegere { border: 1px solid var(--linie); border-radius: var(--radius); padding: .6rem .8rem .8rem; margin: 0; min-width: 0; }
+.alegere legend { font-size: .84rem; font-weight: 600; padding: 0 .3rem; }
+.alegere .bifa { cursor: pointer; }
+.alegere .bifa > span { display: flex; flex-direction: column; }
+.alegere .bifa small, .sala-optiune small { color: var(--text-slab); font-size: .76rem; font-weight: 400; }
+.sub-alegere { margin: .1rem 0 .5rem 1.6rem; display: flex; flex-direction: column; gap: .5rem; align-items: flex-start; }
+.bife-rand { display: flex; flex-wrap: wrap; gap: .1rem 1rem; }
+.bife-titlu { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-slab); }
+.sub-alegere input[type="text"] { width: 100%; }
+.camp-lista input[type="date"], .camp-lista input[type="time"] {
+  font: inherit; font-size: .92rem; padding: .45rem .6rem; width: 100%;
+  border: 1px solid var(--linie-tare); border-radius: 6px; background: var(--fundal); color: var(--text);
+}
+@media (prefers-color-scheme: dark) { .camp-lista input[type="date"], .camp-lista input[type="time"] { color-scheme: dark; } }
+.sali-libere { width: 100%; }
+.sali-optiuni { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: .4rem; margin-top: .5rem; max-height: 19rem; overflow: auto; }
+.sala-optiune {
+  display: flex; align-items: flex-start; gap: .5rem; padding: .45rem .6rem; cursor: pointer;
+  border: 1px solid var(--linie-tare); border-radius: 6px; background: var(--fundal);
+}
+.sala-optiune:has(input:checked) { border-color: var(--accent); background: var(--accent-slab); }
+.sala-optiune input { margin-top: .25rem; }
+.sala-optiune > span { display: flex; flex-direction: column; }
+.trecute { margin-top: 1.2rem; }
+.trecute > summary { margin-bottom: .7rem; }
+
+/* calendarul public */
+.luna-cap { display: flex; align-items: center; gap: .5rem; margin-bottom: .6rem; }
+.luna-cap h2 { margin: 0; min-width: 11rem; text-align: center; text-transform: capitalize; }
+.luna-cap .buton { cursor: pointer; }
+.luna-grila { border: 1px solid var(--linie); border-radius: var(--radius); overflow: hidden; background: var(--suprafata); }
+.luna-rand { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.luna-rand + .luna-rand { border-top: 1px solid var(--linie); }
+.luna-rand.cap > div { padding: .35rem .5rem; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-slab); }
+.luna-zi { min-height: 5.6rem; padding: .3rem .35rem .4rem; display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
+.luna-zi + .luna-zi, .luna-rand.cap > div + div { border-left: 1px solid var(--linie); }
+.luna-zi.weekend, .luna-rand.cap > .weekend { background: var(--suprafata-2); }
+.luna-zi.alta-luna .luna-nr { opacity: .4; }
+.luna-nr { font-size: .78rem; font-weight: 600; color: var(--text-slab); font-variant-numeric: tabular-nums; }
+.luna-zi.azi .luna-nr {
+  align-self: flex-start; min-width: 1.5rem; text-align: center; padding: 0 .3rem; border-radius: 999px;
+  background: var(--accent); color: #fff;
+}
+@media (prefers-color-scheme: dark) { .luna-zi.azi .luna-nr { color: #10131a; } }
+.luna-ev {
+  display: block; font-size: .74rem; line-height: 1.25; padding: .15rem .35rem; border-radius: 4px;
+  background: var(--ev-slab, var(--accent-slab)); color: var(--text); border-left: 3px solid var(--ev, var(--accent));
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.luna-ev:hover { text-decoration: none; filter: brightness(1.06); }
+.luna-ev span { font-variant-numeric: tabular-nums; color: var(--text-slab); }
+.luna-ev.perioada { border-left-style: dotted; }
+
+.ev-lista { display: flex; flex-direction: column; gap: .6rem; margin-top: .6rem; max-width: 52rem; }
+.ev {
+  display: grid; grid-template-columns: 3.6rem 1fr; gap: .9rem; padding: .8rem .9rem; scroll-margin-top: 6rem;
+  border: 1px solid var(--linie); border-radius: var(--radius); background: var(--suprafata);
+}
+.ev:target { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-slab); }
+.ev.trecut { opacity: .7; }
+.ev-data { display: flex; flex-direction: column; align-items: center; justify-content: center; align-self: start; padding: .35rem 0; border-radius: 8px; background: var(--ev-slab, var(--accent-slab)); color: var(--ev, var(--accent)); }
+.ev-data strong { font-size: 1.35rem; line-height: 1.1; }
+.ev-data span { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.ev-corp h3 { margin: 0; font-size: 1.02rem; color: var(--text); }
+.ev-corp p { margin: .25rem 0 0; font-size: .88rem; }
+.ev-cand { font-weight: 600; }
+.ev-loc, .ev-descriere { color: var(--text-slab); }
+.ev-descriere { white-space: pre-line; overflow-wrap: anywhere; }
+.ev-corp .buton { margin-top: .3rem; }
+
+/* telefon: grila lunii ramane, dar zilele arata doar cate evenimente au */
+@media (max-width: 720px) {
+  .luna-zi { min-height: 3rem; align-items: center; padding: .25rem .1rem; }
+  .luna-ev { width: .5rem; height: .5rem; padding: 0; border-radius: 50%; border: 0; background: var(--ev, var(--accent)); font-size: 0; }
+  .luna-zi { flex-direction: row; flex-wrap: wrap; justify-content: center; align-content: flex-start; }
+  .luna-nr { flex-basis: 100%; text-align: center; }
+  .luna-zi.azi .luna-nr { flex-basis: auto; }
+  .luna-cap h2 { min-width: 0; flex: 1; font-size: 1.05rem; }
+  .sub-alegere { margin-left: 0; }
+}
+
+/* culorile evenimentelor: o singura nuanta de om, din care se face si fundalul deschis */
+.culoare-albastru   { --ev: #4f7df0; }
+.culoare-turcoaz    { --ev: #1fa3a3; }
+.culoare-verde      { --ev: #3fa45b; }
+.culoare-galben     { --ev: #c9a20a; }
+.culoare-portocaliu { --ev: #e08a2e; }
+.culoare-rosu       { --ev: #e05252; }
+.culoare-roz        { --ev: #e0609c; }
+.culoare-mov        { --ev: #9a63d6; }
+[class*="culoare-"] { --ev-slab: color-mix(in srgb, var(--ev) 20%, var(--suprafata)); }
+.sesizare[class*="culoare-"] { border-left-color: var(--ev); }
+.ev[class*="culoare-"] { border-left: 3px solid var(--ev); }
+
+/* alegerea culorii in formular */
+.culori { display: flex; flex-wrap: wrap; gap: .4rem; }
+.culoare-optiune {
+  display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .6rem .3rem .4rem; cursor: pointer;
+  border: 1px solid var(--linie-tare); border-radius: 999px; font-size: .82rem; background: var(--fundal);
+}
+.culoare-optiune input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+/* culoarea proprie: selectorul de culori tine locul mostrei */
+.culoare-optiune input[type="color"] {
+  width: 1.15rem; height: 1.15rem; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+}
+.culoare-optiune input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.culoare-optiune input[type="color"]::-webkit-color-swatch { border: 1px solid var(--linie-tare); border-radius: 50%; }
+.culoare-optiune input[type="color"]::-moz-color-swatch { border: 1px solid var(--linie-tare); border-radius: 50%; }
+.culoare-mostra { width: 1rem; height: 1rem; border-radius: 50%; background: var(--ev, var(--accent)); }
+.culoare-optiune:has(input:checked) { border-color: var(--ev, var(--accent)); box-shadow: 0 0 0 2px var(--ev, var(--accent)); }
+.culoare-optiune:has(input:focus-visible) { outline: 2px solid var(--text); outline-offset: 2px; }

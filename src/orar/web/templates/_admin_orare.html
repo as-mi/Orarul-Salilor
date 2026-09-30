@@ -1,0 +1,32 @@
+{# Panoul de admin: orarele incarcate si alegerea celui implicit. Asteapta `orare`. #}
+<section class="sectiune panou" id="orare" aria-labelledby="t-orare">
+  <h2 id="t-orare">Orare încărcate</h2>
+  <p class="nota">Toate apar, pentru toată lumea, în panoul <strong>Orare</strong> din colțul paginilor.
+    Cel <strong>implicit</strong> e cel afișat când vizitatorul nu alege altul.</p>
+  {% if request.query_params.get('implicit') %}
+    <p class="reusit" role="status">Orarul implicit a fost schimbat.</p>
+  {% endif %}
+  {% if orare %}
+    <ul class="orare-lista">
+      {% for o in orare %}
+        <li class="{{ 'implicit' if o.implicit }}">
+          <div>
+            <a class="orar-nume" href="/{{ '' if o.implicit else '?perioada=' ~ o.perioada.id }}">{{ o.eticheta }}</a>
+            <span class="orar-detalii">{{ o.nr_ore }} activități{% if o.publicat %} · încărcat pe {{ o.publicat.strftime('%d.%m.%Y, %H:%M') }}{% endif %}</span>
+          </div>
+          {% if o.implicit %}
+            <span class="pastila">✓ implicit</span>
+          {% else %}
+            <form method="post" action="/admin/orar/implicit" hx-post="/admin/orar/implicit" hx-target="#orare" hx-select="#orare" hx-swap="outerHTML" hx-disabled-elt="find button">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <input type="hidden" name="perioada" value="{{ o.perioada.id }}">
+              <button type="submit" class="buton" aria-label="Fă implicit orarul {{ o.eticheta }}">Fă-l implicit</button>
+            </form>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="nota">Niciun orar încărcat încă.</p>
+  {% endif %}
+</section>

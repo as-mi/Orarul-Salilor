@@ -1,0 +1,87 @@
+/* Coada de verificare a citirii automate si alegerea profesorilor (cate un dropdown de om),
+   folosita si in formularul unei activitati. */
+
+/* ---------------- coada de verificare ---------------- */
+
+.avertisment {
+  margin: .6rem 0 0; padding: .5rem .7rem; font-size: .84rem;
+  border-left: 3px solid var(--linie-tare); background: var(--panou, transparent);
+  color: var(--text-slab);
+}
+.gol { color: var(--text-slab); font-size: .9rem; padding: 1.5rem 0; }
+
+.coada { display: flex; flex-direction: column; gap: .6rem; }
+
+.revizuire {
+  display: grid; gap: .8rem 1rem; align-items: start;
+  grid-template-columns: minmax(220px, 26rem) 1fr auto;
+  padding: .7rem; border: 1px solid var(--linie); border-radius: 8px;
+}
+.revizuire.atentie { border-color: var(--linie-tare); }
+
+/* Decupajul e marturia; il lasam la marimea lui, doar limitat de coloana. */
+.decupaj {
+  max-width: 100%; height: auto; display: block;
+  border: 1px solid var(--linie); border-radius: 4px; background: #fff;
+}
+
+.citit { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .35rem .9rem; margin: 0; }
+.citit > div { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
+.citit dt { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-slab); }
+.citit dd { margin: 0; font-size: .88rem; overflow-wrap: anywhere; }
+.citit dd.nesigur { color: #b4342b; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .citit dd.nesigur { color: #ff8b80; } }
+:root[data-theme="light"] .citit dd.nesigur { color: #b4342b; }
+:root[data-theme="dark"] .citit dd.nesigur { color: #ff8b80; }
+
+/* alegerea profesorilor: cate un dropdown de om */
+.profesori { display: flex; flex-direction: column; gap: .3rem; align-items: flex-start; }
+.profesor-rand { display: flex; gap: .3rem; width: 100%; flex-wrap: wrap; }
+.profesor-rand select, .profesor-rand input[type="text"] {
+  flex: 1 1 10rem; min-width: 0; font: inherit; font-size: .88rem; padding: .35rem .5rem;
+  border: 1px solid var(--linie-tare); border-radius: 6px; background: var(--fundal); color: var(--text);
+}
+.profesor-rand select:focus-visible, .profesor-rand input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.buton.mic { cursor: pointer; font: inherit; font-size: .76rem; padding: .2rem .5rem; }
+.propunere { margin: .1rem 0 0; font-size: .78rem; color: var(--text-slab); }
+.camp { display: flex; flex-direction: column; gap: .3rem; min-width: 0; }
+.camp-lista .pe-rand > .camp { flex: 2 1 14rem; }
+.camp-lista .pe-rand > .camp > span { font-size: .84rem; font-weight: 600; }
+.rezolvare-campuri .camp { gap: .15rem; }
+.rezolvare-campuri .camp > span { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-slab); }
+.rezolvare-campuri .camp.nesigur > span { color: #b4342b; font-weight: 600; }
+.rezolvare-campuri .camp.nesigur select { border-color: #b4342b; }
+@media (prefers-color-scheme: dark) {
+  .rezolvare-campuri .camp.nesigur > span { color: #ff8b80; }
+  .rezolvare-campuri .camp.nesigur select { border-color: #ff8b80; }
+}
+
+/* rezolvarea din coada: cele trei campuri care se pot citi gresit, si confirmarea */
+.rezolvare { min-width: 0; }
+.rezolvare .despre { margin: 0 0 .5rem; font-size: .84rem; color: var(--text-slab); }
+.rezolvare-campuri { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .5rem .7rem; }
+.rezolvare-campuri label { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.rezolvare-campuri label > span { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-slab); }
+.rezolvare-campuri input[type="text"] {
+  font: inherit; font-size: .88rem; padding: .35rem .5rem; width: 100%;
+  border: 1px solid var(--linie-tare); border-radius: 6px; background: var(--fundal); color: var(--text);
+}
+.rezolvare-campuri input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.rezolvare-campuri label.nesigur > span { color: #b4342b; font-weight: 600; }
+.rezolvare-campuri label.nesigur input { border-color: #b4342b; }
+@media (prefers-color-scheme: dark) {
+  .rezolvare-campuri label.nesigur > span { color: #ff8b80; }
+  .rezolvare-campuri label.nesigur input { border-color: #ff8b80; }
+}
+.rezolvare-actiuni { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .4rem; }
+.rezolvare-actiuni .buton { cursor: pointer; font: inherit; font-size: .84rem; }
+
+.provenienta { display: flex; flex-direction: column; align-items: flex-end; gap: .25rem; font-size: .76rem; color: var(--text-slab); }
+.incredere { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
+
+@media (max-width: 860px) {
+  .revizuire { grid-template-columns: 1fr; }
+  .provenienta { flex-direction: row; align-items: center; justify-content: space-between; }
+}
+
+.necunoscut { color: var(--text-slab); cursor: help; }

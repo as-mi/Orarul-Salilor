@@ -1,0 +1,56 @@
+{# Panoul de admin: ce e de facut acum si actiunile rapide. Asteapta numaratorile `nr_*`,
+   `utilizatori` si `cereri`. #}
+{# Ce e de facut acum: fiecare card duce la lista lui. Cele cu ceva in asteptare ies in fata. #}
+<section class="sectiune" aria-labelledby="t-de-facut">
+  <h2 id="t-de-facut">De făcut</h2>
+  <div class="carduri">
+    <a class="card {{ 'atentie' if nr_sesizari }}" href="/admin/sesizari">
+      <strong>{{ nr_sesizari }}</strong>
+      <span>{{ 'sesizare de tratat' if nr_sesizari == 1 else 'sesizări de tratat' }}</span>
+      <small>probleme semnalate de studenți din paginile de orar</small>
+      <em>{{ 'Tratează-le' if nr_sesizari else 'Vezi istoricul' }} →</em>
+    </a>
+    <a class="card {{ 'atentie' if nr_nesigure }}" href="/admin/review">
+      <strong>{{ nr_nesigure }}</strong>
+      <span>{{ 'activitate de verificat' if nr_nesigure == 1 else 'activități de verificat' }}</span>
+      <small>citiri pe care programul nu le-a putut confirma singur</small>
+      <em>{{ 'Deschide coada de verificare' if nr_nesigure else 'Nimic de verificat' }} →</em>
+    </a>
+    <a class="card {{ 'atentie' if nr_neaplicate }}" href="/admin/corectii">
+      <strong>{{ nr_corectii }}</strong>
+      <span>{{ 'modificare manuală' if nr_corectii == 1 else 'modificări manuale' }}</span>
+      <small>{% if nr_neaplicate %}{{ nr_neaplicate }} nu și-au mai găsit activitatea după ultimul orar{% else %}ce ați schimbat față de orarul publicat{% endif %}</small>
+      <em>Vezi lista →</em>
+    </a>
+  </div>
+</section>
+
+<section class="sectiune" aria-labelledby="t-actiuni">
+  <h2 id="t-actiuni">Acțiuni rapide</h2>
+  <div class="actiuni-rapide">
+    <a class="actiune" href="/admin/activitate/noua?inapoi=/admin">
+      <span class="actiune-semn" aria-hidden="true">+</span>
+      <span><strong>Adaugă o activitate</strong><small>un curs, un seminar sau un laborator care lipsește din orar</small></span>
+    </a>
+    <a class="actiune" href="/">
+      <span class="actiune-semn" aria-hidden="true">✎</span>
+      <span><strong>Schimbă o activitate</strong><small>deschide o grupă sau o sală, apasă „Editează orarul”, apoi activitatea</small></span>
+    </a>
+    <a class="actiune" href="/admin/evenimente">
+      <span class="actiune-semn" aria-hidden="true">★</span>
+      <span><strong>Evenimente și săli rezervate</strong><small>activități ASMI și alte activități: caută o sală liberă la o dată anume, și în weekend</small></span>
+    </a>
+    <a class="actiune" href="/admin/statistici">
+      <span class="actiune-semn" aria-hidden="true">▦</span>
+      <span><strong>Orarul în cifre</strong><small>câți oameni au ore în fiecare interval, când e liber un public, cât de pline sunt sălile</small></span>
+    </a>
+    <a class="actiune" href="#orar">
+      <span class="actiune-semn" aria-hidden="true">↑</span>
+      <span><strong>Încarcă un orar nou</strong><small>din linkurile publicate de facultate</small></span>
+    </a>
+    <a class="actiune" href="#utilizatori">
+      <span class="actiune-semn" aria-hidden="true">☺</span>
+      <span><strong>Utilizatori și roluri</strong><small>{{ utilizatori|length }} {{ 'cont' if utilizatori|length == 1 else 'conturi' }}{% if cereri %} · {{ cereri|length }} {{ 'cerere' if cereri|length == 1 else 'cereri' }} de profesor{% endif %}</small></span>
+    </a>
+  </div>
+</section>
