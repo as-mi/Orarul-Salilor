@@ -1,0 +1,21 @@
+{# Selectorul de data, in dreapta randului de filtre -- pe /grupa si pe /sala.
+   Data dupa care se socotesc saptamana (numar, paritate) si filtrul "doar saptamana
+   curenta". Implicit azi; se poate alege orice zi, din trecut sau din viitor.
+   Asteapta din context: `azi`, `zi_aleasa`, `filtru_saptamana`; optional `sel_q`. #}
+{# Orarul ales (alt semestru, o versiune anterioara) ramane ales cand schimbi data. #}
+{% set _sel = sel_q if sel_q is defined and sel_q else '' %}
+<form method="get" class="alege-zi">
+  {% if filtru_saptamana %}<input type="hidden" name="saptamana" value="true">{% endif %}
+  {% if _sel %}<input type="hidden" name="{{ _sel.split('=')[0] }}" value="{{ _sel.split('=')[1] }}">{% endif %}
+  {% if zi_aleasa %}
+    <a class="filtru"
+       href="?{% if filtru_saptamana %}saptamana=true{% endif %}{% if _sel %}&{{ _sel }}{% endif %}"
+       title="Înapoi la data de azi">azi</a>
+  {% endif %}
+  <label class="filtru {{ 'activ' if zi_aleasa }}" title="Data pentru care se calculează săptămâna">
+    <span class="sr-only">Data</span>
+    <input type="date" name="zi" value="{{ azi.isoformat() }}" required
+           onchange="if (this.value) this.form.requestSubmit()">
+  </label>
+  <noscript><button type="submit" class="filtru">arată</button></noscript>
+</form>

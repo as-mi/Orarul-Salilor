@@ -1,0 +1,52 @@
+{# Orarele, in coltul din dreapta jos -- pe pagina principala, pe /grupa si pe /sala, pentru
+   toata lumea. Intai orarele incarcate (cate unul pe semestru; cel implicit il alege un
+   admin), apoi versiunile lor anterioare, cu ce s-a schimbat de atunci.
+   Asteapta din context: `optiuni_orar` (lista de OptiuneOrar) si `sel`; optional
+   `v_pastrat` -- parametrii de pastrat cand treci de la un orar la altul (incep cu `&`) --
+   si `v_fata_de`, pentru tooltip. #}
+{% macro _data(d) %}{{ d.strftime('%d.%m.%Y') if d else '' }}{% endmacro %}
+{% set _q = v_pastrat|default('') %}
+{% set _activa = optiuni_orar|selectattr('activa')|first %}
+{% set _implicit = sel.implicita and not sel.versiune %}
+<details class="versiuni" {{ 'open' if not _implicit }}>
+  <summary>
+    <span>Orare</span>
+    <span class="pastila {{ 'neutra' if _implicit }}">
+      {%- if _implicit or not _activa %}{{ optiuni_orar|length }}{% else %}{{ 'sem. ' ~ (sel.versiune.semestru if sel.versiune else sel.perioada.semestru) }}{% if sel.versiune %} · {{ _data(_activa.data) }}{% endif %}{% endif -%}
+    </span>
+  </summary>
+  <ol class="versiuni-lista">
+    {% for o in optiuni_orar if not o.arhiva %}
+      <li>
+        <a href="?{{ (o.q ~ _q) if o.q else _q[1:] }}" {% if o.activa %}aria-current="page"{% endif %}>
+          <span class="v-data">{{ o.eticheta }}{% if o.data %}<small>{{ _data(o.data) }}</small>{% endif %}</span>
+          {% if o.implicita %}<span class="v-et actuala">implicit</span>{% endif %}
+        </a>
+      </li>
+    {% endfor %}
+    {% set arhive = optiuni_orar|selectattr('arhiva')|list %}
+    {% if arhive %}
+      <li class="v-titlu">versiuni anterioare</li>
+      {% for o in arhive %}
+        {% set va = o.arhiva %}
+        <li>
+          <a href="?{{ o.q }}{{ _q }}" {% if o.activa %}aria-current="page"{% endif %}
+             {% if va.comparabila and not va.identica %}title="Față de {{ v_fata_de|default('orarul de acum') }}: {{ va.adaugate }} activități apărute de atunci, {{ va.scoase }} scoase"{% endif %}>
+            <span class="v-data">{{ _data(o.data) }}<small>sem. {{ va.versiune.semestru }} · {{ va.versiune.an_univ }}</small></span>
+            {% if va.comparabila and va.identica %}
+              <span class="v-et">identică</span>
+            {% elif va.comparabila %}
+              <span class="v-et dif">
+                {%- if va.adaugate %}<span class="plus">+{{ va.adaugate }}</span>{% endif %}
+                {%- if va.scoase %}<span class="minus">−{{ va.scoase }}</span>{% endif -%}
+              </span>
+            {% endif %}
+          </a>
+        </li>
+      {% endfor %}
+    {% endif %}
+  </ol>
+  {% if optiuni_orar|length <= 1 %}
+    <p class="versiuni-gol">Deocamdată există un singur orar. Când se încarcă altul - alt semestru sau o publicare nouă - apare aici.</p>
+  {% endif %}
+</details>

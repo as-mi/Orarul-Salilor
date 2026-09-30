@@ -7,7 +7,7 @@ comportamentul verificat aici, cu `doar_verifica`.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 from sqlalchemy import create_engine, select
@@ -161,3 +161,39 @@ def test_curatarea_nu_atinge_entitatile_folosite(db):
         select(func.count(func.distinct(Ora.profesor_id))).where(Ora.profesor_id.is_not(None))
     )
     assert db.scalar(select(func.count()).select_from(Profesor)) == folositi
+
+
+def test_fara_orarul_profesorilor_nu_se_reia_nimic(s, monkeypatch):
+    """Verificarea incrucisata e obligatorie: semestrul 1 n-are orarul profesorilor pe pagina,
+    deci orarul lui nu se captureaza si nu se inlocuieste."""
+
+    def explodeaza(*a, **k):
+        raise AssertionError("nu trebuia sa se captureze nimic")
+
+    monkeypatch.setattr("orar.ingest.capture.captureaza_orar", explodeaza)
+    rap = sincronizeaza(s, html=PAGINA, semestru=1)
+    assert rap.schimbari and not rap.ingestate
+    assert any("Orarul profesorilor" in a for a in rap.avertismente)
+
+
+def test_orarul_profesorilor_care_nu_se_poate_captura_anuleaza_tot(s, monkeypatch):
+    from orar.worker import sync
+
+    def ingest_fals(s, sursa, *, rap, **k):  # noqa: ANN001, ANN003, ANN202
+        s.add(
+            AncoraSaptamana(
+                an_univ="x", semestru=9, inceput=date(2026, 1, 5), numar=1, paritate="SI"
+            )
+        )
+        rap.ingestate.append("sem 2 / grupe")
+
+    def crosscheck_picat(*a, **k):  # noqa: ANN002, ANN003, ANN202
+        raise sync.EroareCrosscheck("captura orarului profesorilor: timeout")
+
+    monkeypatch.setattr(sync, "_ingesteaza", ingest_fals)
+    monkeypatch.setattr(sync, "_crosscheck", crosscheck_picat)
+    rap = sincronizeaza(s, html=PAGINA)
+    assert rap.ingestate == []
+    assert any("a ramas cel de dinainte" in a for a in rap.avertismente)
+    # ce scrisese ingestul a fost dat inapoi
+    assert s.scalar(select(AncoraSaptamana).where(AncoraSaptamana.semestru == 9)) is None

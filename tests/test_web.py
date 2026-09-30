@@ -22,8 +22,25 @@ def test_grupa_arata_orele_proprii_si_pe_cele_de_serie(client):
     assert r.status_code == 200
     assert "Seria 24" in r.text
     assert "moștenește de la" in r.text
-    # semigrupele sunt listate ca descendenti
-    assert "244/1" in r.text and "244/2" in r.text
+    # semigrupele se aleg cu butoane pe pagina grupei, nu mai au pagina lor
+    assert 'href="?semigrupa=Gr_1' in r.text and 'href="?semigrupa=Gr_2' in r.text
+    assert 'href="/grupa/244-1"' not in r.text
+
+
+def test_pagina_seriei_listeaza_grupele_nu_semigrupele(client):
+    r = client.get("/grupa/seria-24")
+    assert 'href="/grupa/241"' in r.text and 'href="/grupa/244"' in r.text
+    assert 'href="/grupa/244-1"' not in r.text
+
+
+def test_pagina_veche_de_semigrupa_duce_la_grupa(client):
+    r = client.get("/grupa/244-1?saptamana=true&zi=2026-04-22", follow_redirects=False)
+    assert r.status_code == 308
+    assert r.headers["location"] == "/grupa/244?saptamana=true&zi=2026-04-22&semigrupa=Gr_1"
+    # urmata, adresa alege Gr_1 si o tine minte
+    dupa = client.get("/grupa/244-2")
+    assert dupa.status_code == 200
+    assert 'class="filtru activ"\n             href="?semigrupa=Gr_2' in dupa.text
 
 
 def test_grupa_accepta_si_slug_si_nume(client):
@@ -74,6 +91,7 @@ def test_toate_grupele_se_randeaza(client, db):
 
     from orar.db.models import Grupa
 
+    # semigrupele trimit la grupa lor (308), deci le urmam pana la pagina finala
     slugs = [g.slug for g in db.execute(select(Grupa)).scalars()]
     esecuri = [s for s in slugs if client.get(f"/grupa/{s}").status_code != 200]
     assert esecuri == []
@@ -87,3 +105,36 @@ def test_toate_salile_se_randeaza(client, db):
     slugs = [s.slug for s in db.execute(select(Sala)).scalars()]
     esecuri = [s for s in slugs if client.get(f"/sala/{s}").status_code != 200]
     assert esecuri == []
+
+
+def test_anul_fara_grupe_apare_pe_prima_pagina(client):
+    """CTI anul 4 are in orar doar pachete de optionale, nicio grupa. Trebuie sa se ajunga
+    totusi la pagina anului: de pe prima pagina si din cautare."""
+    acasa = client.get("/").text
+    assert 'href="/grupa/cti-an-4"' in acasa
+    assert 'href="/grupa/optionale-an-iv-cti-1"' in acasa
+    assert client.get("/grupa/cti-an-4").status_code == 200
+    assert "/grupa/cti-an-4" in client.get("/cauta?q=anul 4").text
+
+
+def test_pagina_principala_grupeaza_pe_nivel_domeniu_si_an(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    # selectorul in trepte, cu cele doua sectiuni
+    assert 'id="tab-grupe"' in r.text and 'id="tab-sali"' in r.text
+    for treapta in ("nivel", "domeniu", "an", "grupa", "sala"):
+        assert f'id="alege-{treapta}"' in r.text
+    # lista de dedesubt: licenta inaintea masterului, domeniul ca titlu, anii sub el
+    assert r.text.index(">Licență<") < r.text.index(">Master<")
+    assert "<h4>Informatică</h4>" in r.text
+    assert 'href="/grupa/info-an-2"' in r.text and ">Anul 2<" in r.text
+    # fara liniute lungi pe pagina
+    assert "—" not in r.text and "–" not in r.text
+
+
+def test_salile_sunt_grupate_pe_etaje(client):
+    r = client.get("/")
+    # etajul e prima cifra din numele salii: Amf.701 -> etajul 7
+    assert r.text.index("<h4>Etajul 1</h4>") < r.text.index("<h4>Etajul 7</h4>")
+    etajul_7 = r.text[r.text.index("<h4>Etajul 7</h4>") :]
+    assert "Amfiteatre" in etajul_7 and 'href="/sala/amf-701"' in etajul_7

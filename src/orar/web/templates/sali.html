@@ -2,21 +2,24 @@
 {% block titlu %}Săli{% endblock %}
 
 {% block continut %}
+{% set qv = ('?' ~ sel_q) if sel_q is defined and sel_q else '' %}
 <section class="antet">
-  <nav class="firimituri"><a href="/">acasă</a><span>›</span><strong>săli</strong></nav>
+  <nav class="firimituri"><a href="/{{ qv }}">acasă</a><span>›</span><strong>săli</strong></nav>
   <h1>Săli</h1>
+  {% include "_banner_versiune.html" %}
   <p class="nota">Gradul de ocupare e calculat pe {{ sloturi_total }} sloturi de o oră
      (5 zile × 12 ore). Locațiile externe și cele virtuale sunt listate separat.</p>
 </section>
 
 <section class="sectiune">
   <table class="tabel-sali">
-    <thead><tr><th>Sală</th><th>Tip</th><th>Ore ocupate</th><th>Ocupare</th></tr></thead>
+    <thead><tr><th>Sală</th><th>Tip</th><th>Locuri</th><th>Ore ocupate</th><th>Ocupare</th></tr></thead>
     <tbody>
     {% for s in sali %}
       <tr>
-        <td><a href="/sala/{{ s.slug }}">{{ s.nume }}</a></td>
+        <td><a href="/sala/{{ s.slug }}{{ qv }}">{{ s.nume }}</a></td>
         <td><span class="pastila neutra">{{ s.tip }}</span></td>
+        <td>{% if s.nr_locuri %}{{ s.nr_locuri }}{% else %}<span class="necunoscut" title="Nu apare în tabelul de capacități de pe pagina 2 a orarului">-</span>{% endif %}</td>
         <td>{{ ocupari[s.id] }}/{{ sloturi_total }}</td>
         <td>
           <span class="bara-ocupare"><span style="width: {{ (100 * ocupari[s.id] / sloturi_total)|round|int }}%"></span></span>
@@ -27,4 +30,6 @@
     </tbody>
   </table>
 </section>
+
+{% include "_versiuni.html" %}
 {% endblock %}

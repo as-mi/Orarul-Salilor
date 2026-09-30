@@ -1,0 +1,198 @@
+{# Formularul unei activitati -- acelasi la adaugare (`o` lipseste) si la editare: tot ce se
+   poate alege la o activitate noua se poate schimba si la una existenta. #}
+{% extends "base.html" %}
+{% block titlu %}{{ 'Editează activitatea' if o else 'Adaugă o activitate' }}{% endblock %}
+
+{% block continut %}
+{% import "_profesori.html" as pr %}
+<section class="formular lat">
+  <nav class="firimituri"><a href="/admin">administrare</a><span>›</span><strong>{{ 'activitate' if o else 'activitate nouă' }}</strong></nav>
+
+  {% if o %}
+    <h1>Editează activitatea</h1>
+    <p class="nota">Poți schimba orice: materia, când și unde se ține, cu cine și pentru cine.
+      Schimbarea se vede imediat și rămâne și după ce facultatea publică un orar nou, cât timp
+      activitatea mai există în el.</p>
+  {% else %}
+    <h1>Adaugă o activitate</h1>
+    <p class="nota">Pentru ce lipsește din orarul publicat. Apare imediat în orar și rămâne și după
+      următorul orar publicat.</p>
+  {% endif %}
+
+  {% if sesizare %}
+    <div class="citat-sesizare">
+      <strong>Sesizarea:</strong> {{ sesizare.mesaj }}
+      {% if sesizare.activitate %}<small>despre: {{ sesizare.activitate }}</small>{% endif %}
+    </div>
+  {% endif %}
+
+  {% if corectie %}
+    <p class="avertisment">
+      {% if publicat %}
+        <strong>Modificată manual</strong> de {{ corectie.creat_de }}. În orarul publicat:
+        {{ publicat.materie or 'fără materie' }}{% if publicat.tip %} ({{ publicat.tip }}){% endif %} ·
+        {{ publicat.zi }} {{ publicat.ora_inceput[:2]|int }}-{{ publicat.ora_sfarsit[:2]|int }} ·
+        {{ publicat.grupa_slug }} · {{ publicat.profesor or 'fără profesor' }} · {{ publicat.sala or 'fără sală' }}.
+      {% else %}
+        Activitate <strong>adăugată manual</strong> de {{ corectie.creat_de }}.
+      {% endif %}
+    </p>
+  {% endif %}
+
+  {% if eroare %}<p class="avertisment" role="alert">{{ eroare }}</p>{% endif %}
+
+  <form method="post" action="/admin/activitate/{{ o.id if o else 'noua' }}" class="camp-lista">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="inapoi" value="{{ inapoi }}">
+    {% if orar %}
+      <input type="hidden" name="perioada" value="{{ orar.id }}">
+      <p class="nota">Se adaugă în orarul <strong>semestrului {{ orar.semestru }}, {{ orar.an_univ }}</strong>.</p>
+    {% endif %}
+
+    <div class="pe-rand">
+      <label class="lat">
+        <span>Materia <small>din listă sau una nouă</small></span>
+        <input type="text" name="materie" list="lista-materii" autocomplete="off" required value="{{ v.materie }}">
+      </label>
+      <label>
+        <span>Tipul</span>
+        <select name="tip">
+          <option value="">-</option>
+          {% for t in tipuri %}<option value="{{ t }}" {{ 'selected' if v.tip == t }}>{{ t }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <label>
+      <span>Pentru cine <small>o grupă, o serie întreagă, un an sau un pachet de opționale</small></span>
+      <select name="grupa" required>
+        <option value="">- alege -</option>
+        {% for g in grupe %}
+          <option value="{{ g.slug }}" {{ 'selected' if v.grupa == g.slug }}>{{ g.nume }}{% if g.tip != 'grupa' %} ({{ {'serie': 'serie', 'specializare': 'tot anul', 'optional': 'pachet'}[g.tip] }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <div class="pe-rand">
+      <label>
+        <span>Ziua</span>
+        <select name="zi" required>
+          {% for z in zile %}<option value="{{ z }}" {{ 'selected' if v.zi == z }}>{{ z }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>De la ora</span>
+        <select name="ora_inceput" required>
+          {% for h in ore[:-1] %}<option value="{{ h }}" {{ 'selected' if v.ora_inceput == h|string }}>{{ h }}:00</option>{% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>Până la ora</span>
+        <select name="ora_sfarsit" required>
+          {% for h in ore[1:] %}<option value="{{ h }}" {{ 'selected' if v.ora_sfarsit == h|string }}>{{ h }}:00</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="pe-rand">
+      <div class="camp lat">
+        <span>Profesori <small>din orarul profesorilor; o activitate poate avea mai mulți</small></span>
+        {{ pr.alege_profesori(v.profesor, profesori, alt_profesor) }}
+      </div>
+      <label>
+        <span>Sala</span>
+        {# Salile cunoscute: cele din tabelul de pe primele pagini ale orarului (cu numarul
+           de locuri), plus locatiile externe. O sala care nu e in lista se scrie dedesubt. #}
+        {% set cunoscute = namespace(gasita=false) %}
+        <select name="sala" id="alege-sala">
+          {% for eticheta, lista in sali %}
+            <optgroup label="{{ eticheta }}">
+              {% for x in lista %}
+                {% if v.sala == x.nume %}{% set cunoscute.gasita = true %}{% endif %}
+                <option value="{{ x.nume }}" {{ 'selected' if v.sala == x.nume }}>{{ x.nume }}{% if x.nr_locuri %} · {{ x.nr_locuri }} locuri{% endif %}</option>
+              {% endfor %}
+            </optgroup>
+          {% endfor %}
+          <option value="{{ alta_sala }}" {{ 'selected' if v.sala and not cunoscute.gasita }}>altă sală…</option>
+        </select>
+      </label>
+    </div>
+    <label id="camp-sala-noua" {{ 'hidden' if not v.sala or cunoscute.gasita }}>
+      <span>Altă sală <small>una care nu e în listă</small></span>
+      <input type="text" name="sala_noua" autocomplete="off" maxlength="80"
+             value="{{ v.sala if v.sala and not cunoscute.gasita else '' }}" placeholder="de ex. IMAR 309">
+    </label>
+    <script>
+      // Campul pentru o sala noua apare doar cand alegi "altă sală…". Fara JS ramane ascuns
+      // pana il ceri, iar ce scrii in el are oricum intaietate la salvare.
+      (() => {
+        const alege = document.getElementById("alege-sala");
+        const camp = document.getElementById("camp-sala-noua");
+        const sincron = () => {
+          const alta = alege.value === "{{ alta_sala }}";
+          camp.hidden = !alta;
+          if (!alta) camp.querySelector("input").value = "";
+        };
+        alege.addEventListener("change", () => { sincron(); if (!camp.hidden) camp.querySelector("input").focus(); });
+      })();
+    </script>
+
+    <details class="mai-multe" {{ 'open' if v.semigrupa or v.frecventa or v.saptamani }}>
+      <summary>Doar pentru o semigrupă, doar în unele săptămâni…</summary>
+      <div class="pe-rand">
+        <label>
+          <span>Semigrupa</span>
+          <select name="semigrupa">
+            <option value="">toată formațiunea</option>
+            {% for g in semigrupe %}<option value="{{ g }}" {{ 'selected' if v.semigrupa == g }}>{{ g.replace('_', ' ') }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>Frecvența</span>
+          <select name="frecventa">
+            <option value="">în fiecare săptămână</option>
+            <option value="SI" {{ 'selected' if v.frecventa == 'SI' }}>săptămâni impare</option>
+            <option value="SP" {{ 'selected' if v.frecventa == 'SP' }}>săptămâni pare</option>
+          </select>
+        </label>
+        <label>
+          <span>Săptămâni <small>ex. sapt 1-7</small></span>
+          <input type="text" name="saptamani" maxlength="80" value="{{ v.saptamani }}">
+        </label>
+      </div>
+    </details>
+
+    {% if sesizare and sesizare.stare == 'noua' %}
+      <input type="hidden" name="sesizare_id" value="{{ sesizare.id }}">
+      <label class="bifa"><input type="checkbox" name="rezolva" value="1" checked>
+        <span>marchează sesizarea ca rezolvată</span></label>
+    {% endif %}
+
+    <div class="butoane">
+      <button type="submit" class="principal">{{ 'Salvează' if o else 'Adaugă în orar' }}</button>
+      <a class="buton" href="{{ inapoi }}">Renunță</a>
+      {% if o %}
+        <a class="buton" href="/admin/activitate/noua?dupa={{ o.id }}&inapoi={{ inapoi|urlencode }}"
+           title="Aceeași activitate, ținută de alt profesor în alte săptămâni: se deschide un formular completat la fel">+ Altă parte (alt profesor, alte săptămâni)</a>
+      {% endif %}
+    </div>
+    {% if o %}
+      <p class="nota">Activitate împărțită pe săptămâni? Scrie aici săptămânile primului profesor
+        (la „Doar pentru o semigrupă, doar în unele săptămâni…”), apoi adaugă cealaltă parte.</p>
+    {% endif %}
+  </form>
+
+  {% if corectie %}
+    <form method="post" action="/admin/corectii/{{ corectie.id }}/anuleaza" class="anulare">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="inapoi" value="{{ inapoi }}">
+      <button type="submit" class="buton pericol">
+        {{ 'Revino la orarul publicat' if publicat else 'Șterge activitatea adăugată' }}
+      </button>
+    </form>
+  {% endif %}
+
+  <datalist id="lista-materii">{% for m in materii %}<option value="{{ m }}">{% endfor %}</datalist>
+  {{ pr.resurse_profesori(profesori, alt_profesor, request) }}
+</section>
+{% endblock %}

@@ -40,7 +40,9 @@ import numpy as np
 from PIL import Image
 
 from orar.ingest.lexicon import Lexicon
-from orar.ingest.segment import Celula, PaginaSegmentata, segmenteaza
+
+# Acelasi prag ca la segmentare: OCR-ul refoloseste masca de text calculata acolo.
+from orar.ingest.segment import PRAG_NEGRU, Celula, PaginaSegmentata, masca_negru, segmenteaza
 
 log = logging.getLogger(__name__)
 
@@ -53,10 +55,9 @@ __all__ = [
     "citeste_pagina",
     "citeste_fisier",
     "PRAG_GOL_CAMP",
+    "PRAG_NEGRU",
 ]
 
-#: Pixel mai intunecat de atat = text. Pagina e randare vectoriala, deci pragul nu e critic.
-PRAG_NEGRU = 110
 #: Cat ignoram din marginea celulei, ca sa nu prindem chenarul.
 MARJA_CELULA = 4
 #: Cati pixeli de aer lasam in jurul unui decupaj dat la recunoastere.
@@ -643,9 +644,12 @@ def citeste_pagina(
 ) -> PaginaCitita:
     """Citeste textul unei pagini deja segmentate."""
     im = imagine if isinstance(imagine, Image.Image) else Image.fromarray(imagine)
-    im = im.convert("RGB")
-    img = np.asarray(im)
-    negru = (img <= PRAG_NEGRU).all(axis=2)
+    if im.mode != "RGB":
+        im = im.convert("RGB")
+    # Segmentarea a calculat deja masca de text, cu acelasi prag; o refolosim.
+    negru = pagina.negru
+    if negru is None or negru.shape != (im.height, im.width):
+        negru = masca_negru(np.asarray(im))
 
     # Un singur lot pentru toata pagina: recunoasterea e de departe partea scumpa, iar
     # rapidocr o face pe loturi de decupaje de latime asemanatoare.

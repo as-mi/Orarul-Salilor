@@ -20,14 +20,31 @@ __all__ = [
     "RandZi",
     "Grila",
     "construieste_grila",
+    "EvenimentInZi",
+    "se_tine",
     "ZILE",
+    "ZILE_SAPTAMANA",
     "ORA_MIN",
     "ORA_MAX",
 ]
 
 ZILE = ("Luni", "Marti", "Miercuri", "Joi", "Vineri")
+#: Toata saptamana, in ordinea din `date.weekday()`. Orarul saptamanal are doar zilele
+#: lucratoare; sambata si duminica apar in grila numai cand au un eveniment.
+ZILE_SAPTAMANA = (*ZILE, "Sambata", "Duminica")
 ORA_MIN = 8
 ORA_MAX = 20  # exclusiv: ultima coloana e 19:00-20:00
+#: Pana unde se poate intinde grila pentru un eveniment de seara.
+ORA_MAX_EVENIMENT = 24
+
+
+@dataclass
+class EvenimentInZi:
+    """Un eveniment cu data (`db.models.Eveniment`), in ziua din saptamana afisata in care
+    cade -- vezi `db.evenimente.evenimente_in_grila`."""
+
+    eveniment: object
+    zi: str
 
 
 class Provenienta(StrEnum):
@@ -46,10 +63,13 @@ class Provenienta(StrEnum):
 class Bloc:
     """O activitate, pozitionata in grila."""
 
-    ora: Ora
+    #: Activitatea din orarul saptamanal; None pentru un eveniment.
+    ora: Ora | None
     col_start: int  # 1-based, relativ la ORA_MIN
     col_span: int
     provenienta: Provenienta
+    #: Evenimentul cu data (ASMI sau alta activitate), cand blocul nu e o ora de orar.
+    eveniment: object | None = None
     #: Nodul de la care vine, afisat doar cand e util (ex. "Seria 24").
     sursa: str = ""
     #: False daca activitatea nu se tine in saptamana selectata.
@@ -58,6 +78,8 @@ class Bloc:
     @property
     def clasa_tip(self) -> str:
         """Clasa CSS dupa tipul activitatii."""
+        if self.eveniment is not None:
+            return f"eveniment-{self.eveniment.fel}"
         tip = (self.ora.tip_ora_materie or "").lower()
         if "curs" in tip:
             return "curs"
@@ -92,17 +114,26 @@ class Grila:
         return len(self.ore)
 
     @property
+    def are_evenimente(self) -> bool:
+        return any(b.eveniment is not None for zi in self.zile for banda in zi.benzi for b in banda)
+
+    @property
     def total_blocuri(self) -> int:
         return sum(len(b) for zi in self.zile for b in zi.benzi)
 
 
-def _coloane(o: Ora) -> tuple[int, int]:
+def _coloane(o, ora_max: int = ORA_MAX) -> tuple[int, int]:  # noqa: ANN001 -- Ora sau Eveniment
     """(col_start 1-based, col_span) pentru o activitate."""
-    start = max(ORA_MIN, o.ora_inceput.hour)
-    sfarsit = min(ORA_MAX, o.ora_sfarsit.hour or ORA_MAX)
+    start = min(max(ORA_MIN, o.ora_inceput.hour), ora_max - 1)
+    sfarsit = min(ora_max, _ora_de_sfarsit(o.ora_sfarsit) or ora_max)
     if sfarsit <= start:
         sfarsit = start + 1
     return start - ORA_MIN + 1, sfarsit - start
+
+
+def _ora_de_sfarsit(t) -> int:  # noqa: ANN001 -- datetime.time
+    """Ora la care se termina, rotunjita in sus: 19:30 ocupa si coloana 19:00-20:00."""
+    return t.hour + (1 if t.minute else 0)
 
 
 def _se_suprapun(a: Bloc, b: Bloc) -> bool:
@@ -120,6 +151,12 @@ def _asaza_in_benzi(blocuri: list[Bloc]) -> list[list[Bloc]]:
         else:
             benzi.append([bloc])
     return benzi
+
+
+def se_tine(o: Ora, saptamana: Saptamana | None) -> bool:
+    """Se tine activitatea in saptamana academica data? (public: il foloseste si cautarea
+    de sali libere)"""
+    return _este_activa(o, saptamana)
 
 
 def _este_activa(o: Ora, saptamana: Saptamana | None) -> bool:
@@ -146,17 +183,28 @@ def construieste_grila(
     surse: dict[int, str] | None = None,
     saptamana: Saptamana | None = None,
     doar_saptamana_curenta: bool = False,
+    evenimente: list[EvenimentInZi] | None = None,
 ) -> Grila:
     """Aranjeaza o lista de ore in grila saptamanala.
 
     `provenienta`/`surse` sunt indexate dupa `Ora.id`; lipsa lor inseamna "proprie".
     Cu `saptamana` data, activitatile care nu se tin atunci sunt marcate `activa=False`
     (sau eliminate de tot, cu `doar_saptamana_curenta`).
+
+    `evenimente`: activitatile cu data din saptamana afisata. Pentru ele grila se poate
+    intinde: apar randuri de sambata / duminica si coloane dupa ora 20, doar cat e nevoie.
     """
     provenienta = provenienta or {}
     surse = surse or {}
 
-    pe_zi: dict[str, list[Bloc]] = {z: [] for z in ZILE}
+    evenimente = evenimente or []
+    # weekendul intra in grila doar cu un eveniment; la fel orele de seara
+    zile = [z for z in ZILE_SAPTAMANA if z in ZILE or any(e.zi == z for e in evenimente)]
+    ora_max = min(
+        ORA_MAX_EVENIMENT,
+        max([ORA_MAX, *(_ora_de_sfarsit(e.eveniment.ora_sfarsit) for e in evenimente)]),
+    )
+    pe_zi: dict[str, list[Bloc]] = {z: [] for z in zile}
     inactive = 0
 
     for o in ore:
@@ -179,7 +227,20 @@ def construieste_grila(
             )
         )
 
+    for e in evenimente:
+        col_start, col_span = _coloane(e.eveniment, ora_max)
+        pe_zi[e.zi].append(
+            Bloc(
+                ora=None,
+                col_start=col_start,
+                col_span=col_span,
+                provenienta=Provenienta.PROPRIE,
+                eveniment=e.eveniment,
+            )
+        )
+
     return Grila(
-        zile=[RandZi(zi=z, benzi=_asaza_in_benzi(pe_zi[z])) for z in ZILE],
+        zile=[RandZi(zi=z, benzi=_asaza_in_benzi(pe_zi[z])) for z in zile],
+        ore=tuple(range(ORA_MIN, ora_max)),
         inactive=inactive,
     )

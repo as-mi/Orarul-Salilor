@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block titlu %}Calendar ASMI{% endblock %}
+
+{% macro eveniment(e, trecut=false) %}
+  <article class="ev {{ 'trecut' if trecut }}{{ ' ' ~ e.clasa_culoare if e.clasa_culoare }}" id="ev-{{ e.id }}"{% if e.stil_culoare %} style="{{ e.stil_culoare }}"{% endif %}>
+    <div class="ev-data" aria-hidden="true">
+      <strong>{{ e.data_inceput.day }}</strong>
+      <span>{{ ('ian', 'feb', 'mar', 'apr', 'mai', 'iun', 'iul', 'aug', 'sep', 'oct', 'noi', 'dec')[e.data_inceput.month - 1] }}</span>
+    </div>
+    <div class="ev-corp">
+      <h3>{{ e.titlu }}</h3>
+      <p class="ev-cand">{{ cand(e) }}</p>
+      {% if e.sala %}<p class="ev-loc">Sala <a href="/sala/{{ e.sala.slug }}?zi={{ e.data_inceput.isoformat() }}">{{ e.sala.nume }}</a></p>
+      {% elif e.loc %}<p class="ev-loc">{{ e.loc }}</p>{% endif %}
+      {% if e.descriere %}<p class="ev-descriere">{{ e.descriere }}</p>{% endif %}
+      {% if e.link %}<p><a class="buton" href="{{ e.link }}" rel="noopener noreferrer" target="_blank">Detalii / înscriere ↗</a></p>{% endif %}
+    </div>
+  </article>
+{% endmacro %}
+
+{% block continut %}
+<section class="antet">
+  <nav class="firimituri"><a href="/">acasă</a><span>›</span><strong>calendar ASMI</strong></nav>
+  <h1>Calendar ASMI</h1>
+  <p class="nota">Evenimentele Asociației Studenților la Matematică și Informatică: activități, termene și perioade de înscriere.</p>
+  {% if cont and cont.e_admin %}
+    <p class="actiuni-sesizare"><a class="buton plin" href="/admin/evenimente/nou?fel=asmi">+ Adaugă un eveniment</a>
+      <a class="buton" href="/admin/evenimente">Administrează evenimentele</a></p>
+  {% endif %}
+</section>
+
+<section class="sectiune luna" aria-labelledby="t-luna">
+  <div class="luna-cap">
+    <a class="buton" href="?luna={{ luna_inainte }}" aria-label="Luna dinainte">‹</a>
+    <h2 id="t-luna">{{ titlu_luna }}</h2>
+    <a class="buton" href="?luna={{ luna_dupa }}" aria-label="Luna următoare">›</a>
+    {% if not e_luna_curenta %}<a class="buton" href="/calendar-asmi">azi</a>{% endif %}
+  </div>
+  <div class="luna-grila" role="table" aria-label="Evenimentele din {{ titlu_luna }}">
+    <div class="luna-rand cap" role="row">
+      {% for z in zile_scurte %}<div role="columnheader" class="{{ 'weekend' if loop.index > 5 }}">{{ z }}</div>{% endfor %}
+    </div>
+    {% for sapt in saptamani %}
+      <div class="luna-rand" role="row">
+        {% for d, evenimente in sapt %}
+          <div role="cell" class="luna-zi{{ ' alta-luna' if d.month != prima.month }}{{ ' azi' if d == azi_real }}{{ ' weekend' if d.weekday() >= 5 }}">
+            <span class="luna-nr">{{ d.day }}</span>
+            {% for e in evenimente %}
+              <a class="luna-ev{{ ' perioada' if e.pe_mai_multe_zile }}{{ ' ' ~ e.clasa_culoare if e.clasa_culoare }}" href="#ev-{{ e.id }}"{% if e.stil_culoare %} style="{{ e.stil_culoare }}"{% endif %}
+                 title="{{ e.titlu }} · {{ cand(e) }}">{% if e.ora_inceput and not e.pe_mai_multe_zile %}<span>{{ e.ora_inceput.strftime('%H:%M') }}</span> {% endif %}{{ e.titlu }}</a>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="sectiune" aria-labelledby="t-urmeaza">
+  <h2 id="t-urmeaza">Urmează</h2>
+  <div class="ev-lista">
+    {% for e in urmeaza %}{{ eveniment(e) }}{% else %}
+      <div class="panou-gol"><p>Niciun eveniment anunțat deocamdată.</p></div>
+    {% endfor %}
+  </div>
+</section>
+
+{% if trecute %}
+  <section class="sectiune">
+    <details class="mai-multe trecute">
+      <summary>Evenimente trecute ({{ trecute|length }})</summary>
+      <div class="ev-lista">{% for e in trecute %}{{ eveniment(e, trecut=true) }}{% endfor %}</div>
+    </details>
+  </section>
+{% endif %}
+{% endblock %}

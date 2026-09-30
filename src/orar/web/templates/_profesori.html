@@ -1,0 +1,34 @@
+{# Alegerea profesorilor unei activitati: cate un dropdown pentru fiecare om, fiindca o
+   activitate poate fi tinuta de mai multi. Lista e cea din orarul profesorilor (numele
+   intregi); ce s-a citit din celula si nu e in lista apare ca "citit: ...", iar un om care
+   lipseste se scrie la "alt nume".
+   `lenes`: dropdownul primeste lista la prima deschidere, din <template id="optiuni-profesori">
+   -- pentru paginile cu zeci de formulare (coada de verificare). #}
+{% macro alege_profesori(valoare, lista, alt, lenes=false) %}
+  {% set alesi = (valoare or '').split('/')|map('trim')|select|list %}
+  <div class="profesori">
+    {% for ales in (alesi or ['']) %}
+      <div class="profesor-rand">
+        <select name="profesor" aria-label="Profesor" {{ 'data-lenes' if lenes }}>
+          <option value="">fără profesor</option>
+          {% if ales and (lenes or ales not in lista) %}
+            <option value="{{ ales }}" selected>{{ ales if ales in lista else 'citit: ' ~ ales }}</option>
+          {% endif %}
+          {% if not lenes %}
+            {% for p in lista %}<option value="{{ p }}" {{ 'selected' if p == ales }}>{{ p }}</option>{% endfor %}
+            <option value="{{ alt }}">alt nume…</option>
+          {% endif %}
+        </select>
+        <input type="text" name="profesor" placeholder="numele întreg al profesorului" autocomplete="off" hidden disabled>
+        <button type="button" class="buton mic" data-scoate-profesor title="Scoate acest profesor" aria-label="Scoate acest profesor">×</button>
+      </div>
+    {% endfor %}
+    <button type="button" class="buton mic" data-adauga-profesor>+ încă un profesor</button>
+  </div>
+{% endmacro %}
+
+{# O singura data pe pagina: optiunile pentru dropdownurile `lenes` si scriptul. #}
+{% macro resurse_profesori(lista, alt, request) %}
+  <template id="optiuni-profesori">{% for p in lista %}<option value="{{ p }}">{{ p }}</option>{% endfor %}<option value="{{ alt }}">alt nume…</option></template>
+  <script src="{{ static_versionat(request, 'profesori.js') }}" data-alt="{{ alt }}" defer></script>
+{% endmacro %}

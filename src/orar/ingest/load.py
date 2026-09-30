@@ -40,8 +40,10 @@ from orar.domain.hierarchy import (
     Nivel,
     TipPagina,
     TitluOrar,
+    este_master,
     normalizeaza_semigrupa,
     parse_titlu,
+    specializari_vizate,
 )
 from orar.domain.rooms import normalizeaza_sala
 
@@ -65,6 +67,10 @@ class Raport:
     legaturi_partajate: int = 0
     ignorate: int = 0
     avertismente: list[str] = field(default_factory=list)
+    #: Slug-urile nodurilor GRUPA pe care le contine publicarea incarcata. Ce nu e aici a
+    #: disparut din orar (o serie desfiintata, un pachet redenumit) -- vezi
+    #: `worker.sync.curata_grupele_disparute`.
+    noduri: set[str] = field(default_factory=set)
 
     def __str__(self) -> str:
         linii = [
@@ -92,6 +98,8 @@ class _Cache:
     def __init__(self, s: Session, an_universitar: str) -> None:
         self.s = s
         self.an = an_universitar
+        #: Nodurile cerute de paginile incarcate acum, noi sau existente.
+        self.atinse: set[str] = set()
         self.profesori: dict[str, Profesor] = {
             p.nume: p for p in s.execute(select(Profesor)).scalars()
         }
@@ -152,6 +160,7 @@ class _Cache:
         specializare: str | None = None,
         an_studiu: int | None = None,
     ) -> Grupa:
+        self.atinse.add(slug)
         if g := self.grupe.get(slug):
             # Completam parintele daca nodul a fost creat mai devreme fara el.
             if parinte is not None and g.parinte_id is None and g is not parinte:
@@ -198,9 +207,9 @@ def _lant_ierarhic(cache: _Cache, t: TitluOrar) -> Grupa:
 
     if spec and t.an:
         den = DENUMIRI_SPECIALIZARE.get(spec, spec)
-        eticheta = f"{den} — anul {t.an}"
+        eticheta = f"{den} - anul {t.an}"
         if t.tip is TipPagina.MASTER:
-            eticheta = f"{den} — master, anul {t.an}"
+            eticheta = f"{den} - master, anul {t.an}"
         parinte = cache.grupa(
             _slug(f"{spec}-an-{t.an}" + ("-master" if t.tip is TipPagina.MASTER else "")),
             eticheta,
@@ -249,31 +258,48 @@ def _lant_ierarhic(cache: _Cache, t: TitluOrar) -> Grupa:
     )
 
 
+#: Paginile care se aplica altor formatiuni. SPECIAL (Fizica/Robotica) si NECUNOSCUT
+#: (`Conferinte si Seminarii`) nu: n-au cui sa se aplice, iar caderea pe tot anul le-ar
+#: arata unor studenti care n-au nicio legatura cu ele.
+_PACHETE = (TipPagina.OPTIONAL_SERII, TipPagina.OPTIONAL, TipPagina.FACULTATIV, TipPagina.LIMBI)
+
+
 def _grupe_tinta(cache: _Cache, t: TitluOrar) -> list[Grupa]:
-    """Grupele carora li se aplica o pagina de optionale/facultative.
+    """Grupele carora li se aplica o pagina de optionale/facultative/limbi.
 
     Le legam prin ORA_GRUPA, nu prin PARINTE: un pachet de optionale nu e parintele
     nimanui, doar se *aplica* mai multor formatiuni.
+
+    Ordinea, de la cel mai precis la cel mai larg:
+      1. seriile numite (`INFO Seriile 33,34,35: ...`);
+      2. specializarile numite in titlu, cautate permisiv (`Mate-lnfo`, `Mate Info`,
+         `Mate Apl.`) printre cele care **exista in anul paginii** -- deci si o specializare
+         aparuta anul acesta, fara sa fie trecuta in vreo lista;
+      3. altfel, tot anul (licenta sau master, dupa titlu). Un pachet pe care nu-l putem
+         lega precis e mai bine vazut de tot anul decat de nimeni.
     """
-    tinte: list[Grupa] = []
+    if t.tip not in _PACHETE:
+        return []
 
-    # "INFO Seriile 33,34,35: ..." -> nodurile de serie
-    for serie in t.serii_tinta:
-        if g := cache.grupe.get(_slug(f"seria-{serie}")):
-            tinte.append(g)
+    serii = [g for s in t.serii_tinta if (g := cache.grupe.get(_slug(f"seria-{s}")))]
+    if serii:
+        return serii
+    if not t.an:
+        return []
 
-    # "Facultative an II (Mate, Info, CTI)" -> nodurile de specializare+an
-    for spec in t.specializari_tinta:
-        if t.an and (g := cache.grupe.get(_slug(f"{spec}-an-{t.an}"))):
-            tinte.append(g)
-
-    # "Optionale an III - MATE (1)" -> nodul specializare+an
-    if not tinte and t.specializare and t.an:
-        sufix = "-master" if t.program == "master" else ""
-        if g := cache.grupe.get(_slug(f"{t.specializare}-an-{t.an}{sufix}")):
-            tinte.append(g)
-
-    return tinte
+    master = t.program == "master" or este_master(t.raw)
+    anul = {
+        g.specializare: g
+        for g in cache.grupe.values()
+        if g.tip == Nivel.SPECIALIZARE.value
+        and g.an_studiu == t.an
+        and g.specializare
+        and g.slug.endswith("-master") == master
+    }
+    coduri = specializari_vizate(t.raw, set(anul))
+    if not coduri and t.specializare in anul:
+        coduri = [t.specializare]
+    return [anul[c] for c in coduri] if coduri else list(anul.values())
 
 
 # ---------------------------------------------------------------------------
@@ -347,6 +373,9 @@ def incarca_pagini(
         titluri.append((pag, t, _lant_ierarhic(cache, t)))
     s.flush()
 
+    # Legaturile ORA_GRUPA au nevoie de ID_ORA, deci le scriem abia dupa un singur flush
+    # la final. Un flush pe fiecare ora ar insemna ~1100 de drumuri separate la baza.
+    legaturi: list[tuple[Ora, list[Grupa]]] = []
     for pag, t, nod_pagina in titluri:
         rap.pagini += 1
         sursa = pag.get("_source")
@@ -364,7 +393,6 @@ def incarca_pagini(
 
                 semigrupa = normalizeaza_semigrupa(act.get("semigrupa", ""))
                 nod = _nod_activitate(cache, nod_pagina, semigrupa, t)
-                s.flush()
 
                 ora = Ora(
                     profesor=cache.profesor(act.get("profesor")),
@@ -386,15 +414,18 @@ def incarca_pagini(
                     campuri_nesigure=act.get("_nesigure") or None,
                 )
                 s.add(ora)
-                s.flush()
                 rap.ore += 1
-
-                for tinta in tinte:
-                    s.add(OraGrupa(ora_id=ora.id, grupa_id=tinta.id))
-                    rap.legaturi_partajate += 1
+                if tinte:
+                    legaturi.append((ora, tinte))
 
     s.flush()
+    s.add_all(
+        OraGrupa(ora_id=ora.id, grupa_id=tinta.id) for ora, tinte in legaturi for tinta in tinte
+    )
+    rap.legaturi_partajate = sum(len(tinte) for _, tinte in legaturi)
+    s.flush()
     rap.grupe = len(cache.grupe)
+    rap.noduri = set(cache.atinse)
     rap.profesori = len(cache.profesori)
     rap.materii = len(cache.materii)
     rap.sali = len(cache.sali)

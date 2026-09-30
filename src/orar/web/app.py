@@ -6,14 +6,31 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from orar.web.auth import cheie_secreta, utilizator_curent
-from orar.web.deps import AICI, context_saptamana, templates
-from orar.web.routers import admin, cont, grupa, index, sala
+# Configurarea locala (`ORAR_SECRET`, `ORAR_ADMIN_USER`, `ORAR_ADMIN_PAROLA`...) sta in `.env`,
+# care nu intra in git. Se incarca inaintea a tot ce citeste mediul; variabilele deja setate
+# in mediu au intaietate.
+load_dotenv()
+
+from orar.web.auth import cheie_secreta, cont_curent  # noqa: E402
+from orar.web.deps import AICI, context_saptamana, templates  # noqa: E402
+from orar.web.routers import (  # noqa: E402
+    admin,
+    cont,
+    editare,
+    evenimente,
+    grupa,
+    index,
+    profesor,
+    sala,
+    sesizari,
+    statistici,
+)
 
 
 @asynccontextmanager
@@ -30,16 +47,17 @@ async def ciclu_de_viata(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="Orarul Sălilor — FMI",
+    title="Orarul Sălilor - FMI",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=ciclu_de_viata,
     # Pe toata aplicatia: fiecare cerere isi afla contul o singura data, prin `get_db`,
     # si il lasa in `request.state` pentru bara de sus.
-    dependencies=[Depends(utilizator_curent)],
+    dependencies=[Depends(cont_curent)],
 )
 app.mount("/static", StaticFiles(directory=str(AICI / "static")), name="static")
 
+# Sesiunea semnata tine autentificarea si tokenul CSRF.
 # `same_site="lax"` face ca un POST venit de pe alt sit sa nu primeasca deloc cookie-ul --
 # prima linie de aparare impotriva CSRF; tokenul din formulare e a doua.
 # `https_only` se activeaza cu ORAR_HTTPS=1: pe http local ar face cookie-ul inutilizabil.
@@ -55,8 +73,13 @@ app.add_middleware(
 app.include_router(index.router)
 app.include_router(grupa.router)
 app.include_router(sala.router)
+app.include_router(profesor.router)
 app.include_router(admin.router)
 app.include_router(cont.router)
+app.include_router(sesizari.router)
+app.include_router(editare.router)
+app.include_router(evenimente.router)
+app.include_router(statistici.router)
 
 
 @app.exception_handler(404)

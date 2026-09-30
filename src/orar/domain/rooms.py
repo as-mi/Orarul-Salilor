@@ -84,6 +84,8 @@ def normalizeaza_sala(raw: str | None) -> SalaNormalizata:
     <TipSala.VIRTUALA: 'virtuala'>
     >>> normalizeaza_sala("L-414 Robotica").nume
     'L.414 Robotica'
+    >>> normalizeaza_sala("L.414_Robotica").nume
+    'L.414 Robotica'
     """
     original = (raw or "").strip()
     cheie = original.lower()
@@ -105,7 +107,9 @@ def normalizeaza_sala(raw: str | None) -> SalaNormalizata:
         prefix_raw = m.group("prefix").upper()
         prefix = _PREFIXE.get(prefix_raw)
         if prefix:
-            suffix = m.group("suffix").strip()
+            # `_` si spatiile repetate din lamurire sunt zgomot de scriere: tabelul salilor
+            # scrie `L.414_Robotica`, celulele `L.414 Robotica` -- aceeasi sala, acelasi nume.
+            suffix = " ".join(m.group("suffix").replace("_", " ").split())
             nume = f"{prefix}.{m.group('numar')}"
             if suffix:
                 nume = f"{nume} {suffix}"

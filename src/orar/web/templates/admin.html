@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block titlu %}Administrare{% endblock %}
+
+{% block continut %}
+<section class="antet">
+  <h1>Administrare</h1>
+  <p class="nota">Autentificat ca <strong>{{ admin.nume }}</strong>
+    {%- if not admin.user %} - adminul principal, din configurare{% endif %}.</p>
+</section>
+
+{# Ce e de facut acum: fiecare card duce la lista lui. Cele cu ceva in asteptare ies in fata. #}
+<section class="sectiune" aria-labelledby="t-de-facut">
+  <h2 id="t-de-facut">De făcut</h2>
+  <div class="carduri">
+    <a class="card {{ 'atentie' if nr_sesizari }}" href="/admin/sesizari">
+      <strong>{{ nr_sesizari }}</strong>
+      <span>{{ 'sesizare de tratat' if nr_sesizari == 1 else 'sesizări de tratat' }}</span>
+      <small>probleme semnalate de studenți din paginile de orar</small>
+      <em>{{ 'Tratează-le' if nr_sesizari else 'Vezi istoricul' }} →</em>
+    </a>
+    <a class="card {{ 'atentie' if nr_nesigure }}" href="/admin/review">
+      <strong>{{ nr_nesigure }}</strong>
+      <span>{{ 'activitate de verificat' if nr_nesigure == 1 else 'activități de verificat' }}</span>
+      <small>citiri pe care programul nu le-a putut confirma singur</small>
+      <em>{{ 'Deschide coada de verificare' if nr_nesigure else 'Nimic de verificat' }} →</em>
+    </a>
+    <a class="card {{ 'atentie' if nr_neaplicate }}" href="/admin/corectii">
+      <strong>{{ nr_corectii }}</strong>
+      <span>{{ 'modificare manuală' if nr_corectii == 1 else 'modificări manuale' }}</span>
+      <small>{% if nr_neaplicate %}{{ nr_neaplicate }} nu și-au mai găsit activitatea după ultimul orar{% else %}ce ați schimbat față de orarul publicat{% endif %}</small>
+      <em>Vezi lista →</em>
+    </a>
+  </div>
+</section>
+
+<section class="sectiune" aria-labelledby="t-actiuni">
+  <h2 id="t-actiuni">Acțiuni rapide</h2>
+  <div class="actiuni-rapide">
+    <a class="actiune" href="/admin/activitate/noua?inapoi=/admin">
+      <span class="actiune-semn" aria-hidden="true">+</span>
+      <span><strong>Adaugă o activitate</strong><small>un curs, un seminar sau un laborator care lipsește din orar</small></span>
+    </a>
+    <a class="actiune" href="/">
+      <span class="actiune-semn" aria-hidden="true">✎</span>
+      <span><strong>Schimbă o activitate</strong><small>deschide o grupă sau o sală, apasă „Editează orarul”, apoi activitatea</small></span>
+    </a>
+    <a class="actiune" href="/admin/evenimente">
+      <span class="actiune-semn" aria-hidden="true">★</span>
+      <span><strong>Evenimente și săli rezervate</strong><small>activități ASMI și alte activități: caută o sală liberă la o dată anume, și în weekend</small></span>
+    </a>
+    <a class="actiune" href="/admin/statistici">
+      <span class="actiune-semn" aria-hidden="true">▦</span>
+      <span><strong>Orarul în cifre</strong><small>câți oameni au ore în fiecare interval, când e liber un public, cât de pline sunt sălile</small></span>
+    </a>
+    <a class="actiune" href="#orar">
+      <span class="actiune-semn" aria-hidden="true">↑</span>
+      <span><strong>Încarcă un orar nou</strong><small>din linkurile publicate de facultate</small></span>
+    </a>
+    <a class="actiune" href="#utilizatori">
+      <span class="actiune-semn" aria-hidden="true">☺</span>
+      <span><strong>Utilizatori și roluri</strong><small>{{ utilizatori|length }} {{ 'cont' if utilizatori|length == 1 else 'conturi' }}{% if cereri %} · {{ cereri|length }} {{ 'cerere' if cereri|length == 1 else 'cereri' }} de profesor{% endif %}</small></span>
+    </a>
+  </div>
+</section>
+
+<section class="sectiune panou" id="orare" aria-labelledby="t-orare">
+  <h2 id="t-orare">Orare încărcate</h2>
+  <p class="nota">Toate apar, pentru toată lumea, în panoul <strong>Orare</strong> din colțul paginilor.
+    Cel <strong>implicit</strong> e cel afișat când vizitatorul nu alege altul.</p>
+  {% if request.query_params.get('implicit') %}
+    <p class="reusit" role="status">Orarul implicit a fost schimbat.</p>
+  {% endif %}
+  {% if orare %}
+    <ul class="orare-lista">
+      {% for o in orare %}
+        <li class="{{ 'implicit' if o.implicit }}">
+          <div>
+            <a class="orar-nume" href="/{{ '' if o.implicit else '?perioada=' ~ o.perioada.id }}">{{ o.eticheta }}</a>
+            <span class="orar-detalii">{{ o.nr_ore }} activități{% if o.publicat %} · încărcat pe {{ o.publicat.strftime('%d.%m.%Y, %H:%M') }}{% endif %}</span>
+          </div>
+          {% if o.implicit %}
+            <span class="pastila">✓ implicit</span>
+          {% else %}
+            <form method="post" action="/admin/orar/implicit" hx-post="/admin/orar/implicit" hx-target="#orare" hx-select="#orare" hx-swap="outerHTML" hx-disabled-elt="find button">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <input type="hidden" name="perioada" value="{{ o.perioada.id }}">
+              <button type="submit" class="buton" aria-label="Fă implicit orarul {{ o.eticheta }}">Fă-l implicit</button>
+            </form>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="nota">Niciun orar încărcat încă.</p>
+  {% endif %}
+</section>
+
+<section class="sectiune panou" id="orar" aria-labelledby="t-orar">
+  <h2 id="t-orar">Încarcă un orar</h2>
+  <p class="nota">Linkul unui orar cu aceeași structură ca al FMI: PDF-ul aSc publicat pe
+    Google Drive (sau linkul scurt bit.ly către el). Încărcarea durează 10-20 de minute și
+    rulează în fundal. Se înlocuiește doar orarul aceluiași semestru și an - cel vechi rămâne
+    ca versiune anterioară; celelalte orare rămân neatinse.</p>
+
+  {% if request.query_params.get('eroare_orar') %}
+    <p class="avertisment" role="alert">{{ request.query_params.get('eroare_orar') }}</p>
+  {% endif %}
+
+  {% include "_stare_incarcare.html" %}
+
+  <form method="post" action="/admin/orar" class="camp-lista formular-orar" hx-post="/admin/orar" hx-target="#orar" hx-select="#orar" hx-swap="outerHTML" hx-disabled-elt="find button">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>
+      <span>Linkul orarului grupelor</span>
+      <input type="text" name="url_grupe" required inputmode="url" spellcheck="false"
+             placeholder="https://drive.google.com/file/d/…  sau  https://bit.ly/…">
+    </label>
+    <label>
+      <span>Linkul orarului profesorilor <small>obligatoriu - confirmă activitățile și dă numele întregi ale profesorilor</small></span>
+      <input type="text" name="url_profesori" required inputmode="url" spellcheck="false"
+             placeholder="https://drive.google.com/file/d/…">
+    </label>
+    <div class="pe-rand">
+      <label>
+        <span>Semestrul</span>
+        <select name="semestru">
+          <option value="1" {{ 'selected' if semestru_curent == 1 }}>1</option>
+          <option value="2" {{ 'selected' if semestru_curent == 2 }}>2</option>
+        </select>
+      </label>
+      <label>
+        <span>Anul universitar</span>
+        <input type="text" name="an_universitar" value="{{ an_curent }}" required
+               pattern="\d{4}-\d{4}" placeholder="2025-2026">
+      </label>
+    </div>
+    <button type="submit" class="principal" {{ 'disabled' if incarcare.in_lucru }}>Încarcă orarul</button>
+  </form>
+</section>
+
+<section class="sectiune panou" id="utilizatori" aria-labelledby="t-utilizatori">
+  <h2 id="t-utilizatori">Utilizatori și roluri</h2>
+  <p class="nota">Alege rolul din listă și apasă „Salvează”. Un <strong>admin</strong> poate face tot ce e pe pagina aceasta.</p>
+  {% if request.query_params.get('salvat') %}
+    <p class="reusit" role="status">Rolul a fost salvat.</p>
+  {% endif %}
+  {% if request.query_params.get('eroare_rol') %}
+    <p class="avertisment" role="alert">{{ request.query_params.get('eroare_rol') }}</p>
+  {% endif %}
+
+  {# Cererile de a primi rolul de profesor, trimise din "Contul și grupa mea". #}
+  {% if cereri %}
+    <div class="cereri">
+      <h3>{{ cereri|length }} {{ 'cerere' if cereri|length == 1 else 'cereri' }} pentru rolul de profesor</h3>
+      {% for u in cereri %}
+        <form method="post" action="/admin/utilizatori/{{ u.id }}/cerere" class="cerere"
+              hx-post="/admin/utilizatori/{{ u.id }}/cerere" hx-target="#utilizatori" hx-select="#utilizatori" hx-swap="outerHTML" hx-disabled-elt="find button">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <span><strong>{{ u.nume }}</strong> ({{ u.email }}) cere să fie profesorul <strong>{{ u.cerere_profesor }}</strong></span>
+          <button type="submit" name="actiune" value="aproba" class="buton plin">Aprobă</button>
+          <button type="submit" name="actiune" value="respinge" class="buton">Respinge</button>
+        </form>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if utilizatori %}
+    {% if utilizatori|length > 8 %}
+      <label class="cauta-utilizator">
+        <span class="sr-only">Caută un utilizator</span>
+        <input type="search" id="cauta-utilizator" placeholder="Caută după nume sau email" autocomplete="off">
+      </label>
+      <script>
+        document.getElementById("cauta-utilizator").addEventListener("input", (e) => {
+          const q = e.target.value.trim().toLowerCase();
+          for (const rand of document.querySelectorAll("#utilizatori tbody tr"))
+            rand.hidden = q && !rand.dataset.cauta.includes(q);
+        });
+      </script>
+    {% endif %}
+    <div class="tabel-scroll">
+      <table class="tabel-sali tabel-utilizatori">
+        <thead>
+          <tr><th>Nume</th><th>Email</th><th>Grupa</th><th>Rol</th></tr>
+        </thead>
+        <tbody>
+          {% for u in utilizatori %}
+            <tr data-cauta="{{ (u.nume ~ ' ' ~ (u.email or ''))|lower }}">
+              <td>{{ u.nume }}</td>
+              <td>{{ u.email or '-' }}</td>
+              <td>{% if u.grupa %}<a href="/grupa/{{ u.grupa.slug }}">{{ u.grupa.nume }}</a>{% else %}-{% endif %}</td>
+              <td>
+                <form method="post" action="/admin/utilizatori/{{ u.id }}/rol" class="rol-form" hx-post="/admin/utilizatori/{{ u.id }}/rol" hx-target="#utilizatori" hx-select="#utilizatori" hx-swap="outerHTML" hx-disabled-elt="find button">
+                  <input type="hidden" name="csrf" value="{{ csrf }}">
+                  <select name="rol" aria-label="Rolul lui {{ u.nume }}"
+                          onchange="this.form.querySelector('.rol-profesor').hidden = this.value !== 'profesor'">
+                    {% for r in roluri %}
+                      <option value="{{ r }}" {{ 'selected' if u.rol == r }}>{{ r }}</option>
+                    {% endfor %}
+                  </select>
+                  {# Rolul de profesor cere si profesorul: al cui orar e "orarul meu" al contului. #}
+                  <input type="text" name="profesor" list="lista-profesori" autocomplete="off" class="rol-profesor"
+                         value="{{ u.profesor or '' }}" placeholder="profesorul, din listă"
+                         aria-label="Profesorul lui {{ u.nume }}" {{ 'hidden' if u.rol != 'profesor' }}>
+                  <button type="submit" class="buton" aria-label="Salvează rolul lui {{ u.nume }}">Salvează</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <datalist id="lista-profesori">{% for p in profesori %}<option value="{{ p }}">{% endfor %}</datalist>
+  {% else %}
+    <div class="panou-gol"><p>Niciun cont încă. Conturile apar aici după înregistrare.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -5,11 +5,11 @@
 <section class="formular">
   <h1>Cont nou</h1>
   <p class="nota">Alege-ți grupa acum și intri direct în orarul tău. Semigrupa și opționalele
-    se aleg după, în <a href="/preferinte">preferințe</a>.</p>
+    le alegi apoi chiar pe orar și rămân salvate în cont.</p>
 
   {% if eroare %}<p class="avertisment" role="alert">{{ eroare }}</p>{% endif %}
 
-  <form method="post" action="/inregistrare" class="camp-lista">
+  <form method="post" action="/signup" class="camp-lista">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <label>
       <span>Nume</span>
@@ -27,9 +27,9 @@
              autocomplete="new-password">
     </label>
     <label>
-      <span>Grupa <small>opțional, o poți alege și mai târziu</small></span>
+      <span>Grupa <small>o poți alege și mai târziu</small></span>
       <select name="grupa_id">
-        <option value="">— alege —</option>
+        <option value="">- alege -</option>
         {% for g in grupe %}
           <option value="{{ g.id }}" {% if grupa_id == g.id|string %}selected{% endif %}>{{ g.nume }}</option>
         {% endfor %}
@@ -38,6 +38,6 @@
     <button type="submit" class="principal">Creează contul</button>
   </form>
 
-  <p class="nota">Ai deja cont? <a href="/intrare">Intră</a>.</p>
+  <p class="nota">Ai deja cont? <a href="/login">Intră</a>.</p>
 </section>
 {% endblock %}

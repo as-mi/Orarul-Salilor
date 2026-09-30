@@ -2,12 +2,13 @@
 {% block titlu %}Verificare extragere{% endblock %}
 
 {% block continut %}
+{% import "_profesori.html" as pr %}
 <section class="antet">
-  <nav class="firimituri"><a href="/">acasă</a><span>›</span><strong>verificare</strong></nav>
+  <nav class="firimituri"><a href="/admin">administrare</a><span>›</span><strong>verificare</strong></nav>
 
   <h1>Coadă de verificare</h1>
 
-  <div class="sumar">
+  <div class="sumar" id="sumar-coada">
     <span class="fapt"><strong>{{ total_nesigure }}</strong> cu câmpuri nerecunoscute</span>
     <span class="fapt"><strong>{{ total_cu_provenienta }}</strong> activități extrase automat</span>
     <span class="fapt">prag încredere &lt; {{ "%.2f"|format(prag) }}</span>
@@ -15,9 +16,21 @@
 
   <p class="nota">
     Fiecare rând arată <strong>decupajul real al celulei</strong> lângă ce am citit din ea.
-    Câmpurile marcate sunt cele pe care vocabularul nu le-a putut confirma — acolo valoarea
-    afișată e textul brut, nu un termen verificat.
+    Câmpurile marcate sunt cele pe care vocabularul nu le-a putut confirma. Compară cu
+    decupajul, corectează ce e greșit (profesorii se aleg din orarul profesorilor; o activitate
+    poate avea mai mulți) și apasă <strong>✓ Confirmă</strong>: activitatea iese
+    din coadă, iar ce ai confirmat se păstrează și după ce se încarcă un orar nou.
   </p>
+  {# Mesajele: aici ajung si dupa o confirmare facuta fara reincarcarea paginii. #}
+  <div id="mesaje-coada" aria-live="polite">
+    {% if request.query_params.get('rezolvat') %}
+      <p class="reusit" role="status">Activitatea a fost confirmată și a ieșit din coadă.
+        {% if total_nesigure %}Mai sunt {{ total_nesigure }} cu câmpuri nerecunoscute.{% endif %}</p>
+    {% endif %}
+    {% if request.query_params.get('eroare') %}
+      <p class="avertisment" role="alert">{{ request.query_params.get('eroare') }}</p>
+    {% endif %}
+  </div>
 
   {% if director_lipsa %}
     <p class="avertisment">
@@ -32,19 +45,57 @@
 {% else %}
 <div class="coada">
   {% for o in ore %}
-    <article class="revizuire {% if o.campuri_nesigure %}atentie{% endif %}">
+    {% set nesigure = o.campuri_nesigure or '' %}
+    <article class="revizuire {% if o.campuri_nesigure %}atentie{% endif %}" id="ora-{{ o.id }}">
       <img class="decupaj" src="/admin/decupaj/{{ o.id }}" alt="celula din {{ o.sursa_pagina }}" loading="lazy">
-      <dl class="citit">
-        <div><dt>materie</dt><dd class="{{ 'nesigur' if 'materie' in (o.campuri_nesigure or '') }}">{{ o.materie.nume if o.materie else "—" }}</dd></div>
-        <div><dt>profesor</dt><dd class="{{ 'nesigur' if 'profesor' in (o.campuri_nesigure or '') }}">{{ o.profesor.nume if o.profesor else "—" }}</dd></div>
-        <div><dt>sală</dt><dd>{{ o.sala.nume if o.sala else "—" }}</dd></div>
-        <div><dt>tip</dt><dd>{{ o.tip_ora_materie or "—" }}</dd></div>
-        <div><dt>când</dt><dd>{{ o.zi_saptamana }} {{ "%02d"|format(o.ora_inceput.hour) }}–{{ "%02d"|format(o.ora_sfarsit.hour) }}
+      <div class="rezolvare">
+        <p class="despre">
+          <a href="/grupa/{{ o.grupa.slug }}">{{ o.grupa.nume }}</a>{% if o.semigrupa %} · {{ o.semigrupa.replace('_', ' ') }}{% endif %}
+          · {{ o.zi_saptamana }} {{ "%02d"|format(o.ora_inceput.hour) }}-{{ "%02d"|format(o.ora_sfarsit.hour) }}
+          {%- if o.tip_ora_materie %} · {{ o.tip_ora_materie }}{% endif %}
           {%- if o.frecventa %} · {{ o.frecventa }}{% endif %}
-          {%- if o.saptamani %} · {{ o.saptamani }}{% endif %}</dd></div>
-        <div><dt>grupă</dt><dd><a href="/grupa/{{ o.grupa.slug }}">{{ o.grupa.nume }}</a>
-          {%- if o.semigrupa %} · {{ o.semigrupa }}{% endif %}</dd></div>
-      </dl>
+          {%- if o.saptamani %} · {{ o.saptamani }}{% endif %}
+        </p>
+        {# Corectezi ce e gresit (sau nimic) si confirmi: activitatea iese din coada. #}
+        <form method="post" action="/admin/review/{{ o.id }}" class="rezolvare-campuri"
+              hx-post="/admin/review/{{ o.id }}" hx-target="#ora-{{ o.id }}" hx-select="#ora-{{ o.id }}"
+              hx-select-oob="#sumar-coada,#mesaje-coada" hx-swap="outerHTML" hx-disabled-elt="find button">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <input type="hidden" name="inapoi" value="{{ inapoi }}">
+          <label class="{{ 'nesigur' if 'materie' in nesigure }}">
+            <span>materie{% if 'materie' in nesigure %} · nerecunoscută{% endif %}</span>
+            <input type="text" name="materie" list="lista-materii" autocomplete="off" required
+                   value="{{ o.materie.nume if o.materie else '' }}">
+          </label>
+          <div class="camp lat {{ 'nesigur' if 'profesor' in nesigure }}">
+            <span>profesori{% if 'profesor' in nesigure %} · nerecunoscut{% endif %}</span>
+            {{ pr.alege_profesori(o.profesor.nume if o.profesor else '', profesori, alt_profesor, lenes=true) }}
+            {# Potrivirea cu orarul profesorilor: cine tine, acolo, activitatea asta. #}
+            {% set propusi = propuneri.get(o.id, []) %}
+            {% if propusi and propusi|join(' / ') != (o.profesor.nume if o.profesor else '') %}
+              <p class="propunere">în orarul profesorilor: <strong>{{ propusi|join(', ') }}</strong>
+                <button type="button" class="buton mic" data-foloseste="{{ propusi|join('|') }}">folosește</button></p>
+            {% endif %}
+          </div>
+          <label>
+            <span>sală</span>
+            <input type="text" name="sala" list="lista-sali" autocomplete="off"
+                   value="{{ o.sala.nume if o.sala else '' }}">
+          </label>
+          <label>
+            <span>săptămâni <small>dacă e doar în unele</small></span>
+            <input type="text" name="saptamani" maxlength="80" placeholder="ex. sapt 1-7"
+                   value="{{ o.saptamani or '' }}">
+          </label>
+          <div class="rezolvare-actiuni">
+            <button type="submit" class="buton plin" title="Salvează ce e scris în câmpuri și scoate activitatea din coadă">✓ Confirmă</button>
+            <a class="buton" href="/admin/activitate/{{ o.id }}?inapoi={{ inapoi|urlencode }}"
+               title="Formularul complet: zi, ore, tip, formațiune, semigrupă, săptămâni">✎ Editează tot</a>
+            <a class="buton" href="/admin/activitate/noua?dupa={{ o.id }}&inapoi={{ inapoi|urlencode }}"
+               title="Aceeași activitate, ținută de alt profesor în alte săptămâni">+ Altă parte</a>
+          </div>
+        </form>
+      </div>
       <div class="provenienta">
         <span class="incredere" title="cea mai mică încredere dintre câmpurile citite">{{ "%.2f"|format(o.confidence or 0) }}</span>
         <span class="sursa">{{ o.sursa_pagina }}</span>
@@ -52,5 +103,8 @@
     </article>
   {% endfor %}
 </div>
+<datalist id="lista-materii">{% for m in materii %}<option value="{{ m }}">{% endfor %}</datalist>
+{{ pr.resurse_profesori(profesori, alt_profesor, request) }}
+<datalist id="lista-sali">{% for _, grup in sali %}{% for sl in grup %}<option value="{{ sl.nume }}">{% endfor %}{% endfor %}</datalist>
 {% endif %}
 {% endblock %}

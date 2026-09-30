@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block titlu %}Modificări manuale{% endblock %}
+
+{% block continut %}
+<section class="antet">
+  <nav class="firimituri"><a href="/admin">administrare</a><span>›</span><strong>modificări manuale</strong></nav>
+  <h1>Modificări manuale</h1>
+  <p class="nota">Ce au schimbat administratorii față de orarul publicat. Se pun la loc automat după
+    fiecare orar nou; cele care nu-și mai găsesc activitatea apar primele, ca „neaplicate”.</p>
+  <p><a class="buton plin" href="/admin/activitate/noua?inapoi=/admin/corectii">+ Adaugă o activitate</a></p>
+</section>
+
+<section class="coada" id="coada-corectii">
+  {% for c in corectii %}
+    <article class="sesizare {{ '' if c.aplicata else 'noua' }}">
+      <header>
+        <span class="pastila {{ 'neutra' if c.aplicata }}">{{ 'adăugată' if c.fel == 'adaugare' else 'confirmată' if c.id in confirmari else 'modificată' }}{{ '' if c.aplicata else ' · neaplicată' }}</span>
+        <time>{{ c.creat_la.strftime('%d.%m.%Y %H:%M') }}</time>
+        <span class="de-la">{{ c.creat_de }}</span>
+        <a href="/grupa/{{ c.grupa_slug }}">{{ c.grupa_slug }}</a>
+      </header>
+      <p class="despre">{{ c.materie or 'fără materie' }}{% if c.tip %} ({{ c.tip }}){% endif %} · {{ c.zi }} {{ c.ora_inceput.hour }}-{{ c.ora_sfarsit.hour }}
+        {%- if c.semigrupa %} · {{ c.semigrupa.replace('_', ' ') }}{% endif %}{% if c.frecventa %} · {{ c.frecventa }}{% endif %}{% if c.saptamani %} · {{ c.saptamani }}{% endif %}</p>
+      <p class="mesaj">
+        {% set era = originale.get(c.id) %}
+        {% if c.id in confirmari %}
+          Verificată din coada de verificare, fără nicio schimbare: {{ c.profesor or 'fără profesor' }} · {{ c.sala or 'fără sală' }}
+        {% elif not era %}
+          {{ c.profesor or 'fără profesor' }} · {{ c.sala or 'fără sală' }}
+        {% else %}
+          {% set acum = {'materie': c.materie, 'tip': c.tip, 'grupa_slug': c.grupa_slug, 'zi': c.zi,
+                         'ora_inceput': c.ora_inceput.strftime('%H:%M'), 'ora_sfarsit': c.ora_sfarsit.strftime('%H:%M'),
+                         'profesor': c.profesor, 'sala': c.sala, 'semigrupa': c.semigrupa,
+                         'frecventa': c.frecventa, 'saptamani': c.saptamani} %}
+          {% for camp, eticheta in [('materie', 'materie'), ('tip', 'tip'), ('grupa_slug', 'pentru'), ('zi', 'zi'),
+                                    ('ora_inceput', 'de la'), ('ora_sfarsit', 'până la'), ('profesor', 'profesor'),
+                                    ('sala', 'sală'), ('semigrupa', 'semigrupă'), ('frecventa', 'frecvență'),
+                                    ('saptamani', 'săptămâni')] if era[camp] != acum[camp] %}
+            <span class="schimbare">{{ eticheta }}: <s>{{ era[camp] or '-' }}</s> → <strong>{{ acum[camp] or '-' }}</strong></span>
+          {% endfor %}
+        {% endif %}
+      </p>
+      {% if not c.aplicata %}
+        <p class="nota">Orarul publicat nu mai are această activitate (sau formațiunea). Dacă nu mai e de actualitate, renunță la ea.</p>
+      {% endif %}
+      <div class="actiuni-sesizare">
+        {% if ore.get(c.id) %}<a class="buton" href="/admin/activitate/{{ ore[c.id] }}?inapoi=/admin/corectii">✎ Deschide</a>{% endif %}
+        <form method="post" action="/admin/corectii/{{ c.id }}/anuleaza" class="pe-linie" hx-post="/admin/corectii/{{ c.id }}/anuleaza" hx-target="#coada-corectii" hx-select="#coada-corectii" hx-swap="outerHTML" hx-disabled-elt="find button">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <button type="submit" class="buton pericol">{{ 'Șterge activitatea' if c.fel == 'adaugare' else 'Renunță la confirmare' if c.id in confirmari else 'Revino la orarul publicat' }}</button>
+        </form>
+      </div>
+    </article>
+  {% else %}
+    <div class="panou-gol"><p>Nicio modificare manuală. Orarul e exact cel publicat.</p></div>
+  {% endfor %}
+</section>
+{% endblock %}

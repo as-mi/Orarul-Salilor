@@ -38,10 +38,10 @@ from dataclasses import dataclass, field
 from datetime import time
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from orar.db.models import Ora, Profesor
+from orar.db.models import Ora, Profesor, SlotProfesor
 from orar.domain.names import potriveste
 from orar.domain.rooms import normalizeaza_sala
 from orar.ingest.lexicon import Lexicon
@@ -57,6 +57,8 @@ __all__ = [
     "verifica",
     "completeaza_profesorii",
     "extinde_numele",
+    "salveaza_index",
+    "profesori_potriviti",
 ]
 
 #: Cheia dupa care legam cele doua surse: ce se poate citi la fel din amandoua.
@@ -84,11 +86,35 @@ class IndexProfesori:
     pe_slot: dict[Cheie, set[str]] = field(default_factory=lambda: defaultdict(set))
     #: Formatiunile scrise in celula, pentru fiecare slot.
     formatiuni: dict[Cheie, set[str]] = field(default_factory=lambda: defaultdict(set))
+    #: cheie de slot -> (profesor, frecventa, saptamani): o activitate impartita pe
+    #: saptamani are acelasi slot, dar alt om in fiecare interval.
+    detalii: dict[Cheie, set[tuple[str, str, str]]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
     pagini: int = 0
     avertismente: list[str] = field(default_factory=list)
 
     def profesori(self, ora: Ora) -> set[str]:
-        return self.pe_slot.get(_cheie_ora(ora), set())
+        """Profesorii activitatii. Cand slotul e impartit pe saptamani, doar cei care tin
+        exact saptamanile ei; daca nu se potriveste niciunul, toti cei din slot."""
+        k = _cheie_ora(ora)
+        toti = self.pe_slot.get(k, set())
+        return _pe_saptamani(self.detalii.get(k, set()), ora.frecventa, ora.saptamani) or toti
+
+
+def _pe_saptamani(
+    detalii: set[tuple[str, str, str]], frecventa: str | None, saptamani: str | None
+) -> set[str]:
+    """Din profesorii unui slot, cei cu aceeasi frecventa si aceleasi saptamani. Multimea
+    goala cand slotul nu e impartit (toti au aceleasi saptamani) sau nu se potriveste nimeni."""
+    if len({(f, sp) for _, f, sp in detalii}) < 2:
+        return set()
+    cautat = (_norm(frecventa), _norm(saptamani))
+    return {n for n, f, sp in detalii if (f, sp) == cautat}
+
+
+def _norm(text: str | None) -> str:
+    return "".join((text or "").lower().split())
 
 
 def _cheie_ora(o: Ora) -> Cheie:
@@ -123,6 +149,7 @@ def citeste_orarul_profesorilor(
                 continue
             k = _cheie(a.zi, inceput, sfarsit, a.sala, a.materie)
             index.pe_slot[k].add(nume)
+            index.detalii[k].add((nume, _norm(a.frecventa), _norm(a.saptamani)))
             index.formatiuni[k].update(a.formatiuni)
     return index
 
@@ -317,3 +344,93 @@ def _profesor(s: Session, nume: str) -> Profesor:
 def _fara(campuri: str | None, camp: str) -> str | None:
     ramase = [c for c in (campuri or "").split(",") if c and c != camp]
     return ",".join(ramase) or None
+
+
+# ---------------------------------------------------------------------------
+# A doua sursa, pastrata in baza
+# ---------------------------------------------------------------------------
+
+
+def salveaza_index(s: Session, index: IndexProfesori, *, an_universitar: str, semestru: int) -> int:
+    """Pastreaza orarul profesorilor: numele intregi devin lista din care se alege un
+    profesor, iar activitatile lor raman pentru potrivirea din coada de verificare.
+
+    Inlocuieste ce era pastrat pentru acelasi semestru. Intoarce numarul de profesori.
+    """
+    s.execute(
+        delete(SlotProfesor).where(
+            SlotProfesor.an_univ == an_universitar, SlotProfesor.semestru == semestru
+        )
+    )
+    for (zi, inceput, sfarsit, sala, materie), oameni in index.detalii.items():
+        for nume, frecventa, saptamani in oameni:
+            s.add(
+                SlotProfesor(
+                    an_univ=an_universitar,
+                    semestru=semestru,
+                    profesor=nume,
+                    zi=zi,
+                    ora_inceput=inceput,
+                    ora_sfarsit=sfarsit,
+                    sala=sala,
+                    materie=materie[:200],
+                    frecventa=frecventa or None,
+                    saptamani=saptamani or None,
+                )
+            )
+    nume_unice = sorted(set(index.nume))
+    from orar.ingest.load import _slug
+
+    for nume in nume_unice:
+        # acelasi om poate fi deja in baza cu alta scriere a numelui (o cratima, o litera
+        # citita altfel) care da acelasi slug: e randul lui, nu unul nou
+        p = s.scalar(select(Profesor).where(Profesor.nume == nume)) or s.scalar(
+            select(Profesor).where(Profesor.slug == _slug(nume))
+        )
+        if p is None:
+            p = Profesor(nume=nume, slug=_slug(nume))
+            s.add(p)
+        p.din_orar = True
+        s.flush()
+    s.flush()
+    return len(nume_unice)
+
+
+def profesori_potriviti(s: Session, ore: list[Ora]) -> dict[int, list[str]]:
+    """Pentru fiecare activitate, profesorii pe care orarul profesorilor ii are in acelasi
+    loc: aceeasi zi si acelasi interval, in aceeasi sala sau la aceeasi materie.
+
+    Mai ingaduitor decat potrivirea de la ingest (care cere si sala, si materia): aici un om
+    se uita la propunere si hotaraste. Intr-un slot impartit pe saptamani raman doar cei cu
+    saptamanile activitatii.
+    """
+    if not ore:
+        return {}
+    perioade = {(o.perioada.an_univ, o.perioada.semestru) for o in ore}
+    pe_moment: dict[tuple, list[SlotProfesor]] = defaultdict(list)
+    for an, semestru in perioade:
+        for slot in s.scalars(
+            select(SlotProfesor).where(
+                SlotProfesor.an_univ == an, SlotProfesor.semestru == semestru
+            )
+        ):
+            pe_moment[an, semestru, slot.zi, slot.ora_inceput, slot.ora_sfarsit].append(slot)
+
+    propuneri: dict[int, list[str]] = {}
+    for o in ore:
+        _, inceput, sfarsit, sala, materie = _cheie_ora(o)
+        candidati = pe_moment.get(
+            (o.perioada.an_univ, o.perioada.semestru, o.zi_saptamana, inceput, sfarsit), []
+        )
+        # intai potrivirea stricta (sala si materie); altfel macar una dintre ele
+        gasiti = (
+            [x for x in candidati if x.sala == sala and x.materie == materie]
+            or [x for x in candidati if materie and x.materie == materie]
+            or [x for x in candidati if sala and x.sala == sala]
+        )
+        if not gasiti:
+            continue
+        detalii = {(x.profesor, _norm(x.frecventa), _norm(x.saptamani)) for x in gasiti}
+        nume = _pe_saptamani(detalii, o.frecventa, o.saptamani) or {x.profesor for x in gasiti}
+        propuneri[o.id] = sorted(nume)
+    return propuneri

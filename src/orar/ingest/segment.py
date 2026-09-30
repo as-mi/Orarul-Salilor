@@ -122,6 +122,8 @@ class PaginaSegmentata:
     #: Regiunea titlului, deasupra tabelului (de dat la OCR pentru numele formatiunii).
     bbox_titlu: tuple[int, int, int, int] | None = None
     avertismente: list[str] = field(default_factory=list)
+    #: Masca de text a paginii, calculata deja la segmentare; OCR-ul o refoloseste.
+    negru: np.ndarray | None = field(default=None, repr=False, compare=False)
 
     def pe_zi(self, zi: str) -> list[Celula]:
         return [c for c in self.celule if c.zi == zi]
@@ -132,11 +134,13 @@ class PaginaSegmentata:
 # ---------------------------------------------------------------------------
 
 
-def _masti(img: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """(alb, negru) -- masti booleene peste imaginea RGB."""
-    alb = (img >= PRAG_ALB).all(axis=2)
-    negru = (img <= PRAG_NEGRU).all(axis=2)
-    return alb, negru
+def masca_negru(img: np.ndarray) -> np.ndarray:
+    """Pixelii de text/chenar: toate cele trei canale sub `PRAG_NEGRU`.
+
+    Canal cu canal, nu cu `.all(axis=2)`: reducerea pe ultima axa, de lungime 3, merge
+    element cu element si e de ~10x mai lenta pe o pagina de 7 milioane de pixeli.
+    """
+    return (img[..., 0] <= PRAG_NEGRU) & (img[..., 1] <= PRAG_NEGRU) & (img[..., 2] <= PRAG_NEGRU)
 
 
 def _linii(profil: np.ndarray, prag: float, toleranta: int = 3) -> list[int]:
@@ -184,14 +188,15 @@ def _intindere_linie(negru: np.ndarray, y: int, gol_maxim: int = 6) -> tuple[int
     return cel_mai_bun
 
 
-def detecteaza_caroiaj(img: np.ndarray) -> Caroiaj:
+def detecteaza_caroiaj(img: np.ndarray, negru: np.ndarray | None = None) -> Caroiaj:
     """Masoara caroiajul, folosind riglele curate ale paginii.
 
     Arunca `EroareSegmentare` daca pagina nu are structura asteptata -- mai bine oprim
     ingestul decat sa producem date inventate dintr-o pagina de cuprins.
     """
     inaltime, latime = img.shape[:2]
-    _, negru = _masti(img)
+    if negru is None:
+        negru = masca_negru(img)
 
     profil_h = negru.sum(axis=1).astype(float) / latime
     orizontale = _linii(profil_h, prag=0.55)
@@ -328,35 +333,61 @@ def _este_alb(c: tuple[int, int, int]) -> bool:
     return min(c) >= PRAG_ALB
 
 
-def _culoare_pe_linie(
-    img: np.ndarray, negru: np.ndarray, y: int, x0: int, x1: int
-) -> tuple[int, int, int] | None:
-    """Culoarea de umplere a unei scanlinii, ignorand pixelii de text.
+def _culori_pe_linii(
+    img: np.ndarray, negru: np.ndarray, y0: int, y1: int, x0: int, x1: int
+) -> list[tuple[int, int, int] | None]:
+    """Culoarea de umplere a fiecarei scanlinii din [y0, y1), ignorand pixelii de text.
 
-    None cand linia e aproape numai text/chenar, deci nu spune nimic despre umplere.
+    None pentru liniile aproape numai text/chenar, care nu spun nimic despre umplere.
+
+    Culoarea e moda pe linie a pixelilor cuantizati la 8 niveluri. O calculam pentru tot
+    blocul deodata -- sortare pe randuri, apoi lungimea fiecarei serii de valori egale --
+    in loc de un `np.unique` pe fiecare linie: o pagina are ~20000 de linii de coloana.
+    La egalitate castiga codul cel mai mic, exact ca `np.unique` + `argmax`.
     """
-    ne_text = ~negru[y, x0:x1]
-    if int(ne_text.sum()) < max(4, (x1 - x0) * 0.2):
-        return None
-    pixeli = img[y, x0:x1][ne_text]
-    q = (pixeli // 8 * 8).astype(np.int32)
-    coduri, nr = np.unique(q[:, 0] * 65536 + q[:, 1] * 256 + q[:, 2], return_counts=True)
-    cod = int(coduri[int(np.argmax(nr))])
-    return (cod >> 16 & 0xFF, cod >> 8 & 0xFF, cod & 0xFF)
+    bloc = img[y0:y1, x0:x1] // 8 * 8
+    cod = (
+        (bloc[..., 0].astype(np.int32) << 16)
+        | (bloc[..., 1].astype(np.int32) << 8)
+        | bloc[..., 2].astype(np.int32)
+    )
+    text = negru[y0:y1, x0:x1]
+    cod[text] = -1  # sub orice culoare, deci ajunge la inceputul randului sortat
+    cod.sort(axis=1)
+
+    idx = np.arange(cod.shape[1])
+    inceput_serie = np.ones(cod.shape, dtype=bool)
+    inceput_serie[:, 1:] = cod[:, 1:] != cod[:, :-1]
+    start = np.maximum.accumulate(np.where(inceput_serie, idx, 0), axis=1)
+    lungime = idx - start + 1
+    lungime[cod < 0] = 0
+    # Prima pozitie cu lungimea maxima e capatul primei serii (deci a celui mai mic cod)
+    # care atinge maximul.
+    moda = cod[np.arange(cod.shape[0]), lungime.argmax(axis=1)]
+    destul = (~text).sum(axis=1) >= max(4, (x1 - x0) * 0.2)
+
+    return [
+        (int(c) >> 16 & 0xFF, int(c) >> 8 & 0xFF, int(c) & 0xFF) if ok else None
+        for c, ok in zip(moda, destul, strict=True)
+    ]
 
 
-def _seam_orizontal(lum: np.ndarray, x0: int, x1: int, y: int) -> bool:
-    """E o linie desenata la randul y, sau doar un rand de text?
+def _seam_orizontal(lum: np.ndarray, x0: int, x1: int, y0: int, y1: int) -> np.ndarray:
+    """Pentru fiecare rand din [y0, y1): e o linie desenata, sau doar un rand de text?
 
     Un rand de text e si el mai intunecat decat vecinii lui pe medie, deci media nu
     separa nimic. Ce le deosebeste e **continuitatea**: o linie trasa intuneca *fiecare*
     pixel de pe latime, pe cand textul lasa umplerea la vedere intre litere.
     """
-    if y - 3 < 0 or y + 3 >= lum.shape[0]:
-        return False
-    aici = lum[y, x0:x1]
-    vecini = np.minimum(lum[y - 3, x0:x1], lum[y + 3, x0:x1])
-    return bool((aici < vecini - ADANCIME_CHENAR).mean() >= 0.90)
+    inaltime = lum.shape[0]
+    ys = np.arange(y0, y1)
+    in_pagina = (ys - 3 >= 0) & (ys + 3 < inaltime)
+    aici = lum[y0:y1, x0:x1]
+    vecini = np.minimum(
+        lum[np.clip(ys - 3, 0, inaltime - 1), x0:x1],
+        lum[np.clip(ys + 3, 0, inaltime - 1), x0:x1],
+    )
+    return in_pagina & ((aici < vecini - ADANCIME_CHENAR).mean(axis=1) >= 0.90)
 
 
 def _tranzitie_orizontala(
@@ -419,15 +450,15 @@ def _benzi_din_coloana(
     activitati cu fundal in diagonala, jumatate alb, iar dupa culoare ar parea slot gol
     desi are profesor, materie si sala scrise in ea.
     """
-    culori = [_culoare_pe_linie(img, negru, y, x0, x1) for y in range(y0 + 1, y1)]
+    culori = _culori_pe_linii(img, negru, y0 + 1, y1, x0, x1)
 
     # Taiem unde e chenar desenat, sau unde umplerea se schimba pe toata latimea. A doua
     # conditie prinde celulele vecine al caror chenar comun s-a pierdut la randare; testul
     # de "pe toata latimea" o impiedica sa taie in interiorul fundalurilor in diagonala.
     granite: list[int] = [0]
-    for i in range(len(culori)):
-        if _seam_orizontal(lum, x0, x1, y0 + 1 + i) and i - granite[-1] >= 6:
-            granite.append(i)
+    for i in np.flatnonzero(_seam_orizontal(lum, x0, x1, y0 + 1, y1)):
+        if i - granite[-1] >= 6:
+            granite.append(int(i))
     granite.append(len(culori))
 
     for a, b in zip(granite, granite[1:], strict=False):
@@ -543,13 +574,18 @@ def _atribuie_benzi(celule: list[Celula]) -> list[Celula]:
 
 def segmenteaza(imagine: Image.Image | np.ndarray) -> PaginaSegmentata:
     """Segmenteaza o pagina de orar in celule de activitate."""
-    img = np.asarray(imagine.convert("RGB")) if isinstance(imagine, Image.Image) else imagine
+    if isinstance(imagine, Image.Image):
+        img = np.asarray(imagine if imagine.mode == "RGB" else imagine.convert("RGB"))
+    else:
+        img = imagine
     if img.ndim != 3 or img.shape[2] != 3:
         raise EroareSegmentare("astept o imagine RGB")
 
-    caroiaj = detecteaza_caroiaj(img)
-    _, negru = _masti(img)
-    lum = img.mean(axis=2)
+    negru = masca_negru(img)
+    caroiaj = detecteaza_caroiaj(img, negru)
+    # = img.mean(axis=2), bit cu bit (suma a trei uint8 e exacta), dar fara reducerea
+    # lenta pe axa culorilor.
+    lum = (img[..., 0].astype(np.uint16) + img[..., 1] + img[..., 2]) / 3.0
 
     celule: list[Celula] = []
     avertismente: list[str] = []
@@ -568,6 +604,7 @@ def segmenteaza(imagine: Image.Image | np.ndarray) -> PaginaSegmentata:
         celule=celule,
         bbox_titlu=(0, 0, img.shape[1], caroiaj.antet[0]),
         avertismente=avertismente,
+        negru=negru,
     )
 
 

@@ -22,11 +22,12 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 
 from rapidfuzz import fuzz, process
 
+from orar.domain.names import potriveste, tokenuri
 from orar.domain.rooms import normalizeaza_sala
 
 log = logging.getLogger(__name__)
@@ -143,10 +144,20 @@ class Lexicon:
         # Salile nu au marcaj de nesiguranta: sunt un vocabular inchis si mic, iar
         # `normalizeaza_sala` le aduce oricum la o forma canonica.
         sali = [v for (v,) in sesiune.execute(select(Sala.nume)) if v]
+        # PROFESOR.NUME e campul intreg al celulei, deci poate tine mai multi oameni
+        # (`Iftimie S / Tazlaoanu C`). Vocabularul e de persoane, ca in `din_json`: altfel
+        # `Iftimie S`, citit singur, s-ar potrivi cu randul celor doi.
+        profesori = sorted(
+            {
+                p
+                for camp in confirmate(Profesor, "profesor_id", "profesor")
+                for p in _profesori_din(camp)
+            }
+        )
         return cls(
             sali=sali,
             materii=confirmate(Materie, "materie_id", "materie"),
-            profesori=confirmate(Profesor, "profesor_id", "profesor"),
+            profesori=profesori,
         )
 
     @classmethod
@@ -225,11 +236,44 @@ class Lexicon:
         cheie = _normalizeaza(brut)
         if cheie in index:
             return Potrivire(index[cheie], 1.0, True)
+        if vocabular == "profesori" and (dupa_nume := _dupa_prescurtare(brut, index.values())):
+            return dupa_nume
         gasit = _cel_mai_apropiat(cheie, list(index))
         if gasit is None:
             return Potrivire(brut, 0.0, False)
         termen, scor = gasit
         return Potrivire(index[termen], scor, True)
+
+
+#: Increderea unei potriviri dupa regula de prescurtare: sigura ca persoana, dar nu litera
+#: cu litera -- deci sub 1.0, ca `Potrivire.exacta` sa ramana doar pentru egalitate.
+SCOR_PRESCURTARE = 0.95
+
+
+def _dupa_prescurtare(brut: str, cunoscuti: Iterable[str]) -> Potrivire | None:
+    """Profesorul a carui prescurtare aSc e textul citit: `Cheval H` -> `Cheval Andrei-Horatiu`.
+
+    De ce e nevoie: dupa verificarea incrucisata, baza tine numele **intregi**, iar celulele
+    orarului le scriu tot prescurtat. Comparate ca siruri, `Cheval H` si numele intreg nu
+    seamana destul, deci la urmatorul ingest fiecare profesor ar iesi "necunoscut"; iar unde
+    seamana (`Popescu A` / `Popescu Ana`), asemanarea alege la intamplare intre Ana si Adrian.
+    Regula de prescurtare (`domain.names`) stie exact cine poate fi.
+
+    Intoarce None cand nu se potriveste nimeni (apelantul incearca asemanarea de siruri) si o
+    potrivire **neconfirmata** cand raman mai multi candidati: ambiguitatea e in sursa, iar a
+    alege noi ar insemna sa inventam un profesor.
+    """
+    candidati = potriveste(brut, cunoscuti)
+    if not candidati:
+        return None
+    if len(candidati) > 1:
+        # `Ionescu R` se potriveste si cu `Ionescu RT`, dar e chiar unul dintre ei.
+        la_fel = [c for c in candidati if tokenuri(c) == tokenuri(brut)]
+        if len(la_fel) == 1:
+            candidati = la_fel
+    if len(candidati) == 1:
+        return Potrivire(candidati[0], SCOR_PRESCURTARE, True)
+    return Potrivire(brut, 0.0, False)
 
 
 def _cel_mai_apropiat(tinta: str, candidati: Sequence[str]) -> tuple[str, float] | None:

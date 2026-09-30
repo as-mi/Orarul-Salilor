@@ -5,6 +5,8 @@
    pe un singur rand, iar blocurile se aseaza explicit peste el. Caroiajul orar e desenat
    ca gradient pe banda, nu din 12 div-uri goale. #}
 
+{# Blocurile duc la sala / la grupa din aceeasi versiune a orarului. #}
+{% set qv = ('?' ~ sel_q) if sel_q is defined and sel_q else '' %}
 <div class="grila-scroll">
 <div class="grila" style="--coloane: {{ grila.nr_coloane }}">
 
@@ -22,22 +24,40 @@
   {% for rand in grila.zile %}
     <div class="rand">
       <div class="eticheta">
-        <span class="zi-lung">{{ rand.zi }}</span>
-        <span class="zi-scurt">{{ rand.zi[:2] }}</span>
+        <span class="zi-lung">{{ {'Sambata': 'Sâmbătă', 'Duminica': 'Duminică'}.get(rand.zi, rand.zi) }}</span>
+        <span class="zi-scurt">{{ {'Sambata': 'Sâ'}.get(rand.zi, rand.zi[:2]) }}</span>
       </div>
 
       <div class="benzi">
         {% for banda in rand.benzi %}
           <div class="banda">
             {% for b in banda %}
+              {% if b.eveniment %}
+                {# O activitate cu data (ASMI sau alta), doar in saptamana ei. #}
+                {% set e = b.eveniment %}
+                <a class="bloc tip-{{ b.clasa_tip }}{{ ' ' ~ e.clasa_culoare if e.clasa_culoare }}"
+                   style="grid-column: {{ b.col_start }} / span {{ b.col_span }}; {{ e.stil_culoare }}"
+                   href="{% if poate_edita is defined and poate_edita %}/admin/evenimente/{{ e.id }}{% elif e.fel == 'asmi' %}/calendar-asmi#ev-{{ e.id }}{% elif mod == 'grupa' and e.sala %}/sala/{{ e.sala.slug }}{{ qv }}{% else %}#{% endif %}"
+                   title="{{ e.titlu }} · {{ e.data_inceput.strftime('%d.%m.%Y') }} · {{ e.ora_inceput.strftime('%H:%M') }}-{{ e.ora_sfarsit.strftime('%H:%M') }}{% if e.sala %} · {{ e.sala.nume }}{% endif %}">
+                  <span class="bloc-sus"><span class="bloc-materie">{{ e.titlu }}</span></span>
+                  <span class="bloc-mij">
+                    <span class="et et-tip">{{ 'ASMI' if e.fel == 'asmi' else 'rezervare' }}</span>
+                    <span class="et et-sapt">{{ e.data_inceput.strftime('%d.%m') }} · {{ e.ora_inceput.strftime('%H:%M') }}-{{ e.ora_sfarsit.strftime('%H:%M') }}</span>
+                  </span>
+                  <span class="bloc-jos">
+                    <span class="bloc-prof"></span>
+                    <span class="bloc-loc">{% if mod == 'grupa' %}{{ e.sala.nume if e.sala else (e.loc or '') }}{% endif %}</span>
+                  </span>
+                </a>
+              {% else %}
               {% set o = b.ora %}
-              <a class="bloc tip-{{ b.clasa_tip }} prov-{{ b.provenienta.value }}{{ ' inactiv' if not b.activa }}"
+              <a class="bloc tip-{{ b.clasa_tip }} prov-{{ b.provenienta.value }}{{ ' inactiv' if not b.activa }}{{ ' editabil' if mod_editare is defined and mod_editare }}{{ ' manual' if poate_edita is defined and poate_edita and o.corectie_id }}"
                  style="grid-column: {{ b.col_start }} / span {{ b.col_span }}"
-                 href="{% if mod == 'grupa' and o.sala %}/sala/{{ o.sala.slug }}{% else %}/grupa/{{ o.grupa.slug }}{% endif %}"
-                 title="{{ o.materie.denumire or o.materie.nume if o.materie else '?' }}{% if o.tip_ora_materie %} ({{ o.tip_ora_materie }}){% endif %} · {{ '%02d:%02d'|format(o.ora_inceput.hour, o.ora_inceput.minute) }}–{{ '%02d:%02d'|format(o.ora_sfarsit.hour, o.ora_sfarsit.minute) }}{% if o.frecventa %} · {{ o.frecventa }}{% endif %}{% if o.saptamani %} · {{ o.saptamani }}{% endif %}{% if o.materie and o.materie.credite %} · {{ o.materie.credite }} credite, {{ 'examen' if o.materie.forma_evaluare == 'E' else 'verificare' }}{% endif %}{% if b.sursa %} · {{ b.sursa }}{% endif %}">
+                 href="{% if mod_editare is defined and mod_editare %}/admin/activitate/{{ o.id }}?inapoi={{ aici }}{% elif mod == 'grupa' and o.sala %}/sala/{{ o.sala.slug }}{{ qv }}{% elif o.grupa.tip == 'semigrupa' and o.grupa.parinte and o.semigrupa %}/grupa/{{ o.grupa.parinte.slug }}?semigrupa={{ o.semigrupa }}{{ qv|replace('?', '&') }}{% else %}/grupa/{{ o.grupa.slug }}{{ qv }}{% endif %}"
+                 title="{{ o.materie.denumire or o.materie.nume if o.materie else '?' }}{% if o.tip_ora_materie %} ({{ o.tip_ora_materie }}){% endif %} · {{ '%02d:%02d'|format(o.ora_inceput.hour, o.ora_inceput.minute) }}-{{ '%02d:%02d'|format(o.ora_sfarsit.hour, o.ora_sfarsit.minute) }}{% if o.frecventa %} · {{ o.frecventa }}{% endif %}{% if o.saptamani %} · {{ o.saptamani }}{% endif %}{% if o.materie and o.materie.credite %} · {{ o.materie.credite }} credite, {{ 'examen' if o.materie.forma_evaluare == 'E' else 'verificare' }}{% endif %}{% if b.sursa %} · {{ b.sursa }}{% endif %}">
 
                 <span class="bloc-sus">
-                  <span class="bloc-materie">{{ o.materie.nume if o.materie else '—' }}</span>
+                  <span class="bloc-materie">{{ o.materie.nume if o.materie else '-' }}</span>
                   {% if o.semigrupa %}<span class="et et-semi">{{ o.semigrupa.replace('_', ' ') }}</span>{% endif %}
                 </span>
 
@@ -48,9 +68,9 @@
                 </span>
 
                 <span class="bloc-jos">
-                  <span class="bloc-prof">{{ o.profesor.nume if o.profesor else '' }}</span>
+                  <span class="bloc-prof">{% if mod == 'profesor' %}{{ o.grupa.nume }}{% else %}{{ o.profesor.nume if o.profesor else '' }}{% endif %}</span>
                   <span class="bloc-loc">
-                    {%- if mod == 'grupa' -%}{{ o.sala.nume if o.sala else '' }}
+                    {%- if mod in ('grupa', 'profesor') -%}{{ o.sala.nume if o.sala else '' }}
                     {%- else -%}{{ o.grupa.nume }}{%- endif -%}
                   </span>
                 </span>
@@ -59,6 +79,7 @@
                   <span class="bloc-sursa">{{ b.sursa }}</span>
                 {% endif %}
               </a>
+              {% endif %}
             {% endfor %}
           </div>
         {% else %}
@@ -71,11 +92,17 @@
 </div>
 </div>
 
+{# Sub grila, pe un rand: legenda la stanga, "Raportează o problemă" in dreapta de tot. #}
+<div class="sub-grila">
 <div class="legenda">
   <span class="cheie tip-curs">curs</span>
   <span class="cheie tip-seminar">seminar</span>
   <span class="cheie tip-lab">laborator</span>
   <span class="cheie tip-proiect">proiect</span>
+  {% if grila.are_evenimente %}
+    <span class="cheie tip-eveniment-asmi">activitate ASMI</span>
+    <span class="cheie tip-eveniment-alta">altă activitate</span>
+  {% endif %}
   {% if mod == 'grupa' %}
     <span class="sep"></span>
     <span class="cheie prov-mostenita">moștenită de la serie/an</span>
@@ -86,4 +113,6 @@
     <span class="sep"></span>
     <span class="cheie inactiv">{{ grila.inactive }} nu se țin săptămâna aceasta</span>
   {% endif %}
+</div>
+{% if ore_raport is defined %}{% include "_raporteaza.html" %}{% endif %}
 </div>

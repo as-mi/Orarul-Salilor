@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block titlu %}Evenimente{% endblock %}
+
+{% macro rand(e) %}
+  <article class="sesizare {{ 'noua' if e.fel == 'asmi' }}{{ ' ' ~ e.clasa_culoare if e.clasa_culoare }}"{% if e.stil_culoare %} style="{{ e.stil_culoare }}"{% endif %}>
+    <header>
+      <span class="pastila {{ '' if e.fel == 'asmi' else 'neutra' }}">{{ etichete_fel[e.fel] }}</span>
+      <time>{{ cand(e) }}</time>
+      {% if e.sala %}<a href="/sala/{{ e.sala.slug }}?zi={{ e.data_inceput.isoformat() }}">{{ e.sala.nume }}</a>
+      {% elif e.loc %}<span>{{ e.loc }}</span>{% endif %}
+    </header>
+    <p class="despre">{{ e.titlu }}</p>
+    <p class="nota">
+      {%- if e.ora_inceput is none %}doar în calendar (fără ore)
+      {%- elif e.vizibilitate == 'toate' %}pe toate orarele
+      {%- elif e.vizibilitate == 'specializari' %}pe orarele: {{ descrie_orarele(e) }}
+      {%- else %}pe niciun orar de grupă{% endif %} · adăugat de {{ e.creat_de }}</p>
+    <div class="actiuni-sesizare">
+      <a class="buton" href="/admin/evenimente/{{ e.id }}">✎ Editează</a>
+      {% if e.fel == 'asmi' %}<a class="buton" href="/calendar-asmi?luna={{ e.data_inceput.strftime('%Y-%m') }}#ev-{{ e.id }}">Vezi în calendar</a>{% endif %}
+      <form method="post" action="/admin/evenimente/{{ e.id }}/sterge" class="pe-linie"
+            hx-post="/admin/evenimente/{{ e.id }}/sterge" hx-target="#lista-evenimente" hx-select="#lista-evenimente"
+            hx-swap="outerHTML" hx-confirm="Ștergi „{{ e.titlu }}”? Sala rezervată se eliberează." hx-disabled-elt="find button">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button type="submit" class="buton pericol">Șterge</button>
+      </form>
+    </div>
+  </article>
+{% endmacro %}
+
+{% block continut %}
+<section class="antet">
+  <nav class="firimituri"><a href="/admin">administrare</a><span>›</span><strong>evenimente</strong></nav>
+  <h1>Evenimente și săli rezervate</h1>
+  <p class="nota">Activități cu dată, în afara orarului săptămânal. Cele ASMI apar și în
+    <a href="/calendar-asmi">calendarul public ASMI</a>.</p>
+  {% if request.query_params.get('salvat') %}<p class="reusit" role="status">Evenimentul a fost salvat.</p>{% endif %}
+  <p class="actiuni-sesizare">
+    <a class="buton plin" href="/admin/evenimente/nou?fel=asmi">+ Activitate ASMI</a>
+    <a class="buton" href="/admin/evenimente/nou?fel=alta">+ Altă activitate</a>
+  </p>
+</section>
+
+<div id="lista-evenimente">
+  <section class="coada">
+    {% for e in urmeaza %}{{ rand(e) }}{% else %}
+      <div class="panou-gol"><p>Niciun eveniment viitor. Adaugă primul cu butoanele de mai sus.</p></div>
+    {% endfor %}
+  </section>
+  {% if trecute %}
+    <details class="mai-multe trecute">
+      <summary>{{ trecute|length }} {{ 'eveniment trecut' if trecute|length == 1 else 'evenimente trecute' }}</summary>
+      <section class="coada">{% for e in trecute %}{{ rand(e) }}{% endfor %}</section>
+    </details>
+  {% endif %}
+</div>
+{% endblock %}

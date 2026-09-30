@@ -4,17 +4,19 @@
 {% block continut %}
 <section class="formular">
   <h1>Intră în cont</h1>
-  <p class="nota">Contul ține doar preferințele: grupa, semigrupa și opționalele la care ești
-    înscris. Orarul e public și fără cont.</p>
+  <p class="nota">Contul ține orarul tău: grupa, semigrupa și opționalele alese. Orarul e
+    public și fără cont.</p>
 
   {% if eroare %}<p class="avertisment" role="alert">{{ eroare }}</p>{% endif %}
 
-  <form method="post" action="/intrare" class="camp-lista">
+  <form method="post" action="/login" class="camp-lista">
     <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="inapoi" value="{{ inapoi or '' }}">
     <label>
       <span>Email</span>
-      <input type="email" name="email" value="{{ email or '' }}" required autofocus
-             autocomplete="username">
+      {# `text`, nu `email`: adminul intra cu un nume, nu cu o adresa. #}
+      <input type="text" name="email" value="{{ email or '' }}" required autofocus
+             autocomplete="username" autocapitalize="none" spellcheck="false">
     </label>
     <label>
       <span>Parolă</span>
@@ -23,6 +25,6 @@
     <button type="submit" class="principal">Intră</button>
   </form>
 
-  <p class="nota">Nu ai cont? <a href="/inregistrare">Fă-ți unul</a>.</p>
+  <p class="nota">Nu ai cont? <a href="/signup">Fă-ți unul</a>.</p>
 </section>
 {% endblock %}

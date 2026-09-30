@@ -2,17 +2,24 @@
 {% block titlu %}Sala {{ sala.nume }}{% endblock %}
 
 {% block continut %}
+{% set qv = ('?' ~ sel_q) if sel_q is defined and sel_q else '' %}
 <section class="antet">
   <nav class="firimituri">
-    <a href="/">acasă</a><span>›</span><a href="/sala">săli</a><span>›</span><strong>{{ sala.nume }}</strong>
+    <a href="/{{ qv }}">acasă</a><span>›</span><a href="/sala{{ qv }}">săli</a><span>›</span><strong>{{ sala.nume }}</strong>
   </nav>
 
   <h1>{{ sala.nume }}
     {% if sala.tip != 'fizica' %}<span class="pastila neutra">{{ sala.tip }}</span>{% endif %}
   </h1>
 
+  {% include "_banner_versiune.html" %}
+
   <div class="sumar">
     <span class="fapt"><strong>{{ total }}</strong> activități</span>
+    {% if sala.nr_locuri %}
+      <span class="fapt" title="Din tabelul de capacități de pe pagina 2 a orarului">
+        <strong>{{ sala.nr_locuri }}</strong> locuri</span>
+    {% endif %}
     <span class="fapt"><strong>{{ ocupate }}</strong>/{{ sloturi_total }} ore ocupate</span>
     <span class="fapt masura">
       <span class="bara-ocupare"><span style="width: {{ procent }}%"></span></span>
@@ -32,14 +39,18 @@
 
   <div class="filtre">
     {% if in_semestru %}
-      <a class="filtru {{ 'activ' if filtru_saptamana }}" href="?{% if not filtru_saptamana %}saptamana=true{% endif %}">
+      <a class="filtru {{ 'activ' if filtru_saptamana }}"
+         href="?{% if not filtru_saptamana %}saptamana=true{% endif %}{% if zi_aleasa %}&zi={{ zi_aleasa.isoformat() }}{% endif %}{{ qv|replace('?', '&') }}{% if mod_editare %}&editare=1{% endif %}">
         {% if filtru_saptamana %}✓ {% endif %}doar săptămâna curentă
       </a>
     {% else %}
       <span class="filtru inert" title="Filtrul e disponibil doar în timpul semestrului">
-        vacanță — se afișează orarul complet
+        vacanță - se afișează orarul complet
       </span>
     {% endif %}
+
+    {% include "_editare.html" %}
+    {% include "_alege_zi.html" %}
   </div>
 </section>
 
@@ -54,9 +65,9 @@
         <span class="cand">{{ c.zi }} {{ c.ora }}</span>
         <span class="ce">
           {% for a in c.activitati %}
-            <a href="/grupa/{{ a.grupa.slug }}">{{ a.materie.nume if a.materie else '?' }}</a>
+            <a href="/grupa/{{ a.grupa.slug }}{{ qv }}">{{ a.materie.nume if a.materie else '?' }}</a>
             <em>({{ a.grupa.nume }}{% if a.profesor %}, {{ a.profesor.nume }}{% endif %},
-                {{ '%02d:%02d'|format(a.ora_inceput.hour, a.ora_inceput.minute) }}–{{ '%02d:%02d'|format(a.ora_sfarsit.hour, a.ora_sfarsit.minute) }})</em>
+                {{ '%02d:%02d'|format(a.ora_inceput.hour, a.ora_inceput.minute) }}-{{ '%02d:%02d'|format(a.ora_sfarsit.hour, a.ora_sfarsit.minute) }})</em>
             {%- if not loop.last %} <span class="vs">vs</span> {% endif %}
           {% endfor %}
         </span>
@@ -68,4 +79,9 @@
 {% endif %}
 
 {% with mod = 'sala' %}{% include "_grila.html" %}{% endwith %}
+
+
+{# Versiunile orarului; filtrul de saptamana si data aleasa se pastreaza intre ele. #}
+{% set f_qs %}{% if filtru_saptamana %}&saptamana=true{% endif %}{% if zi_aleasa %}&zi={{ zi_aleasa.isoformat() }}{% endif %}{% endset %}
+{% with v_pastrat = f_qs, v_fata_de = 'ocuparea actuală a sălii' %}{% include "_versiuni.html" %}{% endwith %}
 {% endblock %}

@@ -1,0 +1,29 @@
+{# Salile libere la data si orele alese, de la cea mai incapatoare. Se incarca in formularul
+   evenimentului (htmx) si se randeaza direct cand data si orele sunt deja completate. #}
+<div id="sali-libere" class="sali-libere">
+  {% if eroare_sali %}
+    <p class="nota">{{ eroare_sali }}</p>
+  {% elif libere is none %}
+    <p class="nota">Alege data și orele, apoi apasă „Caută săli libere”.</p>
+  {% elif not libere %}
+    <p class="avertisment" role="status">Nicio sală liberă {{ zi_cautata }}, {{ interval }}. Încearcă alt interval.</p>
+  {% else %}
+    <p class="nota" role="status"><strong>{{ libere|length }}</strong> săli libere {{ zi_cautata }}, {{ interval }},
+      de la cea mai încăpătoare.
+      {% if weekend %}În weekend nu sunt cursuri, deci contează doar celelalte evenimente.
+      {% elif orar %}Verificat cu orarul din {{ orar.an_univ }}, semestrul {{ orar.semestru }}
+        {%- if not in_semestru_cautat %} (data e în afara semestrului: am presupus că orele se țin){% endif %}.{% endif %}</p>
+    <div class="sali-optiuni" role="radiogroup" aria-label="Sala">
+      {% for x in libere %}
+        <label class="sala-optiune">
+          <input type="radio" name="sala" value="{{ x.sala.slug }}" {{ 'checked' if sala_aleasa == x.sala.slug or (not sala_aleasa and loop.first) }}>
+          <span>
+            <strong>{{ x.sala.nume }}</strong>
+            <small>{{ (x.sala.nr_locuri ~ ' locuri') if x.sala.nr_locuri else 'locuri necunoscute' }}
+              {%- if x.ocupate_in_zi %} · {{ x.ocupate_in_zi }} h de curs în acea zi{% endif %}</small>
+          </span>
+        </label>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>

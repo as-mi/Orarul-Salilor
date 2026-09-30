@@ -39,7 +39,7 @@ def test_ierarhia_se_construieste_complet(db):
     while cur:
         lant.append((cur.nume, cur.tip))
         cur = cur.parinte
-    assert lant == [("Seria 24", "serie"), ("Informatică — anul 2", "specializare")]
+    assert lant == [("Seria 24", "serie"), ("Informatică - anul 2", "specializare")]
 
 
 def test_semigrupele_devin_copii_ai_grupei(db):

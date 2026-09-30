@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block titlu %}Sesizări{% endblock %}
+
+{% block continut %}
+<section class="antet">
+  <nav class="firimituri"><a href="/admin">administrare</a><span>›</span><strong>sesizări</strong></nav>
+  <h1>Sesizări</h1>
+  <p class="nota">Probleme semnalate din paginile de orar. Cele noi sunt în ordinea în care au venit.</p>
+  <div class="filtre" id="filtre-sesizari">
+    <a class="filtru {{ 'activ' if arata == 'noi' }}" href="?arata=noi">de tratat <span class="numar">{{ nr_noi }}</span></a>
+    <a class="filtru {{ 'activ' if arata == 'toate' }}" href="?arata=toate">toate</a>
+  </div>
+</section>
+
+<section class="coada" id="coada-sesizari">
+  {% for z in sesizari %}
+    <article class="sesizare {{ z.stare }}">
+      <header>
+        <span class="pastila {{ '' if z.stare == 'noua' else 'neutra' }}">{{ {'noua': 'nouă', 'rezolvata': 'rezolvată', 'respinsa': 'respinsă'}[z.stare] }}</span>
+        <time>{{ z.creat_la.strftime('%d.%m.%Y %H:%M') }}</time>
+        <span class="de-la">
+          {%- if z.user %}{{ z.user.nume }} ({{ z.user.email }}){% elif z.contact %}vizitator · {{ z.contact }}{% else %}vizitator{% endif -%}
+        </span>
+        <a href="{{ z.pagina }}">{{ z.pagina.split('?')[0] }}</a>
+      </header>
+
+      {% if z.activitate %}<p class="despre">{{ z.activitate }}</p>{% endif %}
+      <p class="mesaj">{{ z.mesaj }}</p>
+      {% if z.tratata_de %}
+        <p class="nota">{{ 'Rezolvată' if z.stare == 'rezolvata' else 'Respinsă' }} de {{ z.tratata_de }},
+          {{ z.tratata_la.strftime('%d.%m.%Y %H:%M') }}{% if z.nota %} - {{ z.nota }}{% endif %}</p>
+      {% endif %}
+
+      <div class="actiuni-sesizare">
+        {% if z.ora %}
+          <a class="buton plin" href="/admin/activitate/{{ z.ora.id }}?sesizare={{ z.id }}&inapoi={{ inapoi }}">✎ Corectează activitatea</a>
+        {% elif z.ora_id is none and z.activitate %}
+          <span class="nota">activitatea nu mai e în orarul curent</span>
+        {% endif %}
+        <form method="post" action="/admin/sesizari/{{ z.id }}" class="pe-linie" hx-post="/admin/sesizari/{{ z.id }}" hx-target="#coada-sesizari" hx-select="#coada-sesizari" hx-select-oob="#filtre-sesizari" hx-swap="outerHTML" hx-disabled-elt="find button">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <input type="hidden" name="arata" value="{{ arata }}">
+          {% if z.stare == 'noua' %}
+            <input type="text" name="nota" maxlength="500" placeholder="notă (opțional)" aria-label="Notă">
+            <button type="submit" name="stare" value="rezolvata" class="buton">✓ Rezolvată</button>
+            <button type="submit" name="stare" value="respinsa" class="buton">Respinge</button>
+          {% else %}
+            <button type="submit" name="stare" value="noua" class="buton">Redeschide</button>
+          {% endif %}
+        </form>
+      </div>
+    </article>
+  {% else %}
+    <div class="panou-gol"><p>{{ 'Nicio sesizare de tratat.' if arata == 'noi' else 'Nicio sesizare încă.' }}</p></div>
+  {% endfor %}
+</section>
+{% endblock %}

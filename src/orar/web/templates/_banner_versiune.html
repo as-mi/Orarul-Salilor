@@ -1,0 +1,13 @@
+{# Anuntul ca nu te uiti la orarul implicit, cu drumul inapoi. Asteapta `sel`. #}
+{% if sel is defined and sel and (sel.versiune or not sel.implicita) %}
+  <p class="banner-versiune" role="status">
+    {% if sel.versiune %}
+      Vezi orarul
+      {% if sel.versiune.publicat %}publicat pe <strong>{{ sel.versiune.publicat.strftime('%d.%m.%Y') }}</strong>{% else %}arhivat pe <strong>{{ sel.versiune.arhivat_la.strftime('%d.%m.%Y') }}</strong>{% endif %}
+      (semestrul {{ sel.versiune.semestru }}, {{ sel.versiune.an_univ }}) - o versiune anterioară.
+    {% else %}
+      Vezi orarul <strong>semestrului {{ sel.perioada.semestru }}, {{ sel.perioada.an_univ }}</strong>.
+    {% endif %}
+    <a href="{{ request.url.path }}">înapoi la orarul implicit</a>
+  </p>
+{% endif %}

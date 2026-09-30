@@ -2,39 +2,205 @@
 {% block titlu %}Acasă{% endblock %}
 
 {% block continut %}
-<section class="hero">
+{% set qv = ('?' ~ sel_q) if sel_q is defined and sel_q else '' %}
+<section class="hero acasa">
   <h1>Orarul Sălilor</h1>
   <p>Orarul Facultății de Matematică și Informatică, pe grupe și pe săli.
-     Caută mai sus sau alege mai jos.</p>
+     Caută mai sus sau alege de aici.</p>
+
+  {% include "_banner_versiune.html" %}
 </section>
 
-<section class="sectiune">
-  <h2>Formațiuni de studiu</h2>
-  {% for spec in specializari %}
-    {% set grupe = pe_specializare.get(spec.id, []) %}
-    {% if grupe %}
-      <div class="familie">
-        <h3><a href="/grupa/{{ spec.slug }}">{{ spec.nume }}</a></h3>
-        <div class="pastile">
-          {% for g in grupe %}<a class="pastila-link" href="/grupa/{{ g.slug }}">{{ g.nume }}</a>{% endfor %}
+{# Selectorul in trepte. Fara JavaScript raman listele de mai jos, care duc in aceleasi locuri. #}
+<div class="acasa-sus">
+<section class="alege" id="alege" hidden>
+  <div class="alege-taburi" role="tablist" aria-label="Ce orar cauți">
+    <button type="button" role="tab" id="tab-grupe" aria-controls="panou-grupe" aria-selected="true">Grupe</button>
+    <button type="button" role="tab" id="tab-sali" aria-controls="panou-sali" aria-selected="false" tabindex="-1">Săli</button>
+  </div>
+
+  <form class="alege-panou" id="panou-grupe" role="tabpanel" aria-labelledby="tab-grupe">
+    <label><span>Nivel</span>
+      <select id="alege-nivel"><option value="">alege nivelul</option></select></label>
+    <label><span>Domeniu</span>
+      <select id="alege-domeniu" disabled><option value="">alege domeniul</option></select></label>
+    <label><span>An</span>
+      <select id="alege-an" disabled><option value="">alege anul</option></select></label>
+    <label><span>Grupă</span>
+      <select id="alege-grupa" disabled><option value="">alege grupa</option></select></label>
+    <button type="submit" class="buton plin" disabled>Vezi orarul</button>
+  </form>
+
+  <form class="alege-panou" id="panou-sali" role="tabpanel" aria-labelledby="tab-sali" hidden>
+    <label class="lat"><span>Sală</span>
+      <select id="alege-sala">
+        <option value="">alege sala</option>
+        {% for s in sali %}<option value="{{ s.slug }}">{{ s.nume }}</option>{% endfor %}
+      </select></label>
+    <button type="submit" class="buton plin" disabled>Vezi orarul sălii</button>
+    <a class="mai-mult" href="/sala{{ qv }}">toate sălile, cu gradul de ocupare →</a>
+  </form>
+</section>
+{# Calendarul ASMI, langa selector (pe telefon: sub el, inaintea listei de grupe). #}
+<a class="caseta-asmi" href="/calendar-asmi" aria-label="Calendar ASMI: evenimentele asociației">
+  <span class="caseta-asmi-cap">
+    <img src="{{ static_versionat(request, 'asmi.png') }}" width="40" height="40" alt="">
+    <span><strong>Calendar ASMI</strong><small>evenimente, termene și înscrieri</small></span>
+  </span>
+  {% if evenimente_asmi %}
+    <span class="caseta-asmi-lista">
+      {% for e in evenimente_asmi %}
+        <span class="caseta-asmi-ev{{ ' ' ~ e.clasa_culoare if e.clasa_culoare }}"{% if e.stil_culoare %} style="{{ e.stil_culoare }}"{% endif %}>
+          <span class="ev-zi"><strong>{{ e.data_inceput.day }}</strong>{{ luni_scurte[e.data_inceput.month - 1] }}</span>
+          <span class="ev-nume">{{ e.titlu }}<small>{% if e.pe_mai_multe_zile %}până pe {{ e.data_sfarsit.day }} {{ luni_scurte[e.data_sfarsit.month - 1] }}{% elif e.ora_inceput %}ora {{ e.ora_inceput.strftime('%H:%M') }}{% if e.sala %} · {{ e.sala.nume }}{% elif e.loc %} · {{ e.loc }}{% endif %}{% else %}toată ziua{% endif %}</small></span>
+        </span>
+      {% endfor %}
+    </span>
+  {% else %}
+    <span class="caseta-asmi-gol">Niciun eveniment anunțat deocamdată.</span>
+  {% endif %}
+  <span class="caseta-asmi-mai">Vezi tot calendarul →</span>
+</a>
+</div>
+<script type="application/json" id="alege-date">{{ arbore|tojson }}</script>
+<script>
+  (() => {
+    const radacina = document.getElementById("alege");
+    const arbore = JSON.parse(document.getElementById("alege-date").textContent);
+    const qv = {{ qv|tojson }};
+    radacina.hidden = false;
+
+    // taburile: Grupe / Sali
+    const taburi = [...radacina.querySelectorAll('[role="tab"]')];
+    const arata = (tab) => taburi.forEach((t) => {
+      const ales = t === tab;
+      t.setAttribute("aria-selected", ales);
+      t.tabIndex = ales ? 0 : -1;
+      document.getElementById(t.getAttribute("aria-controls")).hidden = !ales;
+    });
+    taburi.forEach((t, i) => {
+      t.addEventListener("click", () => arata(t));
+      t.addEventListener("keydown", (e) => {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        const urm = taburi[(i + (e.key === "ArrowRight" ? 1 : taburi.length - 1)) % taburi.length];
+        arata(urm); urm.focus();
+      });
+    });
+
+    // grupe: fiecare treapta o deschide pe urmatoarea
+    const [nivel, domeniu, an, grupa] = ["nivel", "domeniu", "an", "grupa"].map((n) => document.getElementById("alege-" + n));
+    const panou = document.getElementById("panou-grupe");
+    const buton = panou.querySelector("button");
+    const umple = (sel, optiuni, gol) => {
+      sel.replaceChildren(new Option(gol, ""), ...optiuni.map(([text, val]) => new Option(text, val)));
+      sel.disabled = optiuni.length === 0;
+    };
+    const ales = () => {
+      const n = arbore[nivel.value], d = n && n.domenii[domeniu.value], a = d && d.ani[an.value];
+      return { n, d, a };
+    };
+    const tinta = () => { const { a } = ales(); return a ? (grupa.value || a.slug) : ""; };
+    const actualizeaza = () => { buton.disabled = !tinta(); };
+
+    umple(nivel, arbore.map((n, i) => [n.nume, i]), "alege nivelul");
+    nivel.addEventListener("change", () => {
+      const { n } = ales();
+      umple(domeniu, n ? n.domenii.map((d, i) => [d.nume, i]) : [], "alege domeniul");
+      umple(an, [], "alege anul"); umple(grupa, [], "alege grupa"); actualizeaza();
+    });
+    domeniu.addEventListener("change", () => {
+      const { d } = ales();
+      umple(an, d ? d.ani.map((a, i) => ["Anul " + a.an, i]) : [], "alege anul");
+      umple(grupa, [], "alege grupa"); actualizeaza();
+    });
+    an.addEventListener("change", () => {
+      const { a } = ales();
+      umple(grupa, a ? a.grupe.map((g) => [g.nume, g.slug]) : [], "tot anul");
+      actualizeaza();
+    });
+    grupa.addEventListener("change", actualizeaza);
+    panou.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (tinta()) location.href = "/grupa/" + tinta() + qv;
+    });
+
+    // sali
+    const sala = document.getElementById("alege-sala");
+    const panouSali = document.getElementById("panou-sali");
+    sala.addEventListener("change", () => { panouSali.querySelector("button").disabled = !sala.value; });
+    panouSali.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (sala.value) location.href = "/sala/" + sala.value + qv;
+    });
+  })();
+</script>
+
+<section class="sectiune acasa">
+  <h2>Toate grupele</h2>
+  {% for nivel in niveluri %}
+    {# Un rand pe domeniu, o coloana pe an: "Anul 2" cade in acelasi loc la toate domeniile. #}
+    {% set ani = nivel.ani %}
+    <div class="nivel {{ nivel.cheie }}" style="--ani: {{ ani|length }}">
+      <h3 class="nivel-titlu">{{ nivel.nume }}</h3>
+      {% for d in nivel.domenii %}
+        <div class="domeniu">
+          <h4>{{ d.nume }}</h4>
+          {% for an in ani %}
+            {% set a = d.ani|selectattr('an', 'equalto', an)|first %}
+            {% if a %}
+              <div class="an-celula">
+                <a class="an-link" href="/grupa/{{ a.nod.slug }}{{ qv }}" title="Orarul întregului an">Anul {{ a.an }}</a>
+                <div class="pastile">
+                  {% for g in a.grupe %}<a class="pastila-link" href="/grupa/{{ g.slug }}{{ qv }}">{{ g.nume }}</a>{% endfor %}
+                  {# Un an fara pagini de grupa (doar optionale) apare cu pachetele lui. #}
+                  {% for p in a.pachete %}<a class="pastila-link mic" href="/grupa/{{ p.slug }}{{ qv }}">{{ p.nume }}</a>{% endfor %}
+                </div>
+              </div>
+            {% else %}
+              {# domeniul n-are anul acesta: celula goala, ca tabelul sa ramana intreg #}
+              <div class="an-celula gol" aria-hidden="true"></div>
+            {% endif %}
+          {% endfor %}
         </div>
-      </div>
-    {% endif %}
+      {% endfor %}
+    </div>
   {% endfor %}
 </section>
 
-<section class="sectiune">
+<section class="sectiune acasa">
   <h2>Săli</h2>
-  <div class="pastile">
-    {% for s in sali %}<a class="pastila-link sala" href="/sala/{{ s.slug }}">{{ s.nume }}</a>{% endfor %}
+  {# Ca la grupe: un rand pe etaj (prima cifra din numele salii), o coloana pe fel de sala. #}
+  <div class="nivel" style="--ani: {{ feluri_sali|length }}">
+    <h3 class="nivel-titlu">Pe etaje</h3>
+    {% for e in etaje %}
+      <div class="domeniu">
+        <h4>{{ e.nume }}</h4>
+        {% for fel in feluri_sali %}
+          {% set ale_lui = e.sali.get(fel, []) %}
+          {% if ale_lui %}
+            <div class="an-celula">
+              <span class="an-link">{{ fel }}</span>
+              <div class="pastile">
+                {% for s in ale_lui %}<a class="pastila-link sala" href="/sala/{{ s.slug }}{{ qv }}">{{ s.nume }}</a>{% endfor %}
+              </div>
+            </div>
+          {% else %}
+            <div class="an-celula gol" aria-hidden="true"></div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% endfor %}
   </div>
-  <p><a class="mai-mult" href="/sala">vezi toate sălile, cu gradul de ocupare →</a></p>
+  <p><a class="mai-mult" href="/sala{{ qv }}">vezi toate sălile, cu gradul de ocupare →</a></p>
 </section>
 
-<section class="sectiune">
+<section class="sectiune acasa">
   <h2>Opționale, facultative, limbi străine</h2>
   <div class="pastile">
-    {% for p in pachete %}<a class="pastila-link mic" href="/grupa/{{ p.slug }}">{{ p.nume }}</a>{% endfor %}
+    {% for p in pachete %}<a class="pastila-link mic" href="/grupa/{{ p.slug }}{{ qv }}">{{ p.nume }}</a>{% endfor %}
   </div>
 </section>
+
+{# Versiunile orarului: alegi una, iar grupele si salile de mai sus se deschid in ea. #}
+{% include "_versiuni.html" %}
 {% endblock %}

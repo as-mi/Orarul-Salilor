@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block titlu %}{{ 'Eveniment' if e else 'Eveniment nou' }}{% endblock %}
+
+{% block continut %}
+<section class="formular lat">
+  <nav class="firimituri"><a href="/admin">administrare</a><span>›</span><a href="/admin/evenimente">evenimente</a><span>›</span><strong>{{ e.titlu if e else 'nou' }}</strong></nav>
+  <h1>{{ 'Editează evenimentul' if e else 'Eveniment nou' }}</h1>
+  <p class="nota">O activitate cu dată, în afara orarului săptămânal: poate rezerva o sală (și sâmbăta
+    sau duminica), se poate ține în alt loc sau poate fi doar o perioadă, fără loc.</p>
+
+  {% if eroare %}<p class="avertisment" role="alert">{{ eroare }}</p>{% endif %}
+
+  <form method="post" action="/admin/evenimente/{{ e.id if e else 'nou' }}" class="camp-lista" id="formular-eveniment">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+
+    <fieldset class="alegere">
+      <legend>Felul activității</legend>
+      <label class="bifa"><input type="radio" name="fel" value="asmi" {{ 'checked' if v.fel == 'asmi' }}>
+        <span><strong>Activitate ASMI</strong><small>apare și în calendarul public ASMI</small></span></label>
+      <label class="bifa"><input type="radio" name="fel" value="alta" {{ 'checked' if v.fel == 'alta' }}>
+        <span><strong>Altă activitate</strong><small>o sală rezervată pentru altceva; nu apare în calendarul ASMI</small></span></label>
+    </fieldset>
+
+    <label>
+      <span>Numele</span>
+      <input type="text" name="titlu" required maxlength="160" value="{{ v.titlu }}" placeholder="de ex. Seară de board games">
+    </label>
+
+    <fieldset class="alegere">
+      <legend>Când</legend>
+      <div class="pe-rand">
+        <label>
+          <span>Data</span>
+          <input type="date" name="data_inceput" required value="{{ v.data_inceput }}">
+        </label>
+        <label>
+          <span>Până la data <small>doar pentru o perioadă</small></span>
+          <input type="date" name="data_sfarsit" value="{{ v.data_sfarsit }}">
+        </label>
+      </div>
+      <div class="pe-rand">
+        <label>
+          <span>De la ora</span>
+          <input type="time" name="ora_inceput" step="900" value="{{ v.ora_inceput }}">
+        </label>
+        <label>
+          <span>Până la ora</span>
+          <input type="time" name="ora_sfarsit" step="900" value="{{ v.ora_sfarsit }}">
+        </label>
+      </div>
+      <p class="nota">Fără ore înseamnă toată ziua (sau toată perioada): evenimentul apare în calendar, dar nu și pe orare.</p>
+    </fieldset>
+
+    <fieldset class="alegere">
+      <legend>Unde</legend>
+      <label class="bifa"><input type="radio" name="unde" value="sala" {{ 'checked' if v.unde == 'sala' }}>
+        <span><strong>Într-o sală a facultății</strong><small>caută sălile libere la data și orele de mai sus</small></span></label>
+      <div class="sub-alegere" data-pentru="sala">
+        <button type="button" class="buton"
+                hx-get="/admin/evenimente/sali-libere" hx-include="[name='data_inceput'], [name='ora_inceput'], [name='ora_sfarsit'], [name='sala']:checked"
+                hx-vals='{"eveniment": "{{ e.id if e else '' }}"}'
+                hx-target="#sali-libere" hx-swap="outerHTML">Caută săli libere</button>
+        {% include "_sali_libere.html" %}
+      </div>
+      <label class="bifa"><input type="radio" name="unde" value="alt" {{ 'checked' if v.unde == 'alt' }}>
+        <span><strong>În alt loc</strong><small>de ex. un club, un parc, online</small></span></label>
+      <div class="sub-alegere" data-pentru="alt">
+        <input type="text" name="loc" maxlength="160" value="{{ v.loc }}" placeholder="locul" aria-label="Locul">
+      </div>
+      <label class="bifa"><input type="radio" name="unde" value="fara" {{ 'checked' if v.unde == 'fara' }}>
+        <span><strong>Fără loc</strong><small>o perioadă sau un termen: formularul de recrutări, înscrieri</small></span></label>
+    </fieldset>
+
+    <fieldset class="alegere">
+      <legend>Pe ce orare apare</legend>
+      <label class="bifa"><input type="radio" name="vizibilitate" value="sala" {{ 'checked' if v.vizibilitate == 'sala' }}>
+        <span><strong>Pe niciun orar de grupă</strong><small>dacă are o sală, ea apare ca rezervată pe pagina ei</small></span></label>
+      <label class="bifa"><input type="radio" name="vizibilitate" value="toate" {{ 'checked' if v.vizibilitate == 'toate' }}>
+        <span><strong>Pe toate orarele</strong><small>al fiecărei grupe, în săptămâna evenimentului</small></span></label>
+      <label class="bifa"><input type="radio" name="vizibilitate" value="specializari" {{ 'checked' if v.vizibilitate == 'specializari' }}>
+        <span><strong>Doar pe orarele unor specializări sau ani</strong><small>bifează specializări, ani sau amândouă; ce lași nebifat nu restrânge</small></span></label>
+      <div class="sub-alegere" data-pentru="specializari">
+        <div class="bife-grup">
+          <span class="bife-titlu">Specializări</span>
+          <div class="bife-rand">
+            <label class="bifa toate"><input type="checkbox" data-toate><span><strong>toate specializările</strong></span></label>
+            {% for cod, nume in specializari %}
+              <label class="bifa"><input type="checkbox" name="specializari" value="{{ cod }}" {{ 'checked' if cod in v.specializari }}><span>{{ nume }}</span></label>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="bife-grup">
+          <span class="bife-titlu">Ani</span>
+          <div class="bife-rand">
+            <label class="bifa toate"><input type="checkbox" data-toate><span><strong>toți anii</strong></span></label>
+            {% for cheie, nume in ani %}
+              <label class="bifa"><input type="checkbox" name="ani" value="{{ cheie }}" {{ 'checked' if cheie in v.ani }}><span>{{ nume }}</span></label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset class="alegere">
+      <legend>Culoarea <small>în calendar și pe orare</small></legend>
+      <div class="culori">
+        <label class="culoare-optiune" title="Culoarea obișnuită">
+          <input type="radio" name="culoare" value="" {{ 'checked' if not v.culoare }}>
+          <span class="culoare-mostra"></span><span>obișnuită</span>
+        </label>
+        {% for cheie, nume in culori %}
+          <label class="culoare-optiune culoare-{{ cheie }}" title="{{ nume }}">
+            <input type="radio" name="culoare" value="{{ cheie }}" {{ 'checked' if v.culoare == cheie }}>
+            <span class="culoare-mostra"></span><span>{{ nume }}</span>
+          </label>
+        {% endfor %}
+        {# O culoare proprie, aleasa cu selectorul de culori al browserului. #}
+        {% set proprie = v.culoare if v.culoare.startswith('#') else '' %}
+        <label class="culoare-optiune culoare-proprie" id="culoare-proprie" title="Altă culoare"
+               style="--ev: {{ proprie or '#888888' }}">
+          <input type="radio" name="culoare" value="proprie" {{ 'checked' if proprie }}>
+          <input type="color" name="culoare_proprie" value="{{ proprie or '#888888' }}" aria-label="Alege altă culoare">
+          <span>altă culoare</span>
+        </label>
+      </div>
+    </fieldset>
+    <script>
+      // Alegerea unei culori proprii o si bifeaza, iar mostra ia culoarea aleasa.
+      (() => {
+        const optiune = document.getElementById("culoare-proprie");
+        const culoare = optiune.querySelector('input[type="color"]');
+        const aplica = () => {
+          optiune.style.setProperty("--ev", culoare.value);
+          optiune.querySelector('input[type="radio"]').checked = true;
+        };
+        culoare.addEventListener("input", aplica);
+        culoare.addEventListener("click", aplica);
+      })();
+    </script>
+
+    <details class="mai-multe" {{ 'open' if v.descriere or v.link }}>
+      <summary>Descriere și link…</summary>
+      <label>
+        <span>Descriere <small>apare în calendarul ASMI</small></span>
+        <textarea name="descriere" rows="3" maxlength="2000">{{ v.descriere }}</textarea>
+      </label>
+      <label>
+        <span>Link <small>formular de înscriere, pagina evenimentului</small></span>
+        <input type="text" name="link" inputmode="url" maxlength="300" value="{{ v.link }}" placeholder="https://…">
+      </label>
+    </details>
+
+    <div class="butoane">
+      <button type="submit" class="principal">{{ 'Salvează' if e else 'Adaugă evenimentul' }}</button>
+      <a class="buton" href="/admin/evenimente">Renunță</a>
+    </div>
+  </form>
+
+  {% if e %}
+    <form method="post" action="/admin/evenimente/{{ e.id }}/sterge" class="anulare"
+          onsubmit="return confirm('Ștergi evenimentul? Sala rezervată se eliberează.')">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button type="submit" class="buton pericol">Șterge evenimentul</button>
+    </form>
+  {% endif %}
+
+  <script>
+    // Ce tine de o alegere (salile, locul, specializarile) se vede doar cand e aleasa.
+    (() => {
+      const formular = document.getElementById("formular-eveniment");
+      const sincron = () => {
+        for (const sub of formular.querySelectorAll(".sub-alegere")) {
+          const grup = sub.closest("fieldset");
+          const ales = grup.querySelector('input[type="radio"]:checked');
+          const activ = ales && ales.value === sub.dataset.pentru;
+          sub.hidden = !activ;
+          for (const camp of sub.querySelectorAll("input")) camp.disabled = !activ;
+        }
+      };
+      // "toate ..." bifeaza sau debifeaza tot grupul si tine pasul cu bifele lui
+      const bifele = (grup) => [...grup.querySelectorAll('input[type="checkbox"]:not([data-toate])')];
+      const tine_pasul = (grup) => {
+        const toate = grup.querySelector("[data-toate]");
+        const bifate = bifele(grup).filter((b) => b.checked).length;
+        toate.checked = bifate > 0 && bifate === bifele(grup).length;
+        toate.indeterminate = bifate > 0 && !toate.checked;
+      };
+      for (const grup of formular.querySelectorAll(".bife-grup")) {
+        tine_pasul(grup);
+        grup.addEventListener("change", (e) => {
+          if (e.target.matches("[data-toate]")) bifele(grup).forEach((b) => { b.checked = e.target.checked; });
+          tine_pasul(grup);
+        });
+      }
+      formular.addEventListener("change", sincron);
+      document.body.addEventListener("htmx:afterSwap", sincron);
+      sincron();
+    })();
+  </script>
+</section>
+{% endblock %}

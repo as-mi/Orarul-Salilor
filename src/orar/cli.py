@@ -196,7 +196,6 @@ def _cmd_sincronizeaza(args: argparse.Namespace) -> int:
             director=args.director,
             forteaza=args.forteaza,
             doar_verifica=args.doar_verifica,
-            fara_crosscheck=args.fara_crosscheck,
         )
         print(rap)
     return 0 if not rap.avertismente else 0
@@ -207,6 +206,7 @@ def _cmd_crosscheck(args: argparse.Namespace) -> int:
         citeste_orarul_profesorilor,
         completeaza_profesorii,
         extinde_numele,
+        salveaza_index,
         verifica,
     )
     from orar.ingest.ocr import RapidOCR
@@ -245,6 +245,31 @@ def _cmd_crosscheck(args: argparse.Namespace) -> int:
                 print(f"prescurtari ambigue, lasate cum sunt: {len(ambigue)}")
                 for x in ambigue[:20]:
                     print(f"  {x}")
+        if args.pastreaza:
+            an, semestru = args.pastreaza
+            n = salveaza_index(s, index, an_universitar=an, semestru=int(semestru))
+            print(f"orarul profesorilor pastrat pentru sem {semestru}, {an}: {n} profesori")
+    return 0
+
+
+def _cmd_capacitati(args: argparse.Namespace) -> int:
+    from orar.ingest.capacities import citeste_capacitati, incarca_capacitati
+    from orar.ingest.ocr import RapidOCR
+
+    if not args.imagine.is_file():
+        print(f"[eroare] {args.imagine} nu exista; ruleaza intai `orar sincronizeaza`")
+        return 1
+    capacitati = citeste_capacitati(args.imagine, RapidOCR())
+    with sesiune() as s:
+        rap = incarca_capacitati(s, capacitati)
+        print(rap)
+        for a in rap.avertismente:
+            print(f"  ! {a}")
+        if args.verbose:
+            if rap.adaugate:
+                print(f"\nin tabel, fara ore in orar -- adaugate: {rap.adaugate}")
+            if rap.fara_capacitate:
+                print(f"\nsali fizice fara numar de locuri: {rap.fara_capacitate}")
     return 0
 
 
@@ -332,6 +357,26 @@ def _cmd_stats(_args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_rol(args: argparse.Namespace) -> int:
+    """Seteaza rolul unui cont, dupa email -- acelasi lucru ca din panoul /admin, pentru cand
+    n-ai (inca) un admin care sa intre in panou."""
+    from sqlalchemy import func, select
+
+    from orar.db.models import ROLURI, User
+
+    if args.rol not in ROLURI:
+        print(f"[eroare] rol necunoscut: {args.rol!r}; alege dintre {', '.join(ROLURI)}")
+        return 1
+    with sesiune() as s:
+        user = s.scalar(select(User).where(func.lower(User.email) == args.email.strip().lower()))
+        if user is None:
+            print(f"[eroare] nu exista niciun cont cu adresa {args.email}")
+            return 1
+        user.rol = args.rol
+        print(f"{user.nume} <{user.email}>: {args.rol}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="orar", description="Orarul Salilor (FMI)")
     p.add_argument("-v", "--verbose", action="store_true")
@@ -365,6 +410,11 @@ def main(argv: list[str] | None = None) -> int:
     ps = sub.add_parser("stats", help="cate randuri sunt in baza")
     ps.set_defaults(func=_cmd_stats)
 
+    prl = sub.add_parser("rol", help="seteaza rolul unui cont (student/voluntar/profesor/admin)")
+    prl.add_argument("email", help="adresa contului")
+    prl.add_argument("rol", help="student, voluntar, profesor sau admin")
+    prl.set_defaults(func=_cmd_rol)
+
     py = sub.add_parser(
         "sincronizeaza", help="verifica pagina FMI si reia ingestul daca s-a schimbat orarul"
     )
@@ -377,15 +427,21 @@ def main(argv: list[str] | None = None) -> int:
     py.add_argument(
         "--doar-verifica", action="store_true", help="spune ce s-ar face, fara sa captureze"
     )
-    py.add_argument(
-        "--fara-crosscheck",
-        action="store_true",
-        help="nu mai captura si orarul profesorilor pentru verificare (~12 min in plus)",
-    )
     py.set_defaults(func=_cmd_sincronizeaza)
 
     pu = sub.add_parser("surse", help="ce orare cunoastem si daca sunt la zi")
     pu.set_defaults(func=_cmd_surse)
+
+    pcap = sub.add_parser(
+        "capacitati", help="citeste numarul de locuri din tabelul de pe pagina 2 a orarului"
+    )
+    pcap.add_argument(
+        "imagine",
+        type=Path,
+        nargs="?",
+        default=Path("data/screenshots/sem2-grupe/pag_002.png"),
+    )
+    pcap.set_defaults(func=_cmd_capacitati)
 
     pp = sub.add_parser(
         "planuri", help="incarca creditele si forma de evaluare din planurile de invatamant"
@@ -405,6 +461,13 @@ def main(argv: list[str] | None = None) -> int:
         "--completeaza",
         action="store_true",
         help="umple profesorii marcati nesigure, cand a doua sursa da un raspuns unic",
+    )
+    px.add_argument(
+        "--pastreaza",
+        nargs=2,
+        metavar=("AN", "SEMESTRU"),
+        help="pastreaza in baza orarul profesorilor citit (lista de profesori si activitatile "
+        "lor), pentru semestrul dat: --pastreaza 2025-2026 2",
     )
     px.set_defaults(func=_cmd_crosscheck)
 

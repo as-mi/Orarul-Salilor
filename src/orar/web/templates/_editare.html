@@ -1,0 +1,13 @@
+{# Butoanele de editare din randul de filtre, doar pentru admini, doar pe orarul actual.
+   In modul de editare, un click pe o activitate din grila ii deschide formularul. #}
+{% if poate_edita %}
+  {% set _sel = sel_q if sel_q is defined and sel_q else '' %}
+  <span class="grup-filtre editare">
+    <a class="filtru {{ 'activ' if mod_editare }}" href="?{{ _sel }}{{ '' if mod_editare else ('&' if _sel) ~ 'editare=1' }}"
+       title="În modul de editare, un click pe o activitate îi deschide formularul">
+      {{ '✓ ' if mod_editare }}✎ Editează orarul</a>
+    {% if mod_editare %}
+      <a class="filtru" href="/admin/activitate/noua?{% if grupa is defined %}grupa={{ grupa.slug }}{% elif sala is defined %}sala={{ sala.nume|urlencode }}{% endif %}{% if sel is defined and sel.perioada %}&perioada={{ sel.perioada.id }}{% endif %}&inapoi={{ aici }}">+ Adaugă activitate</a>
+    {% endif %}
+  </span>
+{% endif %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titlu %}{{ profesor.nume }}{% endblock %}
+
+{% block continut %}
+{% set qv = ('?' ~ sel_q) if sel_q is defined and sel_q else '' %}
+<section class="antet">
+  <nav class="firimituri"><a href="/{{ qv }}">acasă</a><span>›</span><span>profesori</span><span>›</span><strong>{{ profesor.nume }}</strong></nav>
+  <h1>{{ profesor.nume }}{% if al_meu %} <span class="pastila">orarul meu</span>{% endif %}</h1>
+  {% include "_banner_versiune.html" %}
+
+  <div class="sumar">
+    <span class="fapt"><strong>{{ total }}</strong> {{ 'activitate' if total == 1 else 'activități' }}</span>
+    <span class="fapt"><strong>{{ ore_pe_saptamana }}</strong> ore pe săptămână</span>
+    {% if sali %}<span class="fapt">în {{ sali|join(', ') }}</span>{% endif %}
+  </div>
+
+  <div class="filtre">
+    {% if in_semestru %}
+      <a class="filtru {{ 'activ' if filtru_saptamana }}"
+         href="?{% if not filtru_saptamana %}saptamana=true{% endif %}{% if zi_aleasa %}&zi={{ zi_aleasa.isoformat() }}{% endif %}{{ qv|replace('?', '&') }}">
+        {% if filtru_saptamana %}✓ {% endif %}doar săptămâna curentă
+      </a>
+    {% else %}
+      <span class="filtru inert" title="Filtrul e disponibil doar în timpul semestrului">
+        vacanță - se afișează orarul complet
+      </span>
+    {% endif %}
+    {% include "_alege_zi.html" %}
+  </div>
+</section>
+
+{% if total %}
+  {% with mod = 'profesor' %}{% include "_grila.html" %}{% endwith %}
+{% else %}
+  <div class="panou-gol"><p>Nicio activitate în orarul afișat.</p></div>
+{% endif %}
+
+{% include "_versiuni.html" %}
+{% endblock %}

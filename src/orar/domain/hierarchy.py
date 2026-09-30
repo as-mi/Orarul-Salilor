@@ -24,6 +24,7 @@ grupele-tinta prin tabela de jonctiune ORA_GRUPA, nu prin PARINTE.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -35,6 +36,12 @@ __all__ = [
     "normalizeaza_specializare",
     "normalizeaza_semigrupa",
     "SPECIALIZARI",
+    "CategoriePachet",
+    "categorie_pachet",
+    "an_din_text",
+    "este_master",
+    "cod_specializare",
+    "specializari_vizate",
 ]
 
 
@@ -111,6 +118,152 @@ def _an_din_roman_sau_cifra(text: str) -> int | None:
     if text in _ROMAN:
         return _ROMAN[text]
     return int(text) if text.isdigit() else None
+
+
+# ---------------------------------------------------------------------------
+# Cautare permisiva: anul si specializarile vizate de o pagina de pachet
+# ---------------------------------------------------------------------------
+
+#: "an III", "anul 2", "An. IV", "anul: II" -- oriunde in titlu.
+_RE_AN_ORIUNDE = re.compile(r"\ban(?:ul)?\s*[.:]?\s*(?P<an>[IVX]{1,4}|\d)\b", re.IGNORECASE)
+_RE_MASTER_ORIUNDE = re.compile(r"\bmaster", re.IGNORECASE)
+#: Separatori "tari": despart specializari diferite. Spatiul, cratima si punctul sunt "moi" --
+#: leaga cuvintele aceleiasi specializari (`Mate-Info`, `Mate Apl.`).
+_RE_SEPARATOR_TARE = re.compile(r"[,;/()\[\]:]|\bs[iî]\b|\bși\b", re.IGNORECASE)
+_RE_CUVANT = re.compile(r"[^\W_]+")
+
+
+def an_din_text(text: str) -> int | None:
+    """Anul de studiu scris oriunde in text: `an III`, `anul 2`, `An. IV`."""
+    m = _RE_AN_ORIUNDE.search(curata_titlu(text))
+    return _an_din_roman_sau_cifra(m.group("an")) if m else None
+
+
+def este_master(text: str) -> bool:
+    return bool(_RE_MASTER_ORIUNDE.search(text or ""))
+
+
+def _fara_diacritice(text: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
+
+
+def _cuvinte(text: str) -> tuple[str, ...]:
+    return tuple(w.upper() for w in _RE_CUVANT.findall(_fara_diacritice(text)))
+
+
+def cod_specializare(text: str) -> str:
+    """Codul unei specializari, si pentru una pe care n-o cunoastem inca.
+
+    Cele din `SPECIALIZARI` isi pastreaza codul canonic; oricare alta primeste forma ei
+    normalizata (`Bio Info` -> `BIO-INFO`), ca o specializare aparuta anul viitor sa aiba
+    nodul ei in ierarhie in loc sa ramana fara parinte.
+    """
+    return normalizeaza_specializare(text) or "-".join(_cuvinte(text))
+
+
+def _aliasuri(cunoscute: set[str]) -> dict[tuple[str, ...], str]:
+    """Secventa de cuvinte -> cod. Din tabela fixa, plus codurile din ierarhie."""
+    out = {_cuvinte(alias): cod for alias, cod in SPECIALIZARI.items()}
+    for cod in cunoscute:
+        out.setdefault(_cuvinte(cod), cod)
+    return {k: v for k, v in out.items() if k}
+
+
+def _repara_cuvant(cuvant: str, vocabular: set[str]) -> str:
+    """`lnfo` -> `INFO`, `CTl` -> `CTI`: `l` citit in loc de `I`, numai daca asa devine un
+    cuvant de specializare cunoscut. Altfel cuvantul ramane cum e."""
+    sus = cuvant.upper()
+    if sus in vocabular or "l" not in cuvant:
+        return sus
+    reparat = cuvant.replace("l", "I").upper()
+    return reparat if reparat in vocabular else sus
+
+
+def _cauta_specializari(text: str, aliasuri: dict[tuple[str, ...], str]) -> list[str]:
+    """Codurile scrise in text, cel mai lung alias intai: `Mate Apl.` e MATE-APL, nu MATE."""
+    vocabular = {c for alias in aliasuri for c in alias}
+    lungimi = sorted({len(a) for a in aliasuri}, reverse=True)
+    gasite: list[str] = []
+    for segment in _RE_SEPARATOR_TARE.split(_fara_diacritice(text)):
+        cuv = [_repara_cuvant(w, vocabular) for w in _RE_CUVANT.findall(segment)]
+        i = 0
+        while i < len(cuv):
+            for n in lungimi:
+                cod = aliasuri.get(tuple(cuv[i : i + n]))
+                if cod:
+                    if cod not in gasite:
+                        gasite.append(cod)
+                    i += n
+                    break
+            else:
+                i += 1
+    return gasite
+
+
+def _descompune(cod: str, disponibile: set[str], aliasuri: dict[tuple[str, ...], str]) -> list[str]:
+    """Un cod compus care nu exista in anul respectiv, luat pe bucati.
+
+    `Limbi straine - an I (Mate Info, CTI)`: in anul I nu exista MATE-INFO, deci `Mate Info`
+    (fara virgula) inseamna aici MATE si INFO. Descompunem doar cand bucatile exista toate.
+    """
+    if cod in disponibile or "-" not in cod:
+        return [cod] if cod in disponibile else []
+    bucati = [aliasuri.get((p,)) for p in cod.split("-")]
+    return [b for b in bucati if b] if all(b in disponibile for b in bucati) else []
+
+
+def specializari_vizate(titlu: str, disponibile: set[str]) -> list[str]:
+    """Specializarile dintr-un titlu de pachet, dintre cele care exista in anul lui.
+
+    Intai in afara parantezelor, apoi -- daca acolo nu e niciuna -- si in paranteze.
+    `Optionale an III - MATE-INFO (Informatica)` e un pachet MATE-INFO: paranteza spune
+    *ce fel* de optionale sunt, nu ca le-ar face si specializarea INFO. In schimb la
+    `Facultative an II (Mate, Info, CTI)` lista e chiar in paranteza.
+
+    Lista goala = titlul nu numeste nicio specializare din an. Apelantul decide ce face
+    atunci (loader-ul cade inapoi pe tot anul).
+    """
+    aliasuri = _aliasuri(disponibile)
+    afara = re.sub(r"\([^)]*\)", " ", titlu or "")
+    for text in (afara, titlu or ""):
+        coduri: list[str] = []
+        for cod in _cauta_specializari(text, aliasuri):
+            for c in _descompune(cod, disponibile, aliasuri):
+                if c not in coduri:
+                    coduri.append(c)
+        if coduri:
+            return coduri
+    return []
+
+
+class CategoriePachet(StrEnum):
+    """Ce fel de activitati tine o pagina care nu e formatiune."""
+
+    OPTIONAL = "optional"
+    FACULTATIV = "facultativ"
+    LIMBI = "limbi"
+    ALTELE = "altele"
+
+    @property
+    def eticheta(self) -> str:
+        return {
+            "optional": "Opționale",
+            "facultativ": "Facultative",
+            "limbi": "Limbi străine",
+            "altele": "Alte activități",
+        }[self.value]
+
+
+def categorie_pachet(nume: str) -> CategoriePachet:
+    """Dupa cuvintele din titlu, oriunde ar fi, cu sau fara diacritice."""
+    text = _fara_diacritice(nume or "").lower()
+    if "facultativ" in text:
+        return CategoriePachet.FACULTATIV
+    if re.search(r"\blimb[ai]\b", text):
+        return CategoriePachet.LIMBI
+    if "optional" in text:
+        return CategoriePachet.OPTIONAL
+    return CategoriePachet.ALTELE
 
 
 @dataclass(frozen=True)
@@ -220,13 +373,18 @@ _RE_ROMAN_STRICAT = re.compile(r"\b(?=[IVXl]{2,})[IVXl]+\b")
 _RE_NUMAR_STRICAT = re.compile(r"\b(?=\d*[O]\d)[\dO]{3}\b")
 
 
+#: Cuvintele din care sunt facute numele de specializare (MATE, INFO, APL, ...).
+_CUVINTE_SPECIALIZARE = {w for alias in SPECIALIZARI for w in re.findall(r"[A-Z]+", alias)}
+
+
 def _repara_specializare(m: re.Match[str]) -> str:
-    """`CTl` -> `CTI`, dar numai daca rezultatul e un cod de specializare cunoscut."""
+    """`CTl` -> `CTI`, `Mate-lnfo` -> `Mate-Info`, dar numai daca rezultatul e un cuvant
+    de specializare cunoscut."""
     token = m.group(0)
-    if token in SPECIALIZARI or "l" not in token:
+    if token.upper() in _CUVINTE_SPECIALIZARE or "l" not in token:
         return token
     reparat = token.replace("l", "I")
-    return reparat if reparat in SPECIALIZARI else token
+    return reparat if reparat.upper() in _CUVINTE_SPECIALIZARE else token
 
 
 def curata_titlu(titlu: str) -> str:
@@ -293,7 +451,7 @@ def parse_titlu(titlu: str) -> TitluOrar:
     if m := _RE_OPTIONAL.match(raw):
         rest = m.group("rest").strip()
         # "Master INFO" -> specializarea e in rest; altfel "MATE (1)" / "MATE-INFO (Informatica)"
-        este_master = bool(re.search(r"\bMaster\b", rest, re.IGNORECASE))
+        e_master = bool(re.search(r"\bMaster\b", rest, re.IGNORECASE))
         curat = re.sub(r"\bMaster\b", "", rest, flags=re.IGNORECASE)
         curat = re.sub(r"\([^)]*\)", "", curat).strip()
         return TitluOrar(
@@ -301,7 +459,7 @@ def parse_titlu(titlu: str) -> TitluOrar:
             tip=TipPagina.OPTIONAL,
             specializare=normalizeaza_specializare(curat),
             an=_an_din_roman_sau_cifra(m.group("an")),
-            program="master" if este_master else None,
+            program="master" if e_master else None,
             eticheta=raw,
             slug=_slugify(raw),
         )
@@ -314,6 +472,25 @@ def parse_titlu(titlu: str) -> TitluOrar:
             grupa=m.group("grupa"),
             eticheta=f"Fizică/Robotică {m.group('grupa')}",
             slug=_slugify(m.group("grupa")),
+        )
+
+    # Niciun sablon strict, dar cuvintele spun ce e: `Pachet opțional anul 2 - INFO`,
+    # `Cursuri facultative, an III`. Anul se cauta oriunde in titlu; specializarile le
+    # rezolva loader-ul, fata de ce exista in ierarhie -- inclusiv caderea pe tot anul.
+    categorie = categorie_pachet(raw)
+    if categorie is not CategoriePachet.ALTELE:
+        return TitluOrar(
+            raw=raw,
+            tip={
+                CategoriePachet.OPTIONAL: TipPagina.OPTIONAL,
+                CategoriePachet.FACULTATIV: TipPagina.FACULTATIV,
+                CategoriePachet.LIMBI: TipPagina.LIMBI,
+            }[categorie],
+            an=an_din_text(raw),
+            program="master" if este_master(raw) else None,
+            eticheta=raw,
+            slug=_slugify(raw),
+            note=("titlu de pachet recunoscut dupa cuvinte, nu dupa sablon",),
         )
 
     # Nerecunoscut de niciun sablon. Il marcam cinstit, dar NU il aruncam: pagina are
@@ -329,7 +506,9 @@ def parse_titlu(titlu: str) -> TitluOrar:
 
 
 def _construieste_grupa(raw: str, spec_text: str, nr: str) -> TitluOrar:
-    spec = normalizeaza_specializare(spec_text)
+    # O specializare necunoscuta (una noua, anul viitor) primeste codul ei normalizat, ca sa
+    # aiba nod de specializare -- altfel grupele ei n-ar primi niciun pachet pe an.
+    spec = cod_specializare(spec_text) or None
     an = int(nr[0])
     serie = nr[:2]
     return TitluOrar(
@@ -341,7 +520,9 @@ def _construieste_grupa(raw: str, spec_text: str, nr: str) -> TitluOrar:
         grupa=nr,
         eticheta=nr,
         slug=nr,
-        note=() if spec else (f"specializare necunoscuta: {spec_text!r}",),
+        note=()
+        if normalizeaza_specializare(spec_text)
+        else (f"specializare noua {spec!r}, din {spec_text!r}",),
     )
 
 

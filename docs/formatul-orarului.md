@@ -168,7 +168,7 @@ respinge cu `EroareSegmentare`, ceea ce e comportamentul dorit. Ambele sunt îns
 | Pagina | Conținut | Folosit pentru |
 | :--- | :--- | :--- |
 | 1 | Anunțuri + **ancorele de paritate** („Săptămâna 23 – 27 februarie este impară (SI)”) și data actualizării | a doua sursă pentru §7 |
-| 2 | **Tabelul de capacități**: `Amf. 501 → 122 locuri`, `L.410 → 15`, … pentru 24 de săli | `SALA.NR_LOCURI` (neingestat încă) |
+| 2 | **Tabelul de capacități**: `Amf. 501 → 122 locuri`, `L.410 → 15`, … pentru 30 de săli | `SALA.NR_LOCURI` (§11) |
 
 Tabelul de la pagina 2 e și dovada că normalizarea sălilor din §4 e necesară: chiar și acolo
 apar amândouă separatoarele — `S-214` lângă `S.102`, `L-106` lângă `L.410`.
@@ -258,3 +258,37 @@ afara FMI — laboratoarele de la Măgurele (Fizică), limbile străine — care
 orarul profesorilor. Din cele 189 de nume întregi, **181 de prescurtări din bază au fost
 înlocuite** cu numele complet; 6 au rămas ambigue (`Popescu A` se potrivește și cu Adrian, și
 cu Ana) și se raportează ca atare.
+
+
+## 11. Tabelul de capacități (pagina 2)
+
+Alt fel de tabel decât grila orarului, deci altă segmentare. Grila n-are linii interioare
+vizibile — de aceea `segment.py` deduce caroiajul din riglele curate de pe margini. Aici,
+invers: **toate** liniile sunt trasate, dar nu se știe dinainte câte rânduri sau coloane sunt,
+iar pe pagină stau **două tabele alăturate**:
+
+```
++----------------+------------+     +------------------+------------+
+| Sală PBT       | Nr. locuri |     | Laborator PBT    | Nr. locuri |
+| Amf. 501       |    122     |     | L.410            |     15     |
+| S-214          |     70     |     | L-509 (iOS)      |     30     |
+```
+
+O proiecție pe toată lățimea le-ar uni, fiindcă liniile unui tabel nu ajung la celălalt.
+`ingest/tables.py` caută deci **segmente** — rulaje continue de pixeli întunecați — și
+grupează orizontalele după întinderea lor pe `x`. Fiecare grup e un tabel; verticalele care
+îl traversează îi dau coloanele. Nimic nu e hardcodat: pe pagina reală ies două tabele de
+31×2, detectate singure.
+
+Citirea celulelor folosește exact același motor ca orarul: decupare geometrică pe rânduri de
+text, apoi recunoaștere pe bucăți de o singură linie.
+
+**Rezultat: 30 de săli din 30.** Singura fără număr e `L.414 Robotica`, unde sursa însăși
+scrie `?` — rămâne `NULL`, nu se inventează.
+
+Două lucruri de reținut:
+
+- Tabelul e și **dovada că normalizarea sălilor era necesară**: chiar în lista oficială,
+  `S-214` stă lângă `S.102` și `L-106` lângă `L.410`. Legarea se face pe slug.
+- Lămurirea din paranteză descrie dotarea, nu altă sală: tabelul scrie `L-509 (iOS)`, orarul
+  doar `L-509`. La legare se încearcă întâi slug-ul întreg, apoi cel fără paranteză.

@@ -1,0 +1,30 @@
+{# Starea incarcarii unui orar (`worker.incarcare.Stare`). Cat timp e in lucru, caseta se
+   cere singura din nou la cateva secunde (HTMX) si se inlocuieste pe ea insasi; cand s-a
+   terminat, nu mai intreaba. #}
+<div id="stare-incarcare" class="stare-incarcare {{ incarcare.faza }}" role="status"
+     {% if incarcare.in_lucru %}hx-get="/admin/orar/stare" hx-trigger="every 4s" hx-swap="outerHTML"{% endif %}>
+  {% if incarcare.faza == 'inactiv' %}
+    <p class="nota">Nicio încărcare pornită de la ultima repornire a serverului.</p>
+  {% else %}
+    <p>
+      {% if incarcare.in_lucru %}
+        <strong>În lucru</strong> - {{ incarcare.etapa or 'pornesc' }}…
+      {% elif incarcare.faza == 'reusit' %}
+        <strong>Încărcat.</strong> Orarul de până acum a rămas ca versiune anterioară.
+      {% else %}
+        <strong>Eșuat.</strong> {{ incarcare.eroare }}
+      {% endif %}
+    </p>
+    <p class="nota">
+      Semestrul {{ incarcare.cerere.semestru }}, {{ incarcare.cerere.an_universitar }}
+      · pornită la {{ incarcare.pornit_la.strftime('%H:%M:%S') }}
+      {%- if incarcare.cerere.de_catre %} de {{ incarcare.cerere.de_catre }}{% endif %}
+      {%- if incarcare.terminat_la %} · terminată la {{ incarcare.terminat_la.strftime('%H:%M:%S') }}{% endif %}
+    </p>
+    {% if incarcare.raport %}
+      <ul class="raport-incarcare">
+        {% for rand in incarcare.raport %}<li>{{ rand }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+  {% endif %}
+</div>

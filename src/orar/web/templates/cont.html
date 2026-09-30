@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block titlu %}Contul meu{% endblock %}
+
+{% block continut %}
+<section class="formular">
+  <h1>Contul meu</h1>
+  <p class="nota">{{ user.nume }} · {{ user.email }}
+    {%- if user.rol != 'student' %} · <span class="pastila neutra">{{ user.rol }}</span>{% endif %}</p>
+
+  {% if not user.grupa_id and not (user.rol == 'profesor' and user.profesor) %}
+    <p class="avertisment">Alege-ți grupa: „Orarul meu” e orarul ei.</p>
+  {% endif %}
+
+  <form method="post" action="/account" class="camp-lista">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>
+      <span>Grupa <small>orarul ei se deschide din „orarul meu”</small></span>
+      <select name="grupa_id">
+        <option value="">- niciuna -</option>
+        {% for g in grupe %}
+          <option value="{{ g.id }}" {% if user.grupa_id == g.id %}selected{% endif %}>{{ g.nume }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="principal">Salvează</button>
+  </form>
+
+  <p class="nota">Semigrupa și opționalele / facultativele se aleg chiar pe
+    {% if user.grupa %}<a href="/orarul-meu">orarul tău</a>{% else %}orarul tău{% endif %}
+    și rămân salvate în cont. Dacă schimbi grupa, alegerile vechi se șterg.</p>
+
+  <h2 id="profesor" class="titlu-sectiune">Sunt profesor</h2>
+  {% if user.rol == 'profesor' and user.profesor %}
+    <p class="reusit">Contul tău e al profesorului <strong>{{ user.profesor }}</strong>:
+      <a href="/orarul-meu">„Orarul meu”</a> e orarul lui.</p>
+  {% elif user.cerere_profesor %}
+    <p class="nota">Ai cerut rolul de profesor ca <strong>{{ user.cerere_profesor }}</strong>.
+      Cererea așteaptă să fie aprobată de un administrator.</p>
+    <form method="post" action="/account/profesor">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button type="submit" name="renunta" value="1" class="buton">Renunță la cerere</button>
+    </form>
+  {% else %}
+    <p class="nota">Dacă predai la facultate, cere rolul de profesor: după ce un administrator
+      aprobă cererea, „Orarul meu” devine orarul tău de profesor.</p>
+    {% if request.query_params.get('eroare_profesor') %}
+      <p class="avertisment" role="alert">Alege-ți numele din listă.</p>
+    {% endif %}
+    <form method="post" action="/account/profesor" class="camp-lista">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label>
+        <span>Numele tău, din orarul profesorilor</span>
+        <select name="profesor" required>
+          <option value="">- alege -</option>
+          {% for p in profesori %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+        </select>
+      </label>
+      <button type="submit" class="buton">Cere rolul de profesor</button>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

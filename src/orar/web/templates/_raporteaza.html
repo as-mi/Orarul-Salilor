@@ -1,0 +1,43 @@
+{# "Raportează o problemă", sub grila -- pe /grupa si pe /sala, pentru oricine, cu sau fara
+   cont. Asteapta `ore_raport`: [(id, descriere)] ale activitatilor de pe pagina. Pe o
+   versiune anterioara nu apare: acolo nu mai e nimic de corectat. #}
+{% if not (versiune is defined and versiune) %}
+  {% if request.query_params.get('raportat') %}
+    <p class="reusit" role="status">Mulțumim! Sesizarea a ajuns la administratori.</p>
+  {% endif %}
+  {% if request.query_params.get('raport_eroare') %}
+    <p class="avertisment" role="alert">{{ request.query_params.get('raport_eroare') }}</p>
+  {% endif %}
+  <details class="raporteaza" {{ 'open' if request.query_params.get('raport_eroare') }}>
+    <summary class="buton">⚑ Raportează o problemă</summary>
+    <form method="post" action="/sesizare" class="camp-lista panou-raport">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="pagina" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+      <p class="nota">Ai văzut ceva greșit în orar - o sală, un profesor, o oră, o activitate
+        care lipsește? Spune-ne și un administrator o verifică.</p>
+      <label>
+        <span>Despre ce activitate e vorba?</span>
+        <select name="ora_id">
+          <option value="">- altceva / lipsește o activitate -</option>
+          {% for id, eticheta in ore_raport %}
+            <option value="{{ id }}">{{ eticheta }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>Ce e greșit?</span>
+        <textarea name="mesaj" rows="3" required minlength="5" maxlength="1000"
+                  placeholder="de ex.: laboratorul s-a mutat în L.410"></textarea>
+      </label>
+      {% if not cont %}
+        <label>
+          <span>Email <small>opțional, dacă vrei să te putem întreba ceva</small></span>
+          <input type="text" name="contact" maxlength="180" autocomplete="email">
+        </label>
+      {% endif %}
+      {# capcana pentru roboti: oamenii nu vad campul #}
+      <label class="capcana" aria-hidden="true">Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+      <button type="submit" class="principal">Trimite sesizarea</button>
+    </form>
+  </details>
+{% endif %}

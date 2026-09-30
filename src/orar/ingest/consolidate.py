@@ -39,6 +39,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from orar.db.models import Grupa, Ora, OraGrupa
+from orar.domain.hierarchy import CategoriePachet, categorie_pachet
 
 log = logging.getLogger(__name__)
 
@@ -84,6 +85,20 @@ def _cheie(o: Ora) -> tuple:
         o.saptamani,
         o.semigrupa,
     )
+
+
+def _prioritate_proprietar(g: Grupa | None) -> int:
+    """Pe cine pastram ca proprietar dintre duplicate: un pachet de optionale/facultative/
+    limbi, apoi formatiunea, apoi orice altceva (Fizica/Robotica, conferinte).
+
+    Pachetul primul: daca o activitate e listata intr-un pachet de optionale, e un optional
+    -- si ramane asa in interfata, unde se poate ascunde din dropdown -- chiar daca apare si
+    pe pagina unei grupe. Vizibilitatea nu depinde de alegere: randul pastrat preia oricum
+    legaturile tuturor duplicatelor. `sorted` e stabil, deci la egalitate nu se schimba nimic.
+    """
+    if g is None or g.tip != "optional":
+        return 1
+    return 2 if categorie_pachet(g.nume) is CategoriePachet.ALTELE else 0
 
 
 def _cale_la_radacina(g: Grupa, parinti: dict[int, int | None]) -> list[int]:
@@ -139,27 +154,36 @@ def consolideaza(s: Session, *, an_universitar: str | None = None) -> RaportCons
     for o in s.execute(ore_stmt).scalars():
         pe_cheie[_cheie(o)].append(o)
 
+    # Legaturile existente, citite o singura data: o interogare per grup ar insemna sute.
+    legate: dict[int, set[int]] = defaultdict(set)
+    for ora_id, grupa_id in s.execute(select(OraGrupa.ora_id, OraGrupa.grupa_id)):
+        legate[ora_id].add(grupa_id)
+    #: Duplicatele de sters, adunate si sterse la final intr-o singura instructiune.
+    de_sters: list[int] = []
+
     for lot in pe_cheie.values():
         if len(lot) < 2:
             continue
-        proprietari = {o.grupa_id for o in lot}
-        if len(proprietari) < 2:
-            # Duplicate exacte in aceeasi grupa: pastram unul singur.
-            rap.grupuri_identice += 1
-            for o in lot[1:]:
-                s.delete(o)
-                rap.ore_sterse += 1
-            continue
-
         rap.grupuri_identice += 1
-        tinta = _lca(sorted(proprietari), parinti, noduri)
+        proprietari = {o.grupa_id for o in lot}
+        # Randul pastrat da proprietarul -- deci eticheta si categoria din interfata. Un curs
+        # care apare si pe `Optionale an III - INFO (Curs)`, si pe pagina Fizica/Robotica
+        # trebuie sa ramana al pachetului de optionale, nu "alta activitate".
+        lot = sorted(lot, key=lambda o: _prioritate_proprietar(noduri.get(o.grupa_id)))
         pastrat, restul = lot[0], lot[1:]
+        # Randul pastrat preia legaturile ORA_GRUPA ale **tuturor** duplicatelor. Altfel se
+        # pierd tintele pachetelor: acelasi opțional apare pe pagina `INFO (Curs)`, legata de
+        # seriile 33-35, si pe `MATE-INFO (Informatica)`, legata de MATE-INFO an 3; daca
+        # pastram randul celui din urma fara legaturile celuilalt, seriile 33-35 nu-l mai vad.
+        tinte_duplicate = set().union(*(legate[o.id] for o in lot))
+        tinta = _lca(sorted(proprietari), parinti, noduri) if len(proprietari) > 1 else None
 
         if tinta is not None and tinta not in proprietari and copii_grupa.get(tinta) == proprietari:
             # Toate grupele-copil ale LCA-ului o au => e o ora de serie/an.
             # Mutam prin *relatie*, nu prin FK: altfel `ora.grupa` ramane obiectul vechi in
             # identity map si orice cod care citeste in aceeasi sesiune vede grupa gresita.
             pastrat.grupa = noduri[tinta]
+            proprietar, de_legat = tinta, tinte_duplicate
             rap.ridicate_la_serie += 1
             if len(rap.exemple) < 8:
                 rap.exemple.append(
@@ -168,22 +192,28 @@ def consolideaza(s: Session, *, an_universitar: str | None = None) -> RaportCons
                     f"({len(proprietari)} grupe)"
                 )
         else:
-            # Set partial: pastram proprietarul original si legam restul explicit.
-            rap.ridicate_partial += 1
-            existente = {
-                r[0]
-                for r in s.execute(select(OraGrupa.grupa_id).where(OraGrupa.ora_id == pastrat.id))
-            }
-            for gid in proprietari - {pastrat.grupa_id} - existente:
-                s.add(OraGrupa(ora_id=pastrat.id, grupa_id=gid))
-                rap.legaturi_adaugate += 1
+            # Set partial (sau duplicate in aceeasi grupa): pastram proprietarul original si
+            # legam explicit ceilalti proprietari, plus tintele lor.
+            if len(proprietari) > 1:
+                rap.ridicate_partial += 1
+            proprietar, de_legat = pastrat.grupa_id, proprietari | tinte_duplicate
 
-        for o in restul:
-            s.execute(delete(OraGrupa).where(OraGrupa.ora_id == o.id))
-            s.delete(o)
-            rap.ore_sterse += 1
+        for gid in de_legat - {proprietar} - legate[pastrat.id]:
+            s.add(OraGrupa(ora_id=pastrat.id, grupa_id=gid))
+            rap.legaturi_adaugate += 1
 
+        de_sters += [o.id for o in restul]
+        rap.ore_sterse += len(restul)
+
+    # Inainte de stergere: raportul citeste materia si sala si din randurile duplicate.
     _detecteaza_durate_contradictorii(pe_cheie, rap)
+
+    s.flush()
+    if de_sters:
+        # Legaturile intai, explicit: nu ne bazam pe ON DELETE CASCADE, care in SQLite
+        # merge doar cu `PRAGMA foreign_keys=ON`.
+        s.execute(delete(OraGrupa).where(OraGrupa.ora_id.in_(de_sters)))
+        s.execute(delete(Ora).where(Ora.id.in_(de_sters)))
     s.flush()
     return rap
 
