@@ -138,3 +138,12 @@ def test_salile_sunt_grupate_pe_etaje(client):
     assert r.text.index("<h4>Etajul 1</h4>") < r.text.index("<h4>Etajul 7</h4>")
     etajul_7 = r.text[r.text.index("<h4>Etajul 7</h4>") :]
     assert "Amfiteatre" in etajul_7 and 'href="/sala/amf-701"' in etajul_7
+
+
+def test_fisierele_statice_au_adrese_relative(client):
+    """In spatele unui proxy HTTPS aplicatia vede `http://`: o adresa absoluta catre CSS ar fi
+    blocata de browser ca "mixed content". Asa ca paginile trimit doar calea."""
+    r = client.get("/", headers={"host": "orar.example.org"})
+    assert 'href="/static/css/baza.css?v=' in r.text
+    assert 'src="/static/js/sit.js?v=' in r.text
+    assert "http://orar.example.org/static" not in r.text

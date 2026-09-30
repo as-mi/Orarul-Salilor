@@ -47,7 +47,10 @@ def _static_versionat(request, path: str) -> str:  # noqa: ANN001
     stilurile vechi. Cu versiunea in URL, orice modificare a fisierului e alt URL. Data se
     citeste la fiecare cerere (un `stat`), deci merge si cu `--reload`, fara repornire.
     """
-    url = str(request.url_for("static", path=path))
+    # Doar calea (`/static/...`), fara schema si gazda: in spatele unui proxy HTTPS aplicatia
+    # vede cererea ca `http://`, iar un URL absolut ar face browserul sa blocheze CSS-ul si
+    # scripturile ca "mixed content".
+    url = request.url_for("static", path=path).path
     try:
         return f"{url}?v={int((AICI / 'static' / path).stat().st_mtime)}"
     except OSError:

@@ -24,4 +24,6 @@ EXPOSE 8347
 
 # Aduce schema la zi, apoi porneste situl. Un singur worker: incarcarea unui orar din panou
 # si verificarea zilnica isi tin starea in memoria procesului.
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn orar.web.app:app --host 0.0.0.0 --port 8347"]
+# `--proxy-headers`: in spatele unui proxy (nginx, Caddy, Cloudflare), schema si adresa
+# clientului se iau din antetele X-Forwarded-*.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn orar.web.app:app --host 0.0.0.0 --port 8347 --proxy-headers --forwarded-allow-ips='*'"]
