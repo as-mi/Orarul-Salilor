@@ -1,367 +1,289 @@
-# Orarul Sălilor — FMI
+# Orarul Sălilor
 
-Orarul Facultății de Matematică și Informatică (Universitatea din București), navigabil
-**pe grupe** și **pe săli**, cu ierarhia reală Specializare → Serie → Grupă → Semigrupă.
+Orarul Facultății de Matematică și Informatică (Universitatea din București), pus într-o
+formă în care chiar îl poți folosi: îl cauți pe grupe, pe săli sau pe profesori, vezi doar
+ce te privește și afli repede când e liberă o sală.
 
-- `/grupa/244` — orarul unei formațiuni, inclusiv **cursurile moștenite de la serie și an**;
-  în dreapta jos, **versiunile anterioare** ale orarului, cu ce s-a schimbat pentru grupă;
-  din dropdown alegi ce **opționale / facultative / limbi** vezi (ținut minte în cookie)
-- `/sala/701` — gradul de ocupare al unei săli: când e ocupată, ce materie, ce profesor, ce grupă
-- `/sala` — toate sălile, cu procentul de ocupare
-- `/orarul-meu` — cu cont: orarul grupei tale, cu semigrupa și opționalele ținute în cont
-- `/admin` — panoul de administrare: sesizări, editarea orarului, încărcarea unui orar, roluri
-- `/admin/review` — celulele pe care extragerea nu le-a putut confirma, cu decupajul alături
+Proiectul e făcut pentru ASMI. Datele vin din orarul public de pe
+<https://fmi.unibuc.ro/orar/> și sunt citite automat, deci pot conține greșeli. Orarul
+oficial rămâne cel al facultății.
 
-Contul e opțional: fără el, ce alegi să vezi se ține în cookie, în browserul tău.
+## Ce poți face cu el
 
-Datele se extrag din orarul public al facultății, **fără apeluri către servicii plătite**:
-captură din Google Drive, segmentare geometrică, apoi OCR local (ONNX pe CPU).
+**Ca vizitator, fără cont**
 
-## Instalare
+- `/` e pagina principală: alegi nivelul, domeniul, anul și grupa, sau direct o sală. Tot
+  aici sunt toate grupele (licență și master) și sălile, pe etaje.
+- `/grupa/244` arată orarul unei grupe, cu tot cu cursurile pe care le face împreună cu
+  seria și cu anul. Poți alege semigrupa, ce opționale și facultative vezi și data pentru
+  care se calculează săptămâna. Alegerile se țin minte în browser.
+- `/sala/amf-701` arată cât de ocupată e o sală: când, cu ce materie, cu ce profesor și cu
+  ce grupă. `/sala` le listează pe toate, cu procentul de ocupare.
+- `/profesor/popescu-stefan` arată orarul unui profesor.
+- `/calendar-asmi` e calendarul public al asociației: evenimente, termene, înscrieri.
+- Sub orice orar găsești butonul „Raportează o problemă”, dacă vezi ceva greșit.
+- În colțul din dreapta jos e panoul „Orare”: de acolo treci la alt semestru sau la o
+  versiune mai veche a orarului.
 
-Necesită Python ≥ 3.12 (testat pe 3.14).
+**Cu cont** (`/signup`, `/login`)
+
+- Îți alegi grupa, iar „Orarul meu” te duce direct la orarul ei. Semigrupa și opționalele
+  alese se salvează în cont, deci le găsești la fel de pe orice dispozitiv.
+- Dacă ești profesor, ceri rolul din „Contul și grupa mea”. După ce un admin aprobă,
+  „Orarul meu” devine orarul tău de profesor.
+
+**Ca admin** (`/admin`)
+
+- Tratezi sesizările primite de la vizitatori.
+- Editezi orarul: adaugi o activitate sau schimbi orice la una existentă (materie, zi, ore,
+  profesori, sală, pentru cine se ține). Ce schimbi rămâne și după ce se încarcă un orar nou.
+- Rezolvi coada de verificare: activitățile pe care citirea automată nu le-a putut
+  confirma apar lângă decupajul din PDF, iar tu corectezi și confirmi pe loc.
+- Încarci un orar nou din linkurile publicate de facultate și alegi care orar e cel
+  implicit.
+- Adaugi evenimente cu dată (activități ASMI sau alte activități): spui ziua și orele, iar
+  situl îți arată sălile libere atunci, de la cea mai încăpătoare. Merge și sâmbăta sau
+  duminica.
+- Vezi „Orarul în cifre”: câți oameni au ore în fiecare interval, câți sunt liberi și cât
+  de pline sunt sălile, cu multe filtre pe care le poți salva cu nume.
+- Dai roluri utilizatorilor: student, voluntar, profesor sau admin.
+
+## Instalare și pornire
+
+Ai nevoie de Python 3.12 sau mai nou.
 
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"
-```
 
-## Pornire
-
-```bash
-.venv/bin/alembic upgrade head                            # creează schema
-.venv/bin/python -m orar.cli load tests/golden/date.json  # populează baza
+.venv/bin/alembic upgrade head                            # creează baza de date
+.venv/bin/python -m orar.cli load tests/golden/date.json  # o umple cu un orar de probă
 .venv/bin/uvicorn orar.web.app:app --reload               # http://127.0.0.1:8000
 ```
 
-### Ingest din sursă
+Baza de date e un fișier SQLite, `data/orar.db`. O poți muta în altă parte cu
+`ORAR_DB=/alt/loc.db`.
 
-Necesită `pip install -e ".[ingest]" && playwright install chromium`.
+După ce actualizezi codul, rulează din nou `alembic upgrade head`, ca să se aplice
+schimbările de schemă.
+
+## Configurare
+
+Setările stau în fișierul `.env`, care nu intră în git. Pornește de la exemplu:
 
 ```bash
-.venv/bin/python -m orar.cli sincronizeaza --doar-verifica  # ce s-a schimbat pe fmi.unibuc.ro
-.venv/bin/python -m orar.cli sincronizeaza                  # + reia ingestul dacă e cazul
-.venv/bin/python -m orar.cli surse                          # ce orare cunoaștem, dacă-s la zi
-.venv/bin/python -m orar.cli crosscheck --completeaza        # compară cu orarul profesorilor
-.venv/bin/python -m orar.cli planuri --descarca              # credite și formă de evaluare
-.venv/bin/python -m orar.cli capacitati                      # nr. de locuri, din pagina 2
+cp .env.example .env
 ```
 
-`sincronizeaza` face tot lanțul: citește pagina FMI, salvează ancorele de săptămână, compară
-data publicată cu cea de la ultimul ingest reușit și — **doar dacă s-a schimbat** — capturează,
-segmentează, citește și încarcă. La final rulează și verificarea încrucișată cu orarul
-profesorilor, care e **obligatorie**: fără orarul profesorilor (lipsește de pe pagină sau nu
-se poate captura) orarul grupelor nu se înlocuiește. Ce se citește de acolo se păstrează
-(`ORAR_PROFESOR`, `PROFESOR.DIN_ORAR`): lista din care se alege un profesor la editare și
-potrivirile propuse în coada de verificare. Verificarea paginii e o cerere HTTP; ingestul
-complet durează ~20 de minute.
+| Variabilă | La ce folosește |
+| :--- | :--- |
+| `ORAR_SECRET` | Cheia cu care se semnează sesiunile. Obligatorie în producție (`openssl rand -hex 32`). Fără ea se generează una la fiecare pornire și toată lumea e delogată la repornire. |
+| `ORAR_ADMIN_USER` | Numele adminului principal. Intră pe `/login` cu el în câmpul de email. |
+| `ORAR_ADMIN_PAROLA` | Parola lui. Poți pune în loc `ORAR_ADMIN_PAROLA_HASH`, ca parola să nu stea în clar. |
+| `ORAR_HTTPS=1` | Pune-o când situl rulează în spatele HTTPS, ca sesiunea să meargă doar pe conexiuni sigure. |
+| `ORAR_SCHEDULER=1` | Pornește verificarea zilnică a orarului în procesul web (vezi mai jos). |
+| `ORAR_ORA_VERIFICARE` | Ora la care rulează verificarea zilnică. Implicit 4 dimineața. |
+| `ORAR_DB` | Alt loc pentru baza de date. |
 
-Înainte să înlocuiască orele, `sincronizeaza` păstrează orarul de până atunci ca **versiune
-anterioară** (`VERSIUNE_ORAR`, `db/versiuni.py`). Panoul „Versiuni” din dreapta jos — pe pagina
-principală, pe `/grupa/{id}` și pe `/sala/{id}` — o deschide cu `?versiune=N`, iar linkurile
-dintre pagini o păstrează, deci navighezi în orarul de atunci. O
-versiune e o *publicare FMI*: reluarea aceleiași publicări (`--forteaza`) nu adaugă una.
-`orar load` nu arhivează — nu știe ce dată de publicare au datele încărcate.
-
-Baza poate ține **mai multe orare deodată** — câte unul pe (an universitar, semestru); un
-orar încărcat îl înlocuiește doar pe cel al aceluiași semestru. Paginile arată unul singur:
-cel **implicit** sau cel ales din panoul „Orare” (`?perioada=ID`), vizibil pentru toată
-lumea. Implicitul îl alege un admin din `/admin` („Orare încărcate”); până atunci e cel
-încărcat cel mai de curând (`db/orare.py`).
-
-Pașii se pot rula și separat:
+Adminul principal nu e un cont din baza de date: există doar cât timp numele și parola lui
+sunt în mediu. Ceilalți admini sunt conturi obișnuite, ridicate la rolul de admin din panou
+sau din linia de comandă:
 
 ```bash
-.venv/bin/python -m orar.cli captureaza https://bit.ly/… -o data/screenshots/sem2-grupe
-.venv/bin/python -m orar.cli load data/screenshots/sem2-grupe   # segmentare + OCR + bază
+.venv/bin/python -m orar.cli rol ana@example.com admin
 ```
 
-`load` acceptă fie un JSON, fie un director de capturi; în al doilea caz rulează tot lanțul.
-Vocabularul pentru corecția OCR vine din baza existentă, iar la prima instalare din
-`--referinta` (implicit `tests/golden/date.json`).
+Parolele conturilor se păstrează ca hash `scrypt`. Situl nu limitează numărul de încercări
+de autentificare, așa că, dacă îl pui pe internet, adaugă o limitare în fața lui (nginx,
+fail2ban).
 
-### Verificare periodică
+## Cum ajunge orarul în bază
 
-Orarul se schimbă de câteva ori pe semestru, deci o verificare pe zi ajunge. Două variante:
+Pentru partea asta mai trebuie instalate uneltele de captură:
 
 ```bash
-# systemd timer / cron — recomandat, un singur proces indiferent câți workeri are web-ul
+.venv/bin/python -m pip install -e ".[ingest]"
+.venv/bin/playwright install chromium
+```
+
+Facultatea publică orarul ca PDF pe Google Drive. Drive nu lasă PDF-ul să fie descărcat,
+așa că programul deschide previzualizarea într-un browser, face capturi ale paginilor, le
+împarte în celule și citește textul cu OCR local. Nu se folosește niciun serviciu plătit.
+
+Sunt două feluri de a încărca un orar.
+
+**Din panoul de admin.** La „Încarcă un orar” pui linkul orarului grupelor și pe cel al
+orarului profesorilor, alegi semestrul și anul. Încărcarea rulează în fundal, durează
+10-20 de minute, iar panoul îți arată la ce pas a ajuns.
+
+**Automat, din linia de comandă.**
+
+```bash
+.venv/bin/python -m orar.cli sincronizeaza --doar-verifica  # doar spune ce s-a schimbat
+.venv/bin/python -m orar.cli sincronizeaza                  # și reîncarcă, dacă e cazul
+.venv/bin/python -m orar.cli sincronizeaza --forteaza       # reîncarcă oricum
+```
+
+`sincronizeaza` citește pagina facultății și reîncarcă orarul doar dacă data publicată
+acolo e mai nouă decât ultima încărcare. Verificarea în sine e o singură cerere și durează
+o secundă.
+
+Câteva lucruri de știut, valabile pentru ambele feluri:
+
+- **Orarul profesorilor e obligatoriu.** El confirmă activitățile și dă numele întregi ale
+  profesorilor. Dacă lipsește sau nu poate fi citit, nici orarul grupelor nu se înlocuiește
+  și rămâne cel de dinainte.
+- **Se înlocuiește doar orarul aceluiași semestru și an.** Celelalte orare rămân neatinse.
+  Baza poate ține mai multe orare deodată, iar adminul alege care e cel implicit.
+- **Orarul vechi nu se pierde.** Rămâne ca versiune anterioară, de văzut din panoul „Orare”.
+- **Corecțiile făcute de mână se pun la loc** peste orarul nou. Cele care nu își mai găsesc
+  activitatea apar ca „neaplicate” în `/admin/corectii`.
+- **Totul sau nimic.** Dacă încărcarea pică pe drum, baza rămâne exact cum era.
+
+### Verificarea zilnică
+
+Orarul se schimbă de câteva ori pe semestru, deci o verificare pe zi e de ajuns. Nu
+pornește singură. Ai două variante:
+
+```bash
+# din cron: recomandat, fiindcă e un singur proces, oricâți workeri are situl
 15 4 * * *  cd /opt/orar && .venv/bin/python -m orar.cli sincronizeaza >> /var/log/orar.log 2>&1
 ```
 
 ```bash
-# sau în procesul web, dacă rulezi un singur worker
+# sau în procesul web, dar numai dacă rulezi un singur worker
 ORAR_SCHEDULER=1 .venv/bin/uvicorn orar.web.app:app
 ```
 
-Planificatorul in-process **nu pornește implicit**: cu mai mulți workeri `uvicorn`, fiecare
-și-ar porni propriul job și ar captura în paralel în același director.
+Cu mai mulți workeri, fiecare și-ar porni propria verificare și ar captura în același
+director. Din același motiv, și încărcarea din panoul de admin merge cu un singur worker.
 
-### Conturi și administrare
-
-Orarul e public. Un **cont** (`/signup`, `/login`) ține *orarul tău*: îți alegi grupa
-(`/account`), iar `/orarul-meu` te duce la orarul ei, unde semigrupa și opționalele / facultativele
-alese se țin în cont — le găsești la fel de pe orice dispozitiv. Pe celelalte pagini, și fără
-cont, aceleași alegeri stau în cookie.
-
-**Evenimente.** Pe lângă orarul săptămânal, un admin poate adăuga activități cu dată
-(`EVENIMENT`, `/admin/evenimente`): o *activitate ASMI* sau o *altă activitate*. Spune data și
-orele, situl îi arată sălile libere atunci, de la cea mai încăpătoare (`db/evenimente.py`
-ține cont de orar și de celelalte evenimente; sâmbăta și duminica nu sunt cursuri). Un
-eveniment apare pe toate orarele, doar pe ale unor specializări sau doar pe pagina sălii,
-în săptămâna lui; grila primește atunci rânduri de weekend și coloane de seară. Evenimentele
-ASMI, inclusiv perioadele fără sală (recrutări, Balul Bobocilor), sunt publice în
-`/calendar-asmi`.
-
-**Orarul în cifre** (`/admin/statistici`, `db/statistici.py`): câți oameni au ore în fiecare
-interval, câți sunt liberi și câte săli sunt ocupate sau pline, cu filtre pe public
-(specializări, ani, serii, grupe), pe activități și pe săli. Mărimile sunt asumate (semigrupă
-15, grupă 30; un curs are câte grupe are seria). Filtrele stau în adresă și se pot salva cu
-nume (`FILTRU_SALVAT`).
-
-Conturile au un **rol**: `student` (implicit), `voluntar`, `profesor` sau `admin`. Rolurile
-se dau din panoul `/admin`, de către un admin; din linia de comandă:
+### Alte comenzi
 
 ```bash
-.venv/bin/python -m orar.cli rol ana@example.com voluntar
+.venv/bin/python -m orar.cli surse          # ce orare cunoaștem și dacă sunt la zi
+.venv/bin/python -m orar.cli stats          # câte rânduri sunt în bază
+.venv/bin/python -m orar.cli reset          # șterge baza
+.venv/bin/python -m orar.cli evalueaza      # acuratețea citirii, pe câmpuri
+.venv/bin/python -m orar.cli planuri --descarca   # credite și formă de evaluare
+.venv/bin/python -m orar.cli capacitati     # numărul de locuri al sălilor
+
+# pașii încărcării, unul câte unul
+.venv/bin/python -m orar.cli captureaza https://bit.ly/... -o data/screenshots/sem2-grupe
+.venv/bin/python -m orar.cli load data/screenshots/sem2-grupe
+.venv/bin/python -m orar.cli crosscheck data/screenshots/sem2-profesori --completeaza
+.venv/bin/python -m orar.cli crosscheck data/screenshots/sem2-profesori --pastreaza 2025-2026 2
 ```
 
-Adminii nu au „orarul meu”: după autentificare ajung în panou. **Adminul principal** nu stă
-în baza de date, ci în mediu — intră pe `/login` cu numele lui în câmpul de email:
+`crosscheck --pastreaza` salvează în bază ce s-a citit din orarul profesorilor: lista de
+profesori din care se alege la editare și activitățile fiecăruia.
+
+## Teste
 
 ```bash
-cp .env.example .env      # .env nu intră în git
-# ORAR_SECRET=…           obligatoriu în producție: openssl rand -hex 32
-# ORAR_ADMIN_USER=…       numele adminului principal
-# ORAR_ADMIN_PAROLA=…     sau ORAR_ADMIN_PAROLA_HASH, ca să nu stea parola în clar
-# ORAR_HTTPS=1            cookie `Secure`, în spatele TLS
+.venv/bin/python -m pytest        # cam 470 de teste, în jur de două minute
+.venv/bin/ruff check src tests
 ```
 
-Din panou, un admin poate **încărca un orar dintr-un link** — PDF-ul aSc de pe Google Drive
-(sau bit.ly-ul către el), opțional și orarul profesorilor. Rulează în fundal exact lanțul lui
-`sincronizeaza` (`worker/incarcare.py`), 10–20 de minute, iar panoul arată etapa; orarul de
-până atunci rămâne ca versiune anterioară. E o singură tranzacție: dacă pică, baza rămâne
-cum era. Se acceptă doar linkuri `https` către Drive — serverul chiar deschide adresa, deci
-nu e lăsat să fie trimis oriunde. Ca planificatorul, merge cu un singur worker.
+Testele nu ating internetul și nici baza reală: lucrează pe baze de date ținute în memorie.
 
-**Sesizări.** Sub orarul oricărei grupe sau săli, „Raportează o problemă” — pentru oricine,
-cu sau fără cont: alegi activitatea și scrii ce e greșit. Adminii le văd în `/admin/sesizari`,
-în ordinea în care au venit, și le marchează rezolvate sau respinse; „Corectează activitatea”
-deschide direct formularul ei.
+## Cum funcționează, pe scurt
 
-**Editarea orarului.** Pe pagina unei grupe sau a unei săli, un admin apasă „✎ Editează
-orarul”: un click pe o activitate îi deschide formularul, același ca la „+ Adaugă
-activitate” — se poate schimba orice: materia, tipul, ziua și orele, profesorul, sala,
-pentru cine se ține. Schimbările nu se fac direct în `ORA` —
-ingestul șterge și reîncarcă orele semestrului, deci ar dispărea la următorul orar publicat —
-ci se țin și ca rânduri în `CORECTIE` (`db/corectii.py`) și se pun la loc după fiecare ingest.
-Cele care nu-și mai găsesc activitatea în orarul nou rămân marcate „neaplicate” în
-`/admin/corectii`, de unde orice schimbare se poate și anula.
+Câteva lucruri care nu sunt evidente și care explică de ce codul arată cum arată.
 
-`.env` se încarcă la pornire; variabilele deja setate în mediu au întâietate. Fără
-`ORAR_ADMIN_USER` și parolă, adminul principal nu există. Fără `ORAR_SECRET` se generează o
-cheie la pornire: sesiunile se pierd la repornire și nu sunt valabile între procese.
+**Fiecare pagină din orarul facultății e de sine stătătoare.** Pagina grupei 244 conține și
+cursurile ținute cu toată seria, deci același curs apare pe paginile a patru grupe. Încărcat
+ca atare, un curs ar fi patru activități și sala ar părea ocupată de patru ori. După
+încărcare, `ingest/consolidate.py` găsește activitățile identice și le urcă la seria sau la
+anul care le are în comun: 1146 de rânduri devin 784. Un test verifică, pentru fiecare
+grupă, că orarul ei e același înainte și după.
 
-Parolele conturilor se stochează cu `hashlib.scrypt` (N=2¹⁵, ~70 ms), cu parametrii scriși în
-hash ca să poată fi crescuți fără să invalideze conturile existente. Nu există limitare a
-încercărilor de autentificare — dacă expui aplicația public, adaug-o în față (nginx,
-fail2ban): contul de admin e exact ținta unui atac cu dicționar.
+**Celulele nu se pot despărți după culoare.** Programul de orare umple unele celule cu două
+tonuri tăiate în diagonală, iar chenarele de un pixel se amestecă la randare cu umplerile.
+`ingest/segment.py` taie doar acolo unde găsește o linie întunecată continuă pe toată
+lățimea: continuitatea deosebește un chenar de un rând de text.
 
-Alte comenzi:
+**Din OCR folosim doar recunoașterea.** Detectorul de text al bibliotecii e antrenat pe
+fotografii și rupe cuvintele din celulele astea. Textul e însă negru curat pe fundal
+pastel, așa că rândurile și câmpurile se pot decupa geometric. Rezultatul e mai corect și
+de vreo 25 de ori mai rapid.
 
-```bash
-.venv/bin/python -m orar.cli stats                          # câte rânduri sunt în bază
-.venv/bin/python -m orar.cli reset                          # șterge baza
-.venv/bin/python -m orar.cli -v load …                      # + avertismente și calitatea datelor
-.venv/bin/python -m orar.cli segmenteaza data/screenshots/sem2-grupe/pag_016.png
-.venv/bin/python -m orar.cli citeste   data/screenshots/sem2-grupe/pag_016.png
-.venv/bin/python -m orar.cli evalueaza                       # acuratețe pe câmpuri
-.venv/bin/python -m pytest -m "not slow"                    # 250 de teste, ~30 s
-.venv/bin/python -m pytest                                  # + citirea completă, ~2.5 min
-```
+**Vocabularul nu are voie să se hrănească din propriile greșeli.** Corecția OCR folosește
+termenii din bază, iar baza e umplută tot de încărcare. Ca o citire greșită să nu devină
+„cuvânt cunoscut”, `Lexicon.din_baza` ia doar termenii care apar măcar o dată într-un câmp
+care nu e marcat nesigur.
 
-Baza e un fișier SQLite în `data/orar.db`; se poate muta cu `ORAR_DB=/alt/loc.db`.
+**Orarul profesorilor e a doua sursă.** E același orar, dar cu profesorul în titlul paginii.
+De acolo vin numele întregi (în orarul grupelor sunt prescurtate, de exemplu „Cheval H”
+pentru „Cheval Andrei-Horatiu”) și o confirmare independentă a fiecărei activități. Regulile
+de prescurtare sunt în `domain/names.py` și nu sunt cele la care te-ai aștepta. Când un curs
+e împărțit pe săptămâni între doi profesori, fiecare parte își primește profesorul ei.
 
-## Cum e organizat
+**Opționalele sunt pachete, nu grupe.** O pagină de opționale, de facultative sau de limbi
+străine se adresează unei specializări și unui an, nu unei grupe anume. Legătura cu grupele
+se face îngăduitor, după anul și specializările găsite în titlu, ca să meargă și pentru
+specializări sau serii care apar de la un an la altul.
 
-```
-src/orar/
-├── domain/      logică pură, fără I/O
-│   ├── hierarchy.py   „INFO Grupa 144" → an 1, seria 14, grupa 144
-│   ├── names.py       „Cheval H" ↔ „Cheval Andrei-Horatiu"
-│   ├── abbrev.py      „StructDate" ↔ „Structuri de date"
-│   ├── rooms.py       normalizarea sălilor + clasificare fizică/externă/virtuală
-│   ├── weeks.py       calendarul academic: numărul și paritatea săptămânii
-│   └── grid.py        așează activitățile în grila de 5 zile × 12 ore
-├── db/          modele SQLAlchemy, interogările ierarhice, migrări Alembic
-├── ingest/      watcher.py (ce publică FMI), capture.py (Drive → PNG),
-│               segment.py (PNG → celule), ocr.py (celule → text),
-│               lexicon.py (vocabulare închise), evaluate.py (acuratețe),
-│               crosscheck.py (a doua sursă), plans.py (planuri de învățământ),
-│               tables.py (tabele cu linii), capacities.py (nr. de locuri),
-│               load.py (→ bază), consolidate.py (vezi mai jos)
-├── worker/      sync.py (lanțul complet), scheduler.py (verificarea zilnică)
-└── web/         FastAPI + Jinja2 + HTMX, CSS scris de mână
-```
+**Săptămânile sar peste vacanțe.** Facultatea publică din când în când ce săptămână e și
+dacă e pară sau impară. `domain/weeks.py` ține toate aceste repere și spune când un răspuns
+e doar aproximativ, în loc să numere simplu din șapte în șapte zile.
 
-### Opt lucruri care nu sunt evidente
+**Editările nu se fac direct în orar.** Încărcarea șterge și reîncarcă orele unui semestru,
+deci o schimbare făcută direct ar dispărea la următorul orar publicat. De aceea fiecare
+modificare se ține și separat (`db/corectii.py`) și se reaplică după fiecare încărcare. La
+fel se păstrează și confirmările din coada de verificare.
 
-**1. Fiecare pagină din orarul FMI e autonomă.** Pagina grupei 244 conține și cursurile
-ținute cu toată seria 24 — deci același curs apare identic pe paginile 241, 242, 243, 244.
-Încărcat naiv, un curs de serie devine 4 rânduri `ORA`, sala pare rezervată de 4 ori
-simultan, iar ierarhia rămâne goală. `ingest/consolidate.py` detectează activitățile
-identice și le urcă la cel mai apropiat strămoș comun: **1146 → 784 de rânduri**, din care
-59 devin ore de serie/an. Abia după asta `/sala/{id}` arată ocuparea reală. Rândul păstrat
-preia legăturile `ORA_GRUPA` ale **tuturor** duplicatelor: altfel un opțional listat și în
-pachetul `INFO (Curs)`, și în `MATE-INFO (Informatica)` rămânea legat doar de unul, iar
-seriile celuilalt nu-l mai vedeau — 325 de perechi (grupă, activitate) pierdute. Un test
-verifică, pentru fiecare grupă, că orarul e identic înainte și după consolidare.
+**Evenimentele sunt altceva decât orele.** O oră se repetă săptămânal și se reîncarcă odată
+cu orarul. Un eveniment are o zi anume, poate fi în weekend sau seara și rămâne până îl
+șterge un admin. Pe orare apare doar în săptămâna lui, iar grila primește atunci rânduri de
+sâmbătă și duminică.
 
-**2. Segmentarea nu se poate lua după culoare.** aSc umple unele celule cu două tonuri
-tăiate în diagonală — aceeași activitate, două culori — iar chenarele dintre celule au 1 px
-și se amestecă cu umplerile la randare (între două verzuri, chenarul iese `(87,142,87)`, nu
-negru). `ingest/segment.py` taie deci numai unde găsește un minim local de luminanță
-*continuu* pe toată lățimea: continuitatea deosebește un chenar de un rând de text.
+**Statisticile lucrează cu mărimi presupuse.** Orarul nu spune câți studenți are o grupă,
+deci „Orarul în cifre” pornește de la 15 oameni pe semigrupă și 30 pe grupă, valori pe care
+le poți schimba. Un curs are atâția oameni câte grupe are seria lui.
 
-**3. Detectorul de text al OCR-ului încurcă, nu ajută.** Pe celulele astea rapidocr „din
-cutie" rupe `Prunescu M` în `runescu` și taie `ESLA (curs) [sapt 3-4]` în patru bucăți: e
-antrenat pe fotografii, nu pe dreptunghiuri de text vectorial pe fundal pastel. Dar decupajul
-îl putem face noi, geometric — textul e negru curat, rândurile sunt despărțite de goluri albe.
-Măsurat pe toate paginile, 34276 de goluri: raportate la înălțimea rândului, spațiile dintre
-cuvinte stau sub 0.8 și separatorii de câmp peste 1.2, iar **între ele nu cade nimic**.
-`ingest/ocr.py` taie la 1.0 și folosește din rapidocr doar recunoașterea — ieșirea devine
-întreagă, iar pasul e de ~25× mai rapid.
-
-**4. Setul de referință greșește, și se vede unde.** `tests/golden/date.json` (ieșirea
-prototipului cu Gemini) taie benzile suprapuse: unde pagina are trei celule de `18-20` una
-sub alta, el citește șase celule alăturate de câte o oră. Din 147 de dezacorduri pe `ore`, în
-**134** intervalul nostru îl conține strict pe cel din referință — semnătura exactă a acestei
-erori. Verificat pe pixeli, plus două grafii greșite care stricau vocabularul, șase celule
-pierdute și un `frecventa` inventat: [`docs/formatul-orarului.md` §9](docs/formatul-orarului.md).
-
-**5. Vocabularul nu are voie să se hrănească din propria ieșire.** Corecția OCR folosește
-termenii din bază, iar baza e umplută tot de ingest. Fără grijă, o citire greșită intră ca
-termen valid și de la a doua rulare devine „cuvânt cunoscut": aceeași celulă se potrivește
-perfect cu propria ei greșeală și nu mai ajunge în coada de verificare. De aceea
-`Lexicon.din_baza` numără doar termenii care apar în cel puțin un rând unde câmpul **nu** e
-marcat nesigur. Mai e o capcană: după verificarea încrucișată, baza ține numele **întregi**
-(`Cheval Andrei-Horatiu`), iar celulele le scriu tot prescurtat (`Cheval H`). Comparate ca
-șiruri nu seamănă destul, deci un ingest nou ar scoate fiecare profesor „necunoscut" (5 → 65
-de activități nesigure). Lexiconul aplică întâi regula de prescurtare din `domain/names.py`
-și acceptă numele întreg doar când prescurtarea se potrivește cu **un singur** profesor.
-
-**6. `ORA_GRUPA.ID_GRUPA` nu e pachetul, e ținta.** În jonctiune, `ID_GRUPA` e formațiunea
-*căreia i se oferă* opționalul (Seria 33), iar pachetul însuși e `ORA.ID_GRUPA`. Un filtru
-scris pe coloana greșită trece oricum, fiindcă ținta e deja în lanțul grupei — arată că merge
-și nu filtrează nimic. De aceea dropdown-ul de opționale (`web/afisare.py`) recunoaște o
-activitate de pachet după **proprietarul** ei, iar consolidarea păstrează ca proprietar
-pachetul, nu grupa, când aceeași oră apare în amândouă.
-
-**7. Același orar e publicat de două ori, și a doua oară e util.** PDF-ul profesorilor (191
-de pagini) are aceeași grilă, dar pivotată: profesorul e în titlu, formațiunile în mijlocul
-celulei. Din el ies două lucruri pe care o singură sursă nu le poate da — numele **întregi**
-(citite dintr-un titlu mare, nu dintr-o bandă de 20 px) și o confirmare independentă pe
-fiecare activitate. Rezultat: **668 de activități găsite în ambele surse, 0 divergențe de
-profesor**, și 181 de prescurtări din bază înlocuite cu numele complet. Prescurtarea aSc nu e
-cea evidentă: `Cheval H` ← `Cheval Andrei-Horatiu` (inițiala **ultimului** prenume),
-`BanuDem. I` ← `Banu Demergian Iulia`. Vezi `domain/names.py`.
-
-**8. Numerotarea săptămânilor sare peste vacanțe.** FMI publică:
-*„Săptămâna 06.04.2026 – 09.04.2026 este săptămână impară (sapt 7)"* și
-*„Săptămâna 20.04.2026 – 24.04.2026 este săptămână pară (sapt 8)"* — două săptămâni
-calendaristice distanță, dar una academică (între ele e vacanța de Paște). De aceea
-`domain/weeks.py` ține **toate** ancorele publicate și marchează rezultatul ca aproximativ
-când nu cade exact pe una, în loc să împartă naiv la 7.
-
-### Opționale, facultative, limbi străine
-
-Sunt pagini-pachet, nu formațiuni, și diferă prin cui se adresează:
-
-- **opționale** — pe *specializare și an* (`Optionale an III - MATE (1)`), uneori pe serii
-  (`INFO Seriile 33,34,35: …`); pachetele numerotate sunt liste din care se alege;
-- **facultative** — pe *an*, transversal: titlul enumeră specializările
-  (`Facultative an II (Mate, Mate-Info, Mate Apl., Info, CTI)`); sunt peste plan;
-- **limbi străine** — tot pe an și transversal (`Limbi straine - an I (Mate Info, CTI)`).
-
-`ingest/load.py` le leagă de grupe **permisiv** (`domain/hierarchy.py`): anul se caută oriunde
-în titlu (`an III`, `anul 2`, `Ill` citit de OCR), specializările după prescurtări tolerante
-(`Mate-lnfo`, `Mate Apl.`, `Mate Info` fără virgulă — care în anul I, unde nu există
-MATE-INFO, înseamnă MATE și INFO), **printre cele care există în anul paginii**. O
-specializare nouă își ia codul din titlul grupei (`BIO INFO Grupa 171` → `BIO-INFO`), deci nu
-trebuie trecută în vreo listă. Când titlul nu numește nicio specializare cunoscută, pachetul
-ajunge la **tot anul**. La reingest, formațiunile și pachetele care nu mai apar în orar se
-șterg (dacă nu le mai folosește nimic — nici arhiva, nici vreun cont).
-
-Pe `/grupa/{id}`, dropdown-ul *Opționale și facultative* are întâi „Selectează tot”, apoi
-fiecare materie, pe categorii. Alegerea se ține **în cookie** (`web/afisare.py`), separat
-pentru fiecare pagină; se memorează ce e *ascuns*, deci o materie apărută într-un orar nou
-e vizibilă din prima.
-
-## Sursa datelor
-
-Orarul e generat cu **aSc Orare** și publicat ca PDF vectorial pe Google Drive, linkat de pe
-<https://fmi.unibuc.ro/orar/>. PDF-ul **are strat de text, dar Drive blochează descărcarea**,
-iar preview-ul servește doar pagini rasterizate — deci extragerea cere segmentare + OCR.
-Semantica paginii și geometria măsurată sunt documentate în
+Formatul orarului și geometria paginilor sunt descrise pe larg în
 [`docs/formatul-orarului.md`](docs/formatul-orarului.md).
 
-Drive plafonează randarea unei pagini la **3200×2262 px**, atins exact cu
-`device_scale_factor=4`; peste atât imaginea e doar mărită. La plafon tabelul are 2882 px, iar
-în cea mai densă bandă textul are 19–24 px — citibil. Sub `LATIME_MINIMA_TABEL` captura
-eșuează explicit, în loc să producă imagini din care OCR-ul ar ghici.
+## Cât de bine citește
 
-`tests/golden/date.json` rămâne setul de referință pentru regresie (vezi §9 din documentație
-pentru unde greșește el).
+Măsurat cu `orar evalueaza` pe cele 98 de pagini ale orarului de referință (1140 de
+activități):
 
-### Acuratețea extragerii
+| Câmp | Acuratețe |
+| :--- | ---: |
+| sală | 100,00% |
+| frecvență | 99,91% |
+| săptămâni | 99,82% |
+| semigrupă | 99,82% |
+| tip | 99,74% |
+| materie | 99,56% |
+| profesor | 99,56% |
 
-`orar evalueaza`, pe toate cele 98 de pagini (1140 de activități împerecheate):
+Ce nu poate fi confirmat nu intră pe tăcute în orar: ajunge în coada de verificare, lângă
+decupajul din PDF. Câte activități ajung acolo depinde de orar. Pe orarul de referință au
+fost 5 din 784, dar un orar nou, cu materii și profesori pe care baza nu îi cunoaște încă,
+poate avea câteva sute până sunt confirmate.
 
-| câmp | acuratețe | cerința din plan |
-| :--- | ---: | ---: |
-| `sala` | 100.00% | ≥ 99% |
-| `frecventa` | 99.91% | ≥ 99% |
-| `saptamani` | 99.82% | — |
-| `semigrupa` | 99.82% | ≥ 99% |
-| `tip` | 99.74% | ≥ 99% |
-| `materie` | 99.56% | ≥ 97% |
-| `profesor` | 99.56% | ≥ 95% |
-| `ore` | (vezi mai jos) | — |
+## Unde e fiecare lucru
 
-`ore` iese din aritmetică pe caroiaj, deci nu poate fi aproximativ; cele 147 de dezacorduri
-sunt erori ale referinței, nu ale extragerii — 134 dintre ele au exact semnătura descrisă la
-punctul 4 de mai sus.
-
-Ce rămâne neconfirmat ajunge în `/admin/review`, nu tăcut în bază: **5 activități din 784**,
-toate verificate manual. Patru sunt celule în care aSc a scris textul suprapus, literă peste
-literă (`pag_028` și `pag_048`); a cincea e o notă în text liber. Nicio extragere nu le poate
-citi, iar afișarea decupajului lângă valorile propuse e singurul mod onest de a le rezolva.
-
-### Stadiu
-
-| | |
+| Director | Ce conține |
 | :--- | :--- |
-| ✅ Schemă, ierarhie, consolidare, import | funcțional |
-| ✅ `/grupa/{id}`, `/sala/{id}`, căutare | funcțional |
-| ✅ Captură la rezoluție nativă + segmentare geometrică | funcțional |
-| ✅ OCR local + lexicon + coadă de verificare | funcțional |
-| ✅ Watcher + sincronizare automată | funcțional |
-| ✅ Conturi, „orarul meu”, preferințe în cont (fără cont: în cookie) | funcțional |
-| ✅ Verificare încrucișată cu orarul profesorilor | funcțional |
-| ✅ Capacitatea sălilor (pagina 2 a orarului) | funcțional |
-| ✅ Versiunile anterioare ale orarului, pe grupă | funcțional |
-| ✅ Opționale / facultative / limbi pe toți anii, alese din dropdown | funcțional |
-| ✅ Sesizări de la vizitatori; editarea orarului de către admin | funcțional |
-| 🟡 Panou de administrare (`/admin`) | roluri, încărcarea unui orar dintr-un link; drepturile pe roluri, de adăugat |
-| 🟡 Planuri de învățământ (credite, formă de evaluare) | 4 fișiere din 9 |
+| `src/orar/domain/` | Logica pură, fără bază de date: ierarhia grupelor, numele profesorilor, sălile, săptămânile, așezarea în grilă. |
+| `src/orar/db/` | Modelele, interogările și migrările. Tot aici: versiunile orarului, corecțiile, evenimentele, statisticile. |
+| `src/orar/ingest/` | Drumul de la PDF la bază: captură, segmentare, OCR, vocabular, verificarea cu orarul profesorilor, consolidare. |
+| `src/orar/worker/` | Sincronizarea cu pagina facultății, verificarea zilnică și încărcarea pornită din panou. |
+| `src/orar/web/` | Situl: FastAPI, șabloane Jinja2, HTMX, CSS scris de mână. |
+| `tests/` | Testele și orarul de referință (`tests/golden/date.json`). |
+| `docs/` | Descrierea formatului orarului și a planurilor de învățământ. |
 
-Creditele și forma de evaluare vin din „Planurile de învățământ", ingestate separat cu
-`orar planuri`: **39 de materii completate** din 161. Restul aparțin programelor MATE,
-MATE-INFO, MATE APL, ASM și PSFS, ale căror PDF-uri au cifrele desenate ca contururi
-vectoriale, nu ca text — vezi [`docs/planuri-de-invatamant.md`](docs/planuri-de-invatamant.md).
-**Sălile** se citesc din tabelul de pe pagina 2 a orarului — lista oficială, **30 de săli din
-30** cu număr de locuri — cu un segmentator de tabele cu linii trasate (`ingest/tables.py`).
-Tabelul se citește **înaintea** orarului și e vocabularul cu care se recunosc sălile din
-celule: pe o bază goală, fără el nu se recunoaște nicio sală, cu el toate cele 31. O sală din
-tabel fără nicio oră se adaugă oricum în bază (e liberă, nu inexistentă). Din aceeași listă
-alege adminul sala, dintr-un dropdown, când editează o activitate.
+## Ce mai e de făcut
+
+- Drepturile pe roluri: voluntarul și profesorul nu pot face deocamdată mai mult decât un
+  student, în afară de orarul propriu al profesorului.
+- Creditele și forma de evaluare vin din planurile de învățământ, iar acum sunt completate
+  doar pentru o parte din materii. Restul planurilor au cifrele desenate, nu scrise ca text
+  (vezi [`docs/planuri-de-invatamant.md`](docs/planuri-de-invatamant.md)).
+- Profesorii nu apar încă în căutare.
+- Nimeni nu e anunțat când apare o sesizare sau o cerere de rol; adminul le vede când intră
+  în panou.
