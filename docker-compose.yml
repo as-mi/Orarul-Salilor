@@ -1,0 +1,15 @@
+# Pornire:  docker compose up -d --build      apoi  http://localhost:8347
+# Oprire:   docker compose down
+services:
+  orar:
+    build: .
+    ports:
+      - "8347:8347"
+    # cheia de sesiune si adminul principal (vezi .env.example); merge si fara fisier
+    env_file:
+      - path: .env
+        required: false
+    # baza de date si capturile raman pe masina ta, in ./data, si dupa ce stergi containerul
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

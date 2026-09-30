@@ -67,6 +67,19 @@ Baza de date e un fișier SQLite, `data/orar.db`. O poți muta în altă parte c
 După ce actualizezi codul, rulează din nou `alembic upgrade head`, ca să se aplice
 schimbările de schemă.
 
+### Cu Docker
+
+Dacă preferi Docker, nu mai ai nevoie de nimic din cele de mai sus:
+
+```bash
+cp .env.example .env            # completează cheia de sesiune și adminul
+docker compose up -d --build    # http://localhost:8347
+```
+
+Baza de date și capturile rămân pe mașina ta, în `./data`. La prima pornire baza e goală:
+încarcă un orar din panoul de admin sau pune orarul de probă cu
+`docker compose exec orar orar load tests/golden/date.json`.
+
 ## Configurare
 
 Setările stau în fișierul `.env`, care nu intră în git. Pornește de la exemplu:

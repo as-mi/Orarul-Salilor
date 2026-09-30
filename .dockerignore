@@ -1,0 +1,14 @@
+# Ce nu are ce cauta in imagine: secretele, datele (vin prin volum) si artefactele locale.
+.git
+.env
+.env.*
+.venv
+venv
+data
+**/__pycache__
+*.egg-info
+.pytest_cache
+.ruff_cache
+.idea
+.vscode
+state.json
