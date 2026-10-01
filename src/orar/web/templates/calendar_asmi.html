@@ -38,13 +38,27 @@
   </div>
   <div class="luna-grila" role="table" aria-label="Evenimentele din {{ titlu_luna }}">
     <div class="luna-rand cap" role="row">
+      <div role="columnheader" class="luna-sapt-cap" title="Săptămâna academică">săpt.</div>
       {% for z in zile_scurte %}<div role="columnheader" class="{{ 'weekend' if loop.index > 5 }}">{{ z }}</div>{% endfor %}
     </div>
     {% for sapt in saptamani %}
       <div class="luna-rand" role="row">
+        {# Saptamana academica a randului, intr-o coloana ingusta la stanga: numarul si
+           paritatea, cu o linie colorata doar la cele impare. Gol in vacante si sesiuni. #}
+        {% set s_rand = sapt_randuri[loop.index0] %}
+        {% if s_rand %}
+          <div role="rowheader" class="luna-sapt-col {{ 'impara' if s_rand.paritate.value == 'SI' else 'para' }}"
+               title="Săptămâna {{ s_rand.numar }}, {{ s_rand.paritate.eticheta }}">
+            <strong>{{ s_rand.numar }}</strong><small>{{ 'imp' if s_rand.paritate.value == 'SI' else 'par' }}</small>
+          </div>
+        {% else %}
+          <div role="rowheader" class="luna-sapt-col"></div>
+        {% endif %}
         {% for d, evenimente in sapt %}
-          <div role="cell" class="luna-zi{{ ' alta-luna' if d.month != prima.month }}{{ ' azi' if d == azi_real }}{{ ' weekend' if d.weekday() >= 5 }}">
+          {% set info = zile[d] %}
+          <div role="cell" class="luna-zi{{ ' alta-luna' if d.month != prima.month }}{{ ' azi' if d == azi_real }}{{ ' weekend' if d.weekday() >= 5 }}{{ ' perioada-' ~ info.perioada.fel if info.perioada }}">
             <span class="luna-nr">{{ d.day }}</span>
+            {% if info.perioada %}<span class="luna-perioada">{{ info.perioada.eticheta }}</span>{% endif %}
             {% for e in evenimente %}
               <a class="luna-ev{{ ' perioada' if e.pe_mai_multe_zile }}{{ ' ' ~ e.clasa_culoare if e.clasa_culoare }}" href="#ev-{{ e.id }}"{% if e.stil_culoare %} style="{{ e.stil_culoare }}"{% endif %}
                  title="{{ e.titlu }} · {{ cand(e) }}">{% if e.ora_inceput and not e.pe_mai_multe_zile %}<span>{{ e.ora_inceput.strftime('%H:%M') }}</span> {% endif %}{{ e.titlu }}</a>
@@ -55,6 +69,24 @@
     {% endfor %}
   </div>
 </section>
+
+{# Structura anului universitar: vacantele, sesiunile, licenta. #}
+{% if structura %}
+  {# Inchis implicit: calendarul ramane in fata, structura anului se deschide la cerere. #}
+  <section class="sectiune">
+    <details class="mai-multe structura-an">
+      <summary>Anul universitar {{ an }} <small>vacanțe, sesiuni, zile libere</small></summary>
+    <ul class="structura-lista">
+      {% for p in structura %}
+        <li class="perioada-{{ p.fel }}"><span class="perioada-semn"></span>
+          <strong>{{ p.nume or feluri_perioada[p.fel] }}{% if p.pentru != 'toti' %} <small class="nota">({{ 'ani terminali' if p.pentru == 'terminali' else 'ani neterminali' }})</small>{% endif %}</strong>
+          <span>{{ p.data_inceput.strftime('%d.%m.%Y') }}{% if p.data_sfarsit != p.data_inceput %} - {{ p.data_sfarsit.strftime('%d.%m.%Y') }}{% endif %}</span>
+          {% if p.semestru %}<small class="nota">semestrul {{ p.semestru }}</small>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    </details>
+  </section>
+{% endif %}
 
 <section class="sectiune" aria-labelledby="t-urmeaza">
   <h2 id="t-urmeaza">Urmează</h2>

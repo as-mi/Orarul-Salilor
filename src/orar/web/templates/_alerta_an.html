@@ -1,0 +1,10 @@
+{# Doar pentru admini, pe fiecare pagina: structura anului universitar curent nu e completa.
+   Pe 30 septembrie incepe anul nou, deci de atunci se cere structura lui. `alerta_an` e
+   (anul, [ce lipseste]) -- vezi `db/structura.py`. #}
+{% if alerta_an and not request.url.path.startswith('/admin/an-universitar') %}
+  <div class="alerta-an" role="alert">
+    <strong>Structura anului universitar {{ alerta_an[0] }} nu e configurată.</strong>
+    <span>Lipsesc: {{ alerta_an[1]|join(', ') }}. Fără ea, numărul săptămânii poate fi greșit.</span>
+    <a class="buton plin" href="/admin/an-universitar?an={{ alerta_an[0] }}">Configurează anul →</a>
+  </div>
+{% endif %}

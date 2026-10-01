@@ -22,7 +22,7 @@
       </a>
     {% else %}
       <span class="filtru inert" title="Filtrul e disponibil doar în timpul semestrului">
-        vacanță - se afișează orarul complet
+        {{ (perioada_curenta.eticheta|lower) if perioada_curenta is defined and perioada_curenta else 'vacanță' }} - se afișează orarul complet
       </span>
     {% endif %}
     {% include "_alege_zi.html" %}

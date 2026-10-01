@@ -244,6 +244,11 @@ def cont_curent(request: Request, s: Session = Depends(get_db)) -> Cont | None:
         # Contul a fost sters (sau adminul scos din mediu); sesiunea nu mai inseamna nimic.
         request.session.clear()
     request.state.cont = cont
+    # Adminii vad pe fiecare pagina daca structura anului universitar curent lipseste.
+    if cont is not None and cont.e_admin:
+        from orar.db.structura import alerta_an_curent
+
+        request.state.alerta_an = alerta_an_curent(s)
     return cont
 
 

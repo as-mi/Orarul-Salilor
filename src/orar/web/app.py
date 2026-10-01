@@ -30,6 +30,7 @@ from orar.web.routers import (  # noqa: E402
     sala,
     sesizari,
     statistici,
+    structura,
 )
 
 
@@ -80,6 +81,7 @@ app.include_router(sesizari.router)
 app.include_router(editare.router)
 app.include_router(evenimente.router)
 app.include_router(statistici.router)
+app.include_router(structura.router)
 
 
 @app.exception_handler(404)

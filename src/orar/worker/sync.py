@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from sqlalchemy import delete, select, update
@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 from orar.db.models import AncoraSaptamana as AncoraDB
 from orar.db.models import Ora, OraGrupa, Perioada, Sesizare
 from orar.db.models import SursaOrar as SursaDB
+from orar.domain.weeks import an_universitar_al
 from orar.ingest import watcher
 
 log = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ def _nimic(_mesaj: str) -> None:
 def sincronizeaza(
     s: Session,
     *,
-    an_universitar: str = "2025-2026",
+    an_universitar: str | None = None,
     semestru: int | None = None,
     director: Path = Path("data/screenshots"),
     forteaza: bool = False,
@@ -95,7 +96,9 @@ def sincronizeaza(
     rap.verificat = True
     rap.avertismente += stare.avertismente
 
-    rap.ancore = salveaza_ancore(s, stare.ancore, an_universitar=an_universitar)
+    # implicit, anul universitar in care suntem (de pe 30 septembrie, cel nou)
+    an_universitar = an_universitar or an_universitar_al(date.today())
+    rap.ancore = salveaza_ancore(s, stare.ancore)
 
     tinta = semestru if semestru is not None else stare.semestru_curent
     if tinta is None:
@@ -211,10 +214,13 @@ def _crosscheck(
         rap.crosscheck.append(f"{len(ambigue)} prescurtari ambigue, lasate cum sunt")
 
 
-def salveaza_ancore(s: Session, ancore, *, an_universitar: str, semestru: int = 2) -> int:  # noqa: ANN001
-    """Scrie ancorele publicate, inlocuindu-le pe cele cu aceeasi saptamana."""
+def salveaza_ancore(s: Session, ancore) -> int:  # noqa: ANN001
+    """Scrie ancorele publicate, inlocuindu-le pe cele cu aceeasi saptamana. Anul universitar
+    si semestrul fiecareia ies din data ei: septembrie-ianuarie e semestrul 1."""
     n = 0
     for a in ancore:
+        an_universitar = an_universitar_al(a.inceput)
+        semestru = 1 if a.inceput.month >= 9 or a.inceput.month == 1 else 2
         rand = s.scalar(
             select(AncoraDB).where(
                 AncoraDB.an_univ == an_universitar,
@@ -233,20 +239,24 @@ def salveaza_ancore(s: Session, ancore, *, an_universitar: str, semestru: int = 
 
 
 def calendar_din_baza(s: Session, *, an_universitar: str | None = None):  # noqa: ANN001
-    """`CalendarAcademic` construit din ancorele salvate; None daca nu exista niciuna."""
+    """`CalendarAcademic` din baza: structura anilor configurati de admin, plus ancorele
+    publicate de FMI, ca rezerva pentru anii fara structura. None daca nu exista nimic."""
+    from orar.db.models import PerioadaStructura
     from orar.domain.weeks import AncoraSaptamana, CalendarAcademic, Paritate
 
     q = select(AncoraDB).order_by(AncoraDB.inceput)
     if an_universitar:
         q = q.where(AncoraDB.an_univ == an_universitar)
     randuri = list(s.scalars(q))
-    if not randuri:
+    perioade = [p.ca_perioada() for p in s.scalars(select(PerioadaStructura))]
+    if not randuri and not perioade:
         return None
     return CalendarAcademic(
         ancore=[
             AncoraSaptamana(inceput=r.inceput, numar=r.numar, paritate=Paritate(r.paritate))
             for r in randuri
-        ]
+        ],
+        perioade=perioade,
     )
 
 

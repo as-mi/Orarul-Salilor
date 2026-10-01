@@ -28,10 +28,15 @@ def _context_sesiune(request) -> dict[str, object]:  # noqa: ANN001
     inlocuiesc baza vad acelasi lucru ca rutele.
     """
     if "session" not in request.scope:
-        return {"cont": None, "csrf": ""}
+        return {"cont": None, "csrf": "", "alerta_an": None}
     from orar.web.auth import token_csrf
 
-    return {"cont": getattr(request.state, "cont", None), "csrf": token_csrf(request)}
+    return {
+        "cont": getattr(request.state, "cont", None),
+        "csrf": token_csrf(request),
+        # (an, ce lipseste) din structura anului curent -- doar pentru admini, vezi auth
+        "alerta_an": getattr(request.state, "alerta_an", None),
+    }
 
 
 templates = Jinja2Templates(
@@ -94,8 +99,11 @@ def context_saptamana(zi: date | None = None, s: Session | None = None) -> dict[
     # filtrele o pastreaza in linkurile lor.
     zi_aleasa = zi if zi and zi != date.today() else None
     zi = zi or date.today()
-    sapt = calendar(s).saptamana(zi)
+    cal = calendar(s)
+    sapt = cal.saptamana(zi)
     return {
+        # vacanta, sesiunea etc. in care cade ziua, din structura anului (daca e configurata)
+        "perioada_curenta": cal.perioada(zi),
         "azi": zi,
         "zi_aleasa": zi_aleasa,
         "saptamana": sapt,
