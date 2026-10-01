@@ -6,7 +6,7 @@
   <title>{% block titlu_complet %}{% block titlu %}Orarul Sălilor{% endblock %} - FMI{% endblock %}</title>
   {# CSS scris de mana, fara build: cate un fisier pe zona a sitului. Ordinea conteaza --
      `baza.css` defineste culorile, iar fisierele de mai jos le pot rafina pe cele de mai sus. #}
-  {% for foaie in ('baza', 'grila', 'acasa', 'formulare', 'verificare', 'unelte-orar', 'admin', 'evenimente', 'statistici') %}
+  {% for foaie in ('baza', 'grila', 'acasa', 'formulare', 'verificare', 'unelte-orar', 'admin', 'evenimente', 'statistici', 'structura') %}
     <link rel="stylesheet" href="{{ static_versionat(request, 'css/' ~ foaie ~ '.css') }}">
   {% endfor %}
   <script src="{{ static_versionat(request, 'htmx.min.js') }}" defer></script>
@@ -15,6 +15,7 @@
 </head>
 <body>
 {% include "_bara.html" %}
+{% include "_alerta_an.html" %}
 
 <main>
   {% block continut %}{% endblock %}

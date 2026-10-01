@@ -19,13 +19,16 @@
   </div>
 
   <div class="bara-dreapta">
-  {# Saptamana academica, doar in timpul semestrului. #}
+  {# Saptamana academica in timpul semestrului; altfel vacanta / sesiunea in care suntem,
+     daca structura anului e configurata. #}
   {% if numar_saptamana is defined and in_semestru %}
   <div class="saptamana {{ 'impara' if paritate.value == 'SI' else 'para' }}"
-       title="Săptămâna academică curentă, calculată din ancora publicată de FMI">
+       title="Săptămâna academică curentă">
     săptămâna <strong>{{ numar_saptamana }}</strong> · <strong>{{ paritate.eticheta }}</strong>
     <span class="pastila">{{ paritate.value }}</span>
   </div>
+  {% elif perioada_curenta is defined and perioada_curenta %}
+  <div class="saptamana" title="Perioada din structura anului universitar">{{ perioada_curenta.eticheta }}</div>
   {% endif %}
 
   <nav class="cont">

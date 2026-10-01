@@ -27,7 +27,9 @@ from orar.db.models import (
     Sala,
 )
 from orar.db.orare import perioada_implicita
+from orar.db.structura import perioade_anului
 from orar.domain.hierarchy import DENUMIRI_SPECIALIZARE
+from orar.domain.weeks import FELURI_PERIOADA, an_universitar_al
 from orar.web.auth import Cont, cere_admin, verifica_csrf
 from orar.web.deps import calendar, context_saptamana, get_db, templates
 
@@ -134,6 +136,27 @@ def calendar_asmi(
         )
         zi += timedelta(days=7)
 
+    # saptamanile academice si perioadele anului (vacante, sesiuni), din structura anului
+    academic = calendar(s)
+    zile: dict[date, dict[str, object]] = {}
+    #: saptamana academica a fiecarui rand al grilei (prima gasita), pentru coloana din stanga
+    sapt_randuri = []
+    for rand in saptamani:
+        sapt_randuri.append(next((s_ for d, _ in rand if (s_ := academic.saptamana(d))), None))
+        vazute: set[int] = set()
+        for d, _ in rand:
+            sapt = academic.saptamana(d)
+            perioada = academic.perioada(d)
+            zile[d] = {
+                "sapt": sapt,
+                # eticheta saptamanii apare o data pe rand, in prima ei zi
+                "nou": sapt is not None and sapt.numar not in vazute,
+                "perioada": perioada if perioada and perioada.fel != "didactica" else None,
+            }
+            if sapt is not None:
+                vazute.add(sapt.numar)
+    an = an_universitar_al(prima)
+
     urmeaza = evenimente_asmi(s, azi, date.max)
     trecute = evenimente_asmi(s, date.min, azi - timedelta(days=1))
     trecute = [e for e in trecute if e.data_sfarsit < azi][::-1][:30]
@@ -148,6 +171,14 @@ def calendar_asmi(
             "prima": prima,
             "titlu_luna": f"{LUNI[prima.month - 1]} {prima.year}",
             "saptamani": saptamani,
+            "zile": zile,
+            "sapt_randuri": sapt_randuri,
+            "an": an,
+            # perioadele de aratat in lista: fara completarile de saptamana
+            "structura": [
+                p for p in perioade_anului(s, an) if p.fel != "didactica" or p.saptamana is None
+            ],
+            "feluri_perioada": FELURI_PERIOADA,
             "zile_scurte": ("Lu", "Ma", "Mi", "Jo", "Vi", "Sâ", "Du"),
             "luna_inainte": f"{inainte:%Y-%m}",
             "luna_dupa": f"{dupa:%Y-%m}",

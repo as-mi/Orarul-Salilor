@@ -237,9 +237,14 @@ străine se adresează unei specializări și unui an, nu unei grupe anume. Leg�
 se face îngăduitor, după anul și specializările găsite în titlu, ca să meargă și pentru
 specializări sau serii care apar de la un an la altul.
 
-**Săptămânile sar peste vacanțe.** Facultatea publică din când în când ce săptămână e și
-dacă e pară sau impară. `domain/weeks.py` ține toate aceste repere și spune când un răspuns
-e doar aproximativ, în loc să numere simplu din șapte în șapte zile.
+**Săptămânile se numără din structura anului.** Un admin pune în `/admin/an-universitar`
+perioadele anului: activitatea didactică, vacanțele, sesiunea, restanțele și licența. Din
+activitatea didactică se numără săptămânile (`domain/weeks.py`), iar vacanțele nu se
+numără. Când semestrul începe la mijlocul săptămânii, zilele care lipsesc primei săptămâni
+se pun ca o perioadă separată care „se numără ca săptămâna 1”. Săptămânile, vacanțele și
+sesiunile apar și în calendarul ASMI. Pentru anii fără structură rămân ca rezervă reperele
+publicate de facultate. Începând cu 30 septembrie, adminii văd pe fiecare pagină o alertă
+până configurează anul nou.
 
 **Editările nu se fac direct în orar.** Încărcarea șterge și reîncarcă orele unui semestru,
 deci o schimbare făcută direct ar dispărea la următorul orar publicat. De aceea fiecare

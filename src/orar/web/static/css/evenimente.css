@@ -42,11 +42,11 @@
 .luna-cap h2 { margin: 0; min-width: 11rem; text-align: center; text-transform: capitalize; }
 .luna-cap .buton { cursor: pointer; }
 .luna-grila { border: 1px solid var(--linie); border-radius: var(--radius); overflow: hidden; background: var(--suprafata); }
-.luna-rand { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.luna-rand { display: grid; grid-template-columns: 2.6rem repeat(7, minmax(0, 1fr)); }
 .luna-rand + .luna-rand { border-top: 1px solid var(--linie); }
 .luna-rand.cap > div { padding: .35rem .5rem; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-slab); }
 .luna-zi { min-height: 5.6rem; padding: .3rem .35rem .4rem; display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
-.luna-zi + .luna-zi, .luna-rand.cap > div + div { border-left: 1px solid var(--linie); }
+.luna-zi, .luna-rand.cap > div + div { border-left: 1px solid var(--linie); }
 .luna-zi.weekend, .luna-rand.cap > .weekend { background: var(--suprafata-2); }
 .luna-zi.alta-luna .luna-nr { opacity: .4; }
 .luna-nr { font-size: .78rem; font-weight: 600; color: var(--text-slab); font-variant-numeric: tabular-nums; }

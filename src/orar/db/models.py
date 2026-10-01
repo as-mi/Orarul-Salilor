@@ -778,3 +778,53 @@ class FiltruSalvat(Base):
     parametri: Mapped[str] = mapped_column("PARAMETRI", Text, nullable=False)
     creat_de: Mapped[str] = mapped_column("CREAT_DE", String(120), nullable=False)
     creat_la: Mapped[datetime] = mapped_column("CREAT_LA", DateTime, nullable=False)
+
+
+class PerioadaStructura(Base):
+    """O perioada din structura anului universitar, pusa de un admin: activitate didactica,
+    vacanta, sesiune, sesiune de restante si mariri, sustinerea licentei / disertatiei.
+
+    Din perioadele didactice se numara saptamanile academice -- vezi `domain/weeks.py`.
+    """
+
+    __tablename__ = "STRUCTURA_AN"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True)
+    an_univ: Mapped[str] = mapped_column("AN_UNIV", String(9), nullable=False, index=True)
+    fel: Mapped[str] = mapped_column("FEL", String(10), nullable=False)
+    #: 1 sau 2; NULL pentru ce tine de tot anul (de exemplu sustinerea licentei).
+    semestru: Mapped[int | None] = mapped_column("SEMESTRU", Integer)
+    #: Numele afisat ("Vacanța de iarnă"); gol = numele felului.
+    nume: Mapped[str | None] = mapped_column("NUME", String(80))
+    data_inceput: Mapped[date] = mapped_column("DATA_INCEPUT", Date, nullable=False)
+    data_sfarsit: Mapped[date] = mapped_column("DATA_SFARSIT", Date, nullable=False)
+    #: Doar la activitatea didactica: zilele perioadei sunt saptamana N, fara sa avanseze
+    #: numaratoarea (completarea unei saptamani inceput la mijloc).
+    saptamana: Mapped[int | None] = mapped_column("SAPTAMANA", Integer)
+    #: toti / neterminali / terminali: anii terminali au alt semestru 2.
+    pentru: Mapped[str] = mapped_column(
+        "PENTRU", String(12), nullable=False, default="toti", server_default="toti"
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "FEL IN ('didactica','vacanta','sesiune','restante','licenta','liber')",
+            name="ck_structura_fel",
+        ),
+        CheckConstraint("PENTRU IN ('toti','neterminali','terminali')", name="ck_structura_pentru"),
+        CheckConstraint("DATA_INCEPUT <= DATA_SFARSIT", name="ck_structura_perioada"),
+    )
+
+    def ca_perioada(self):  # noqa: ANN201 -- domain.weeks.PerioadaAn
+        from orar.domain.weeks import PerioadaAn
+
+        return PerioadaAn(
+            fel=self.fel,
+            inceput=self.data_inceput,
+            sfarsit=self.data_sfarsit,
+            semestru=self.semestru,
+            nume=self.nume or "",
+            saptamana=self.saptamana,
+            an=self.an_univ,
+            pentru=self.pentru,
+        )

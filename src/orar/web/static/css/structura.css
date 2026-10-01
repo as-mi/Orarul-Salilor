@@ -1,0 +1,62 @@
+/* Structura anului universitar: alerta pentru admini, pagina de configurare si felul in care
+   apar saptamanile si perioadele (vacante, sesiuni) in calendarul ASMI. */
+
+/* culoarea fiecarui fel de perioada */
+.perioada-didactica { --perioada: var(--accent); }
+.perioada-vacanta   { --perioada: #3fa45b; }
+.perioada-sesiune   { --perioada: #e05252; }
+.perioada-restante  { --perioada: #e08a2e; }
+.perioada-licenta   { --perioada: #9a63d6; }
+.perioada-liber     { --perioada: #c9a20a; }
+.perioada-semn { display: inline-block; width: .65rem; height: .65rem; border-radius: 50%; margin-right: .45rem; background: var(--perioada, var(--linie-tare)); }
+
+/* alerta de pe fiecare pagina, pentru admini */
+.alerta-an {
+  max-width: 1500px; margin: .8rem auto 0; padding: .7rem 1rem; width: calc(100% - 2.2rem);
+  display: flex; flex-wrap: wrap; align-items: center; gap: .4rem 1rem;
+  border: 1px solid #e05252; border-left-width: 4px; border-radius: var(--radius);
+  background: color-mix(in srgb, #e05252 12%, var(--suprafata)); font-size: .9rem;
+}
+.alerta-an span { flex: 1 1 20rem; color: var(--text-slab); }
+.alerta-an .buton { font-size: .86rem; }
+
+/* pagina de configurare */
+.an-cap { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.an-cap h1 { margin: 0; }
+.lipsuri { margin: .3rem 0 0; padding-left: 1.2rem; color: #e05252; font-weight: 600; }
+.formular-perioada { max-width: 46rem; }
+.formular-perioada input[type="number"] {
+  font: inherit; font-size: .92rem; padding: .45rem .6rem; width: 100%;
+  border: 1px solid var(--linie-tare); border-radius: 6px; background: var(--fundal); color: var(--text);
+}
+.saptamani-sem { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem 2rem; }
+.saptamani-sem h3 { margin: 0 0 .4rem; }
+.saptamani-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; font-size: .86rem; }
+.saptamani-lista li { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .5rem; }
+.saptamani-lista li > span:last-child { color: var(--text-slab); }
+
+/* calendarul ASMI: saptamana academica si perioadele anului */
+/* coloana saptamanii academice: discreta, cu o linie colorata doar la cele impare */
+.luna-rand.cap > .luna-sapt-cap { padding-inline: 0; font-size: .62rem; display: flex; align-items: center; justify-content: center; }
+.luna-sapt-col {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1;
+  color: var(--text-slab); font-variant-numeric: tabular-nums; box-shadow: inset 3px 0 0 transparent;
+}
+.luna-sapt-col strong { font-size: .86rem; color: var(--text); }
+.luna-sapt-col small { font-size: .6rem; text-transform: uppercase; letter-spacing: .03em; }
+.luna-sapt-col.impara { box-shadow: inset 3px 0 0 var(--accent); }
+.luna-sapt-col.impara small { color: var(--accent); }
+.luna-zi[class*="perioada-"] { background: color-mix(in srgb, var(--perioada) 10%, var(--suprafata)); }
+.luna-perioada {
+  font-size: .7rem; font-weight: 600; color: var(--perioada); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.structura-lista { list-style: none; margin: .4rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; font-size: .9rem; }
+.structura-lista li { display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .6rem; }
+@media (max-width: 720px) {
+  .luna-perioada { display: none; }
+  .luna-rand { grid-template-columns: 1.7rem repeat(7, minmax(0, 1fr)); }
+  .luna-sapt-col small { display: none; }
+}
+.indicatii { margin: .2rem 0 .4rem; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .25rem; }
+.structura-an > summary { font-size: 1.05rem; font-weight: 600; color: var(--text); }
+.structura-an > summary small { font-weight: 400; color: var(--text-slab); font-size: .8rem; margin-left: .3rem; }

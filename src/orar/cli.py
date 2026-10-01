@@ -418,7 +418,7 @@ def main(argv: list[str] | None = None) -> int:
     py = sub.add_parser(
         "sincronizeaza", help="verifica pagina FMI si reia ingestul daca s-a schimbat orarul"
     )
-    py.add_argument("--an", default="2025-2026")
+    py.add_argument("--an", default=None, help="implicit: anul universitar in care suntem")
     py.add_argument(
         "--semestru", type=int, choices=(1, 2), help="implicit: cel tinut la zi de facultate"
     )
