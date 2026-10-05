@@ -94,6 +94,30 @@ class Raport:
 # ---------------------------------------------------------------------------
 
 
+def profesor_dupa_nume(s: Session, nume: str) -> Profesor:
+    """Randul PROFESOR al unui nume, creat daca lipseste.
+
+    Acelasi om poate fi scris in doua feluri care dau acelasi slug: o cratima in plus, un
+    caracter invizibil citit de OCR. Cautam deci intai dupa nume, apoi dupa slug -- altfel un
+    rand nou ar lovi constrangerea de unicitate a slug-ului si ar pica tot ingestul. Doar
+    cand slug-ul e al altcuiva cu adevarat ("Popa A" si "Popa-A" ca persoane diferite nu se
+    pot deosebi) primeste un sufix.
+    """
+    gasit = s.scalar(select(Profesor).where(Profesor.nume == nume))
+    if gasit is None:
+        gasit = s.scalar(select(Profesor).where(Profesor.slug == _slug(nume)))
+    if gasit is not None:
+        return gasit
+    baza = slug = _slug(nume)
+    n = 2
+    while s.scalar(select(Profesor.id).where(Profesor.slug == slug)) is not None:
+        slug, n = f"{baza}-{n}", n + 1
+    p = Profesor(nume=nume, slug=slug)
+    s.add(p)
+    s.flush()
+    return p
+
+
 class _Cache:
     def __init__(self, s: Session, an_universitar: str) -> None:
         self.s = s
@@ -118,11 +142,9 @@ class _Cache:
             return None
         if p := self.profesori.get(nume):
             return p
-        p = Profesor(nume=nume, slug=_slug(nume))
-        # Slug-urile pot coliziona ("Popa A" vs "Popa-A"); dezambiguizam cu un sufix.
-        if any(x.slug == p.slug for x in self.profesori.values()):
-            p.slug = f"{p.slug}-{len(self.profesori)}"
-        self.s.add(p)
+        # Nu doar cache-ul: intre timp, verificarea cu orarul profesorilor poate fi redenumit
+        # sau adaugat randuri (numele intregi), iar cache-ul nu le stie.
+        p = profesor_dupa_nume(self.s, nume)
         self.profesori[nume] = p
         return p
 

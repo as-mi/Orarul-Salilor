@@ -18,9 +18,16 @@ from orar.db.models import Sala
 from orar.ingest.capacities import Capacitate, citeste_capacitati, incarca_capacitati
 from orar.ingest.tables import detecteaza_tabele
 
-PAGINA_2 = (
-    Path(__file__).resolve().parent.parent / "data" / "screenshots" / "sem2-grupe" / "pag_002.png"
-)
+
+def _pagina_2() -> Path:
+    """Pagina 2 a orarului de referinta (semestrul 2, 2025-2026), din cea mai recenta sesiune
+    de capturi a lui -- vezi `ingest/capturi.py`."""
+    radacina = Path(__file__).resolve().parent.parent / "data" / "screenshots"
+    sesiuni = sorted(radacina.glob("2025-2026-sem2-grupe-*"))
+    return (sesiuni[-1] if sesiuni else radacina / "sem2-grupe") / "pag_002.png"
+
+
+PAGINA_2 = _pagina_2()
 
 
 def _deseneaza(

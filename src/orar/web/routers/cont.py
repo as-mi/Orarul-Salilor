@@ -17,7 +17,14 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from orar.db.conturi import (
+    grupa_in_orar,
+    grupe_de_ales,
+    orarul_contului,
+    reseteaza_grupele_daca_e_cazul,
+)
 from orar.db.models import Grupa, User
+from orar.db.orare import orare_vii, perioada_implicita
 from orar.db.queries import gaseste_profesor, profesori_de_ales
 from orar.web.auth import (
     PAROLA_MINIM,
@@ -56,18 +63,19 @@ def _acasa(cont: Cont) -> str:
     return "/admin" if cont.e_admin else "/orarul-meu"
 
 
-def _grupe_alegibile(s: Session) -> list[Grupa]:
-    """Formatiunile la care poate fi cineva: grupe reale, nu serii, semigrupe sau pachete."""
-    return list(s.scalars(select(Grupa).where(Grupa.tip == "grupa").order_by(Grupa.nume)))
+def _grupe_alegibile(s: Session, user: User | None = None) -> list[Grupa]:
+    """Grupele din care se poate alege: ale orarului pe care il urmeaza contul (pentru un
+    cont nou, orarul implicit al sitului) -- vezi `db/conturi.py`."""
+    return grupe_de_ales(s, orarul_contului(s, user))
 
 
-def _grupa_valida(s: Session, grupa_id: str) -> Grupa | None:
-    """Grupa, daca id-ul e chiar al unei grupe; altfel un `<option>` fabricat ar lega contul
-    de orice nod din arbore."""
+def _grupa_valida(s: Session, grupa_id: str, user: User | None = None) -> Grupa | None:
+    """Grupa, daca id-ul e chiar al unei grupe din care se poate alege; altfel un `<option>`
+    fabricat ar lega contul de orice nod din arbore, sau de o grupa din alt an."""
     if not grupa_id.isdigit():
         return None
     g = s.get(Grupa, int(grupa_id))
-    return g if g is not None and g.tip == "grupa" else None
+    return g if g is not None and g in _grupe_alegibile(s, user) else None
 
 
 # ------------------------------------------------------------------ intrare
@@ -198,9 +206,25 @@ def orarul_meu(
         profesor = gaseste_profesor(s, cont.user.profesor)
         if profesor is not None:
             return RedirectResponse(f"/profesor/{profesor.slug}", status_code=303)
-    if cont.user.grupa is None:
+    reseteaza_grupele_daca_e_cazul(s)
+    user = cont.user
+    if user.grupa is None:
         return RedirectResponse("/account", status_code=303)
-    return RedirectResponse(f"/grupa/{cont.user.grupa.slug}", status_code=303)
+    orar = orarul_contului(s, user)
+    # orarul urmat e din alt an decat grupa: aceeasi grupa, in anul lui, cu preferintele pastrate
+    grupa = grupa_in_orar(s, user.grupa, orar)
+    if grupa is None:
+        return RedirectResponse("/account?grupa_lipsa=1", status_code=303)
+    if grupa is not user.grupa:
+        user.grupa = grupa
+        s.commit()
+    implicit = perioada_implicita(s)
+    q = (
+        f"?perioada={orar.id}"
+        if orar is not None and implicit is not None and orar.id != implicit.id
+        else ""
+    )
+    return RedirectResponse(f"/grupa/{grupa.slug}{q}", status_code=303)
 
 
 @router.get("/account", response_class=HTMLResponse, response_model=None)
@@ -213,12 +237,15 @@ def formular_cont(
         return RedirectResponse("/login?inapoi=/account", status_code=303)
     if cont.user is None:
         return RedirectResponse("/admin", status_code=303)
+    reseteaza_grupele_daca_e_cazul(s)
     return _pagina(
         request,
         "cont.html",
         s,
         user=cont.user,
-        grupe=_grupe_alegibile(s),
+        grupe=_grupe_alegibile(s, cont.user),
+        orare=orare_vii(s),
+        orar_urmat=orarul_contului(s, cont.user),
         profesori=profesori_de_ales(s),
     )
 
@@ -252,6 +279,7 @@ def cere_rolul_de_profesor(
 def salveaza_cont(
     request: Request,
     grupa_id: str = Form(""),
+    orar: str = Form("", description="`automat` sau id-ul unui orar"),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
     cont: Cont | None = Depends(cont_curent),
@@ -261,13 +289,27 @@ def salveaza_cont(
     if not verifica_csrf(request, csrf):
         return RedirectResponse("/account", status_code=303)
 
-    noua = _grupa_valida(s, grupa_id)
-    if (noua.id if noua else None) != cont.user.grupa_id:
-        # Preferintele erau ale orarului vechi: alta grupa are alte semigrupe si alte
+    user = cont.user
+    # Intai orarul: de el depind grupele din care se poate alege.
+    if orar == "automat":
+        user.orar_automat, user.orar_ales = True, None
+    elif orar.isdigit():
+        ales = next((o.perioada for o in orare_vii(s) if o.perioada.id == int(orar)), None)
+        if ales is not None:
+            user.orar_automat, user.orar_ales = False, ales
+    # Grupa veche, mutata in anul orarului nou, nu e o grupa noua: preferintele raman.
+    if user.grupa is not None:
+        mutata = grupa_in_orar(s, user.grupa, orarul_contului(s, user))
+        if mutata is not None:
+            user.grupa = mutata
+
+    noua = _grupa_valida(s, grupa_id, user)
+    if (noua.id if noua else None) != user.grupa_id:
+        # Preferintele erau ale grupei vechi: alta grupa are alte semigrupe si alte
         # optionale, deci nu le mostenim. Prin relatie, nu prin FK: altfel `user.grupa`
         # ramane obiectul vechi pentru cine il citeste in aceeasi sesiune.
-        cont.user.grupa = noua
-        cont.user.semigrupa = None
-        cont.user.ascunse = None
-        s.commit()
+        user.grupa = noua
+        user.semigrupa = None
+        user.ascunse = None
+    s.commit()
     return RedirectResponse("/orarul-meu" if noua else "/account", status_code=303)

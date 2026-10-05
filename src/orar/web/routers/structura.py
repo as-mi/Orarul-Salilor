@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
+from orar.db.conturi import reseteaza_grupele_daca_e_cazul
 from orar.db.models import PerioadaStructura
 from orar.db.structura import interval_an, perioade_anului
 from orar.domain.weeks import (
@@ -222,7 +223,10 @@ def adauga_perioada(
         )
     )
     s.commit()
-    return RedirectResponse(f"/admin/an-universitar?an={an}#perioade", status_code=303)
+    # anul curent tocmai s-a completat: conturile care urmeaza orarul implicit isi aleg din nou grupa
+    resetate = reseteaza_grupele_daca_e_cazul(s)
+    extra = f"&resetate={resetate}" if resetate is not None else ""
+    return RedirectResponse(f"/admin/an-universitar?an={an}{extra}#perioade", status_code=303)
 
 
 @router.post("/perioada/{perioada_id}/sterge")

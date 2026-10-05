@@ -183,7 +183,9 @@ def _crosscheck(
     if sursa is None:
         raise EroareCrosscheck("lipseste orarul profesorilor")
 
-    tinta = director / f"sem{semestru}-profesori"
+    from orar.ingest.capturi import curata_capturile, nume_sesiune
+
+    tinta = director / nume_sesiune(an_universitar, semestru, "profesori", datetime.now())
     progres("capturez orarul profesorilor din Drive (câteva minute)")
     try:
         rez = captureaza_orar(sursa.url, OptiuniCaptura(director=tinta))
@@ -200,6 +202,8 @@ def _crosscheck(
         raise EroareCrosscheck("orarul profesorilor nu are nicio pagina citibila")
     # dupa `extinde_numele`: randurile cu numele intreg exista deja, doar le marcam
     salveaza_index(s, index, an_universitar=an_universitar, semestru=semestru)
+    # capturile pe care nu le mai foloseste nimic (orare inlocuite, profesori vechi)
+    curata_capturile(s, director)
 
     rand = _upsert_sursa(s, sursa, an_universitar)
     rand.ingestat_la = sursa.actualizat
@@ -299,13 +303,17 @@ def _ingesteaza(
     from orar.db.versiuni import arhiveaza_semestrul
     from orar.ingest.capacities import incarca_capacitati
     from orar.ingest.capture import EroareCaptura, OptiuniCaptura, captureaza_orar
+    from orar.ingest.capturi import muta_capturile_vechi, nume_sesiune
     from orar.ingest.consolidate import consolideaza
     from orar.ingest.lexicon import Lexicon, imbina
     from orar.ingest.load import incarca_pagini
     from orar.ingest.ocr import RapidOCR, citeste_fisier
     from orar.ingest.segment import EroareSegmentare
 
-    tinta = director / f"sem{sursa.semestru}-{sursa.fel}"
+    # fiecare incarcare isi are directorul ei: altfel ar suprascrie paginile din care au fost
+    # citite orarele de dinainte, iar decupajele lor din coada de verificare ar fi gresite
+    muta_capturile_vechi(s, director)
+    tinta = director / nume_sesiune(an_universitar, sursa.semestru, sursa.fel, datetime.now())
     progres("capturez paginile orarului din Drive (câteva minute)")
     try:
         rez = captureaza_orar(sursa.url, OptiuniCaptura(director=tinta))

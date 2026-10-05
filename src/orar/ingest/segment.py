@@ -308,8 +308,12 @@ TOLERANTA_CULOARE = 24
 #: Chenarele nu sunt negre curate: la rezolutia de randare o linie de 1 px se amesteca
 #: cu umplerile din jur si iese, de exemplu, (87,142,87) intre doua verzuri.
 ADANCIME_CHENAR = 26
-#: Sub atata text, banda e slot gol.
-PRAG_TEXT = 0.02
+#: Sub atata text, banda e slot gol. Masurat pe 9171 de benzi albe din doua orare: un slot
+#: chiar gol are 0.000 (marginile benzii sunt excluse), iar cel mai putin text dintr-o
+#: jumatate de celula alba e 0.014 -- "Fundam" din "FundamIngSoft", pe doua ore. Pragul vechi,
+#: 0.02, lua astfel de jumatati drept goale: decupajul si ora de inceput ieseau taiate la
+#: jumatate, iar celulele albe cu un singur cuvant ("InginerieSoft") se pierdeau de tot.
+PRAG_TEXT = 0.005
 
 
 @dataclass

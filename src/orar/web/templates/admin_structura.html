@@ -18,8 +18,15 @@
 {# Ce se cere ca anul sa fie "configurat"; pana atunci adminii vad o alerta pe fiecare pagina. #}
 <section class="sectiune panou">
   <h2>{{ 'Anul e configurat' if not lipsuri else 'Mai lipsesc' }}</h2>
+  {% if request.query_params.get('resetate') is not none %}
+    <p class="reusit" role="status">Anul e complet: {{ request.query_params.get('resetate') }} conturi care urmează
+      orarul curent își vor alege din nou grupa.</p>
+  {% endif %}
   {% if lipsuri %}
     <ul class="lipsuri">{% for x in lipsuri %}<li>{{ x }}</li>{% endfor %}</ul>
+    <p class="nota">Când anul curent e complet, conturile care urmează automat orarul facultății
+      își pierd grupa (o singură dată pe an), ca studenții să și-o aleagă pe cea din anul nou.
+      Cine a rămas pe un orar anume nu e atins.</p>
   {% else %}
     <p class="reusit">Toate perioadele cerute sunt puse. Verifică mai jos numerotarea săptămânilor.</p>
   {% endif %}

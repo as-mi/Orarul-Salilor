@@ -174,3 +174,13 @@ def test_acord_global_cu_golden(golden_pe_sursa):
     assert pagini_ok / len(pagini) >= PRAG_PAGINI, f"pagini exacte: {pagini_ok}/{len(pagini)}"
     assert zile_ok / zile_tot >= PRAG_ZILE, f"zile cu acelasi numar: {zile_ok}/{zile_tot}"
     assert ore_ok / ore_tot >= PRAG_ORE, f"`ore` potrivit: {ore_ok}/{ore_tot}"
+
+
+def test_celulele_albe_pe_doua_ore_raman_intregi():
+    """O celula alba pe doua ore, cu textul pe mijloc: jumatatea din stanga are doar o parte
+    din cuvant ("Fundam" din "FundamIngSoft") si putin text. Nu e un slot gol: celula trebuie
+    sa inceapa la 14, nu la 15 -- altfel si decupajul, si ora ar fi taiate la jumatate.
+    Pagina e din orarul 2026-2027, semestrul 1 (grupa 262)."""
+    pag = segmenteaza_fisier(_pagina("pag_2026_043.png"))
+    assert "14-16" in [c.ore for c in pag.pe_zi("Marti")]
+    assert "8-10" in [c.ore for c in pag.pe_zi("Joi")]  # TeorSist (Lab)

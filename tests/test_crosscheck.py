@@ -150,3 +150,84 @@ def test_extinderea_nu_atinge_ce_nu_are_corespondent(db, ora):
     extinse, _ = extinde_numele(db, _index_pentru(ora, {"Nimeni Nimeni"}))
     assert extinse == []
     assert ora.profesor.nume == vechi
+
+
+def test_acelasi_profesor_scris_altfel_nu_strica_ingestul():
+    """Un nume care difera doar printr-un caracter (aici o cratima neobisnuita, U+2011) da
+    acelasi slug: e acelasi rand, nu unul nou care ar lovi unicitatea slug-ului."""
+    from sqlalchemy.orm import sessionmaker
+
+    from orar.db.models import Base
+    from orar.ingest.load import _Cache, profesor_dupa_nume
+    from tests.conftest import _engine_memorie
+
+    engine = _engine_memorie()
+    Base.metadata.create_all(engine)
+    with sessionmaker(bind=engine)() as s:
+        cache = _Cache(s, "2025-2026")  # cache-ul nu stie de randul adaugat dupa el
+        existent = profesor_dupa_nume(s, "Sterian Mara-Cristina")
+        assert cache.profesor("Sterian Mara‑Cristina") is existent
+        # doua persoane cu acelasi slug primesc slug-uri diferite, fara eroare
+        s.add(Profesor(nume="Popa A", slug="popa-a"))
+        s.flush()
+        assert profesor_dupa_nume(s, "Popa A").slug == "popa-a"
+
+
+def test_numele_intreg_se_uneste_si_cu_versiunile_anterioare():
+    """`Alexe B` devine `Alexe Bogdan`, care exista deja ca rand. Daca orarul vechi, arhivat
+    la reincarcare, inca trimite la `Alexe B`, unirea trebuie sa-l mute si pe el -- altfel
+    stergerea randului vechi pica pe cheia straina si cade tot ingestul."""
+    from datetime import datetime, time
+
+    from sqlalchemy import event, select
+    from sqlalchemy.orm import sessionmaker
+
+    from orar.db.models import Base, Grupa, OraArhivata, Perioada, VersiuneOrar
+    from orar.ingest.crosscheck import IndexProfesori, extinde_numele
+    from tests.conftest import _engine_memorie
+
+    engine = _engine_memorie()
+
+    @event.listens_for(engine, "connect")
+    def _fk(conn, _rec):  # noqa: ANN001
+        conn.execute("PRAGMA foreign_keys=ON")
+
+    Base.metadata.create_all(engine)
+    with sessionmaker(bind=engine)() as s:
+        scurt = Profesor(nume="Alexe B", slug="alexe-b")
+        intreg = Profesor(nume="Alexe Bogdan", slug="alexe-bogdan", din_orar=True)
+        g = Grupa(nume="407", slug="407", tip="grupa", an_universitar="2025-2026")
+        perioada = Perioada(an_univ="2025-2026", semestru=2)
+        v = VersiuneOrar(an_univ="2025-2026", semestru=2, arhivat_la=datetime(2026, 4, 1), nr_ore=1)
+        s.add_all([scurt, intreg, g, perioada, v])
+        s.flush()
+        s.add(
+            Ora(
+                grupa=g,
+                perioada=perioada,
+                profesor=scurt,
+                zi_saptamana="Luni",
+                ora_inceput=time(8),
+                ora_sfarsit=time(10),
+            )
+        )
+        s.add(
+            OraArhivata(
+                versiune_id=v.id,
+                ora_originala=1,
+                perioada_id=perioada.id,
+                grupa_id=g.id,
+                profesor_id=scurt.id,
+                zi_saptamana="Luni",
+                ora_inceput=time(8),
+                ora_sfarsit=time(10),
+            )
+        )
+        s.flush()
+
+        extinse, _ = extinde_numele(s, IndexProfesori(nume=["Alexe Bogdan"]))
+        s.commit()
+        assert extinse
+        assert s.scalar(select(Profesor).where(Profesor.nume == "Alexe B")) is None
+        assert {o.profesor_id for o in s.scalars(select(Ora))} == {intreg.id}
+        assert {o.profesor_id for o in s.scalars(select(OraArhivata))} == {intreg.id}

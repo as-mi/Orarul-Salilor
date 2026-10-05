@@ -61,7 +61,17 @@ def _inapoi_sigur(inapoi: str, implicit: str = "/admin") -> str:
     )
 
 
-def _liste(s: Session) -> dict[str, object]:
+def materii_din_orar(s: Session, perioada_id: int | None) -> list[str]:
+    """Materiile propuse pentru o activitate: cele din acelasi orar (semestru si an), nu din
+    toate orarele din baza -- altfel apar materiile altor ani si ale celuilalt semestru.
+    Fara un orar anume, toate."""
+    stmt = select(Materie.nume).distinct().order_by(func.lower(Materie.nume))
+    if perioada_id is not None:
+        stmt = stmt.join(Ora, Ora.materie_id == Materie.id).where(Ora.perioada_id == perioada_id)
+    return list(s.scalars(stmt))
+
+
+def _liste(s: Session, perioada_id: int | None = None) -> dict[str, object]:
     """Ce se propune in formulare: profesorii, salile si materiile deja cunoscute.
 
     Profesorii sunt cei din orarul profesorilor -- oameni reali, cu numele intreg. Pana se
@@ -77,9 +87,7 @@ def _liste(s: Session) -> dict[str, object]:
             for tip, eticheta in TIPURI_SALA
             if (sali := list(s.scalars(select(Sala).where(Sala.tip == tip).order_by(Sala.nume))))
         ],
-        "materii": [
-            n for (n,) in s.execute(select(Materie.nume).order_by(func.lower(Materie.nume)))
-        ],
+        "materii": materii_din_orar(s, perioada_id),
     }
 
 
@@ -194,12 +202,14 @@ def _pagina(
         )
     )
     corectie = s.get(Corectie, o.corectie_id) if o is not None and o.corectie_id else None
+    # materiile propuse: ale orarului activitatii (sau, la una noua, ale orarului in care intra)
+    orar_activitatii = o.perioada_id if o is not None else getattr(_orar(s, perioada), "id", None)
     return templates.TemplateResponse(
         request=request,
         name="admin_activitate.html",
         context={
             **context_saptamana(),
-            **_liste(s),
+            **_liste(s, orar_activitatii),
             "o": o,
             "corectie": corectie,
             "publicat": corectii.original(corectie) if corectie else None,
@@ -373,6 +383,51 @@ def modifica(
 
 
 # ------------------------------------------------------ coada de verificare
+
+
+@router.post("/review/dosar", response_model=None)
+def rezolva_dosarul(
+    request: Request,
+    ora_id: list[int] = Form([]),
+    materie: str = Form(""),
+    profesor: list[str] = Form([]),
+    sala: str = Form(""),
+    saptamani: str = Form(""),
+    inapoi: str = Form("/admin/review"),
+    csrf: str = Form(""),
+    s: Session = Depends(get_db),
+    admin: Cont = Depends(cere_admin),
+) -> RedirectResponse:
+    """Confirma impreuna mai multe citiri ale aceleiasi activitati (vezi `db/coada.py`):
+    aceleasi materie, profesori, sala si saptamani pe fiecare, fiecare pe formatiunea ei.
+    Citirile debifate in formular nu vin in `ora_id`, deci raman neatinse in coada."""
+    inapoi = _inapoi_sigur(inapoi, "/admin/review")
+    semn = "&" if "?" in inapoi else "?"
+
+    def eroare(text: str) -> RedirectResponse:
+        return RedirectResponse(f"{inapoi}{semn}eroare={quote(text)}", status_code=303)
+
+    if not verifica_csrf(request, csrf):
+        return eroare("Formularul a expirat. Încearcă din nou.")
+    if not ora_id:
+        return eroare("Bifează cel puțin o activitate de confirmat.")
+    profesori = _uneste_profesori(profesor)
+    for o in [_activitate(s, i) for i in dict.fromkeys(ora_id)]:
+        valori = {
+            **_valori_ora(o),
+            "materie": materie,
+            "profesor": profesori,
+            "sala": sala,
+            "saptamani": saptamani,
+        }
+        v, mesaj = _valideaza(s, valori)
+        if v is None:
+            s.rollback()
+            return eroare(mesaj)
+        corectii.modifica(s, o, v, de_catre=admin.nume)
+        corectii.confirma(s, o, de_catre=admin.nume)
+    s.commit()
+    return RedirectResponse(f"{inapoi}{semn}rezolvat={len(ora_id)}", status_code=303)
 
 
 @router.post("/review/{ora_id}", response_model=None)

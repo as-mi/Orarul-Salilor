@@ -256,10 +256,14 @@ def _capturi_grupe() -> Path:
     `data/screenshots/` tine acum si orarul profesorilor, in subdirectorul lui: 191 de pagini
     care nu au corespondent in setul de referinta. Comparate cu el, ar iesi tot atatea
     "pagini nepotrivite" -- fara ca extragerea sa aiba vreo vina.
+
+    Capturile stau pe sesiuni de incarcare (`2025-2026-sem2-grupe-<moment>/`, vezi
+    `ingest/capturi.py`); setul de referinta e orarul grupelor din semestrul 2, 2025-2026.
+    Luam cea mai recenta sesiune a lui, sau directorul vechi, dinainte de sesiuni.
     """
     radacina = Path(__file__).resolve().parent.parent / "data" / "screenshots"
-    grupe = radacina / "sem2-grupe"
-    return grupe if grupe.is_dir() else radacina
+    sesiuni = sorted(radacina.glob("2025-2026-sem2-grupe-*"))
+    return sesiuni[-1] if sesiuni else radacina / "sem2-grupe"
 
 
 CAPTURI = _capturi_grupe()

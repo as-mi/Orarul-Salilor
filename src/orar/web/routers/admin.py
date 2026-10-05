@@ -33,13 +33,15 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
+from orar.db.coada import grupeaza
 from orar.db.models import ROLURI, Corectie, Ora, Sesizare, User
 from orar.db.orare import fa_implicita, orare_vii
 from orar.db.queries import profesori_de_ales
+from orar.ingest.capturi import Sesiune
 from orar.ingest.crosscheck import profesori_potriviti
 from orar.web.auth import Cont, cere_admin, verifica_csrf
 from orar.web.deps import context_saptamana, get_db, templates
-from orar.web.routers.editare import _liste
+from orar.web.routers.editare import _liste, materii_din_orar
 from orar.worker import incarcare
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -231,33 +233,67 @@ def trateaza_cererea(
 @router.get("/review", response_class=HTMLResponse)
 def review(
     request: Request,
+    sesiune: str = Query(
+        "", description="directorul sesiunii de incarcare; implicit cea mai recenta"
+    ),
     prag: float = Query(0.75, ge=0.0, le=1.0),
     limita: int = Query(100, ge=1, le=500),
     s: Session = Depends(get_db),
     _admin: Cont = Depends(cere_admin),
 ) -> HTMLResponse:
-    """Activitatile de verificat, cele mai indoielnice intai."""
-    candidate = list(
+    """Activitatile de verificat, pe sesiuni de incarcare -- cea mai recenta intai -- si, in
+    fiecare, pe paginile din care au fost citite."""
+    toate = list(
         s.scalars(
             select(Ora)
             .where(Ora.sursa_bbox.is_not(None))
             .where((Ora.campuri_nesigure.is_not(None)) | (Ora.confidence < prag))
-            .order_by(Ora.campuri_nesigure.is_(None), Ora.confidence)
-            .limit(limita)
         )
     )
+    # sesiunile, cu cate activitati are fiecare de verificat
+    pe_sesiuni: dict[str, list[Ora]] = {}
+    for o in toate:
+        pe_sesiuni.setdefault(Sesiune.din_sursa(o.sursa_pagina or "").director, []).append(o)
+    sesiuni = sorted(
+        (Sesiune.din_sursa(f"{d}/x") if d else Sesiune(director="") for d in pe_sesiuni),
+        key=lambda x: (x.moment is None, -(x.moment.timestamp() if x.moment else 0), x.director),
+    )
+    aleasa = next((x for x in sesiuni if x.director == sesiune), sesiuni[0] if sesiuni else None)
+
+    # in sesiunea aleasa: pe pagini, in ordinea lor; in pagina, cele mai indoielnice intai
+    candidate = sorted(
+        pe_sesiuni.get(aleasa.director, []) if aleasa else [],
+        key=lambda o: (o.sursa_pagina or "", o.campuri_nesigure is None, o.confidence or 0),
+    )[:limita]
+    # aceeasi activitate citita de pe mai multe pagini se verifica o data: vezi db/coada.py
+    dosare = grupeaza(s, candidate)
+    pagini: dict[str, list] = {}
+    for d in dosare:
+        pagini.setdefault(d.principal.sursa_pagina or "", []).append(d)
     return templates.TemplateResponse(
         request=request,
         name="review.html",
         context={
             **context_saptamana(s=s),
             "ore": candidate,
+            "pagini": pagini,
+            "sesiuni": [(x, len(pe_sesiuni[x.director])) for x in sesiuni],
+            "aleasa": aleasa,
+            # paginile ale caror imagini nu mai exista (suprascrise de o incarcare veche)
+            "fara_imagine": {
+                o.sursa_pagina for o in candidate if _gaseste_captura(o.sursa_pagina or "") is None
+            },
+            "nr_dosare": len(dosare),
             "prag": prag,
             # propunerile din campuri si adresa la care ne intoarcem dupa o rezolvare
             **_liste(s),
+            # materiile propuse fiecarei activitati: doar ale orarului ei
+            "materii_pe_orar": {
+                pid: materii_din_orar(s, pid) for pid in {o.perioada_id for o in candidate}
+            },
             # ce spune orarul profesorilor despre fiecare activitate din coada
             "propuneri": profesori_potriviti(s, candidate),
-            "inapoi": f"/admin/review?prag={prag}&limita={limita}",
+            "inapoi": f"/admin/review?sesiune={aleasa.director if aleasa else ''}&prag={prag}&limita={limita}",
             "total_nesigure": s.scalar(
                 select(func.count()).select_from(Ora).where(Ora.campuri_nesigure.is_not(None))
             ),
@@ -272,15 +308,17 @@ def review(
 def _gaseste_captura(sursa: str) -> Path | None:
     """Imaginea din care s-a citit activitatea.
 
-    `SURSA_PAGINA` tine calea relativa la radacina capturilor (`sem2-grupe/pag_016.png`),
-    dar randurile scrise inainte de asta au doar numele fisierului -- pentru ele mai cautam
-    o data in subdirectoare, ca sa nu ramana fara decupaj dupa o actualizare.
+    `SURSA_PAGINA` tine calea relativa la radacina capturilor, cu directorul sesiunii de
+    incarcare (`2026-2027-sem1-grupe-.../pag_084.png`). Randurile foarte vechi au doar numele
+    fisierului: pentru ele mai cautam o data in subdirectoare. Pentru celelalte nu -- o pagina
+    cu acelasi nume dintr-o alta sesiune ar fi un decupaj gresit, nu unul lipsa.
     """
     cale = DIRECTOR_CAPTURI / sursa
     if cale.is_file():
         return cale
-    nume = Path(sursa).name
-    return next((p for p in DIRECTOR_CAPTURI.rglob(nume) if p.is_file()), None)
+    if "/" in sursa:
+        return None
+    return next((p for p in DIRECTOR_CAPTURI.rglob(sursa) if p.is_file()), None)
 
 
 @router.get("/decupaj/{ora_id}")

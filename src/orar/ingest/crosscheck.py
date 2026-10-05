@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from datetime import time
 from pathlib import Path
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from orar.db.models import Ora, Profesor, SlotProfesor
@@ -309,15 +309,32 @@ def extinde_numele(s: Session, index: IndexProfesori) -> tuple[list[str], list[s
         # Daca numele intreg exista deja ca rand, mutam orele pe el si il stergem pe cel vechi.
         existent = s.scalar(select(Profesor).where(Profesor.nume == nou, Profesor.id != p.id))
         if existent is not None:
-            for o in list(p.ore):
-                o.profesor = existent
-            s.delete(p)
+            _muta_profesorul(s, p, existent)
         else:
             p.nume = nou
             p.slug = _slug_unic(s, nou, p.id)
         extinse.append(f"{' / '.join(parti)!r} -> {nou!r}")
     s.flush()
     return extinse, sorted(set(ambigue))
+
+
+def _muta_profesorul(s: Session, vechi: Profesor, nou: Profesor) -> None:
+    """Uneste doua randuri ale aceluiasi om: tot ce trimitea la `vechi` trimite de acum la
+    `nou`, iar `vechi` se sterge.
+
+    "Tot" inseamna si versiunile anterioare ale orarului (ORA_ARHIVA), nu doar orele de acum:
+    o reincarcare arhiveaza orarul vechi, cu profesorii lui, iar un rand inca folosit acolo
+    nu se poate sterge -- ar pica tot ingestul pe cheia straina.
+    """
+    from orar.db.models import OraArhivata
+
+    s.flush()
+    for model in (Ora, OraArhivata):
+        s.execute(update(model).where(model.profesor_id == vechi.id).values(profesor_id=nou.id))
+    nou.din_orar = nou.din_orar or vechi.din_orar
+    s.expire(vechi, ["ore"])
+    s.delete(vechi)
+    s.flush()
 
 
 def _slug_unic(s: Session, nume: str, propriu: int) -> str:
@@ -331,14 +348,9 @@ def _slug_unic(s: Session, nume: str, propriu: int) -> str:
 
 
 def _profesor(s: Session, nume: str) -> Profesor:
-    from orar.ingest.load import _slug
+    from orar.ingest.load import profesor_dupa_nume
 
-    gasit = s.scalar(select(Profesor).where(Profesor.nume == nume))
-    if gasit is None:
-        gasit = Profesor(nume=nume, slug=_slug(nume))
-        s.add(gasit)
-        s.flush()
-    return gasit
+    return profesor_dupa_nume(s, nume)
 
 
 def _fara(campuri: str | None, camp: str) -> str | None:

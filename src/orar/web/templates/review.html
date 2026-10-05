@@ -32,6 +32,16 @@
     {% endif %}
   </div>
 
+  {# Sesiunile de incarcare, cea mai recenta intai: de unde vin decupajele. #}
+  {% if sesiuni %}
+    <nav class="sesiuni" aria-label="Sesiuni de încărcare">
+      {% for x, n in sesiuni %}
+        <a class="filtru {{ 'activ' if aleasa and x.director == aleasa.director }}"
+           href="?sesiune={{ x.director|urlencode }}&prag={{ prag }}">{{ x.eticheta }} <span class="numar">{{ n }}</span></a>
+      {% endfor %}
+    </nav>
+  {% endif %}
+
   {% if director_lipsa %}
     <p class="avertisment">
       Capturile nu sunt pe disc, deci decupajele nu se pot afișa.
@@ -44,10 +54,32 @@
   <p class="gol">Nimic de verificat: fiecare câmp extras s-a potrivit cu vocabularul.</p>
 {% else %}
 <div class="coada">
-  {% for o in ore %}
-    {% set nesigure = o.campuri_nesigure or '' %}
-    <article class="revizuire {% if o.campuri_nesigure %}atentie{% endif %}" id="ora-{{ o.id }}">
-      <img class="decupaj" src="/admin/decupaj/{{ o.id }}" alt="celula din {{ o.sursa_pagina }}" loading="lazy">
+  {% for pagina, dosare_paginii in pagini.items() %}
+    {# Pagina din care a fost citita prima citire a fiecarei activitati: antet de grup. #}
+    <h2 class="pagina-sursa" id="pagina-{{ loop.index }}">
+      {{ pagina.split('/')[-1].replace('.png', '').replace('pag_', 'pagina ') }}
+      <small>{{ dosare_paginii|length }} de verificat · {{ dosare_paginii[0].principal.grupa.nume }}</small>
+    </h2>
+  {% for d in dosare_paginii %}
+    {% set o = d.principal %}
+    {% set v = d.propunere() %}
+    {% set nesigure = d.membri|map(attribute='campuri_nesigure')|select|join(',') %}
+    <article class="revizuire {% if nesigure %}atentie{% endif %}" id="dosar-{{ d.id }}">
+      {# Decupajele tuturor citirilor: aceeasi activitate, de pe fiecare pagina pe care apare. #}
+      <div class="decupaje">
+        {% for m in d.membri %}
+          <figure>
+            {% if m.sursa_pagina in fara_imagine %}
+              <div class="decupaj decupaj-lipsa">fără decupaj</div>
+            {% else %}
+              <img class="decupaj" src="/admin/decupaj/{{ m.id }}" alt="celula din {{ m.sursa_pagina }}" loading="lazy">
+            {% endif %}
+            {% if d.membri|length > 1 %}
+              <figcaption>{{ m.grupa.nume }} · {{ (m.sursa_pagina or '').split('/')[-1].replace('.png', '').replace('pag_', 'pagina ') }}</figcaption>
+            {% endif %}
+          </figure>
+        {% endfor %}
+      </div>
       <div class="rezolvare">
         <p class="despre">
           <a href="/grupa/{{ o.grupa.slug }}">{{ o.grupa.nume }}</a>{% if o.semigrupa %} · {{ o.semigrupa.replace('_', ' ') }}{% endif %}
@@ -55,40 +87,62 @@
           {%- if o.tip_ora_materie %} · {{ o.tip_ora_materie }}{% endif %}
           {%- if o.frecventa %} · {{ o.frecventa }}{% endif %}
           {%- if o.saptamani %} · {{ o.saptamani }}{% endif %}
+          {% if d.membri|length > 1 %}<span class="pastila">aceeași activitate pe {{ d.membri|length }} pagini</span>{% endif %}
         </p>
-        {# Corectezi ce e gresit (sau nimic) si confirmi: activitatea iese din coada. #}
-        <form method="post" action="/admin/review/{{ o.id }}" class="rezolvare-campuri"
-              hx-post="/admin/review/{{ o.id }}" hx-target="#ora-{{ o.id }}" hx-select="#ora-{{ o.id }}"
+        {% if d.unde|length > 1 %}<p class="nota">Apare la: {{ d.unde|join(', ') }}</p>{% endif %}
+        {# Citirile sigure ale aceleiasi activitati, de pe alte pagini: de aici vine propunerea. #}
+        {% for r in d.referinte %}
+          <p class="referinta">Citit sigur la <a href="/grupa/{{ r.grupa.slug }}">{{ r.grupa.nume }}</a>:
+            <strong>{{ r.materie.nume if r.materie else '-' }}</strong> · {{ r.profesor.nume if r.profesor else 'fără profesor' }}</p>
+        {% endfor %}
+
+        {# Corectezi ce e gresit (sau nimic) si confirmi: toate citirile bifate ies din coada. #}
+        <form method="post" action="/admin/review/dosar" class="rezolvare-campuri"
+              hx-post="/admin/review/dosar" hx-target="#dosar-{{ d.id }}" hx-select="#dosar-{{ d.id }}"
               hx-select-oob="#sumar-coada,#mesaje-coada" hx-swap="outerHTML" hx-disabled-elt="find button">
           <input type="hidden" name="csrf" value="{{ csrf }}">
           <input type="hidden" name="inapoi" value="{{ inapoi }}">
+          {% if d.membri|length == 1 %}
+            <input type="hidden" name="ora_id" value="{{ o.id }}">
+          {% else %}
+            <fieldset class="membri">
+              <legend>Se confirmă pentru <small>debifează ce nu e aceeași activitate</small></legend>
+              {% for m in d.membri %}
+                <label class="bifa"><input type="checkbox" name="ora_id" value="{{ m.id }}" checked>
+                  <span>{{ m.grupa.nume }} <small>citit: {{ m.materie.nume if m.materie else '-' }} · {{ m.profesor.nume if m.profesor else '-' }}</small></span></label>
+              {% endfor %}
+            </fieldset>
+          {% endif %}
           <label class="{{ 'nesigur' if 'materie' in nesigure }}">
             <span>materie{% if 'materie' in nesigure %} · nerecunoscută{% endif %}</span>
-            <input type="text" name="materie" list="lista-materii" autocomplete="off" required
-                   value="{{ o.materie.nume if o.materie else '' }}">
+            <input type="text" name="materie" list="lista-materii-{{ o.perioada_id }}" autocomplete="off" required
+                   value="{{ v.materie }}">
           </label>
           <div class="camp lat {{ 'nesigur' if 'profesor' in nesigure }}">
             <span>profesori{% if 'profesor' in nesigure %} · nerecunoscut{% endif %}</span>
-            {{ pr.alege_profesori(o.profesor.nume if o.profesor else '', profesori, alt_profesor, lenes=true) }}
+            {{ pr.alege_profesori(v.profesor, profesori, alt_profesor, lenes=true) }}
             {# Potrivirea cu orarul profesorilor: cine tine, acolo, activitatea asta. #}
             {% set propusi = propuneri.get(o.id, []) %}
-            {% if propusi and propusi|join(' / ') != (o.profesor.nume if o.profesor else '') %}
+            {% if propusi and propusi|join(' / ') != v.profesor %}
               <p class="propunere">în orarul profesorilor: <strong>{{ propusi|join(', ') }}</strong>
                 <button type="button" class="buton mic" data-foloseste="{{ propusi|join('|') }}">folosește</button></p>
             {% endif %}
           </div>
           <label>
             <span>sală</span>
-            <input type="text" name="sala" list="lista-sali" autocomplete="off"
-                   value="{{ o.sala.nume if o.sala else '' }}">
+            <input type="text" name="sala" list="lista-sali" autocomplete="off" value="{{ v.sala }}">
           </label>
           <label>
             <span>săptămâni <small>dacă e doar în unele</small></span>
-            <input type="text" name="saptamani" maxlength="80" placeholder="ex. sapt 1-7"
-                   value="{{ o.saptamani or '' }}">
+            <input type="text" name="saptamani" maxlength="80" placeholder="ex. sapt 1-7" value="{{ v.saptamani }}">
           </label>
+          {# Alte activitati in aceeasi sala si ora, care nu par aceeasi: de verificat cu ochiul. #}
+          {% if d.vecini %}
+            <p class="vecini">În aceeași sală și oră mai e:
+              {% for x in d.vecini %}<a href="/grupa/{{ x.grupa.slug }}">{{ x.grupa.nume }}</a> ({{ x.materie.nume if x.materie else '-' }}{% if x.profesor %} · {{ x.profesor.nume }}{% endif %}){{ ', ' if not loop.last }}{% endfor %}</p>
+          {% endif %}
           <div class="rezolvare-actiuni">
-            <button type="submit" class="buton plin" title="Salvează ce e scris în câmpuri și scoate activitatea din coadă">✓ Confirmă</button>
+            <button type="submit" class="buton plin" title="Salvează ce e scris în câmpuri și scoate activitatea din coadă">✓ Confirmă{% if d.membri|length > 1 %} toate{% endif %}</button>
             <a class="buton" href="/admin/activitate/{{ o.id }}?inapoi={{ inapoi|urlencode }}"
                title="Formularul complet: zi, ore, tip, formațiune, semigrupă, săptămâni">✎ Editează tot</a>
             <a class="buton" href="/admin/activitate/noua?dupa={{ o.id }}&inapoi={{ inapoi|urlencode }}"
@@ -97,13 +151,18 @@
         </form>
       </div>
       <div class="provenienta">
-        <span class="incredere" title="cea mai mică încredere dintre câmpurile citite">{{ "%.2f"|format(o.confidence or 0) }}</span>
+        <span class="incredere" title="cea mai mică încredere dintre câmpurile citite">{{ "%.2f"|format(d.membri|map(attribute='confidence')|map('default', 0, true)|min) }}</span>
         <span class="sursa">{{ o.sursa_pagina }}</span>
       </div>
     </article>
   {% endfor %}
+  {% endfor %}
 </div>
-<datalist id="lista-materii">{% for m in materii %}<option value="{{ m }}">{% endfor %}</datalist>
+{# Cate o lista de materii pentru fiecare orar din coada: o activitate primeste doar
+   materiile orarului din care a fost citita. #}
+{% for pid, lista in materii_pe_orar.items() %}
+  <datalist id="lista-materii-{{ pid }}">{% for m in lista %}<option value="{{ m }}">{% endfor %}</datalist>
+{% endfor %}
 {{ pr.resurse_profesori(profesori, alt_profesor, request) }}
 <datalist id="lista-sali">{% for _, grup in sali %}{% for sl in grup %}<option value="{{ sl.nume }}">{% endfor %}{% endfor %}</datalist>
 {% endif %}

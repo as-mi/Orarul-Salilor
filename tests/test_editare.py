@@ -672,7 +672,7 @@ def test_coada_are_formular_de_rezolvare(client, s):
     o = _nesigura(s)
     _intra(client)
     pagina = client.get("/admin/review").text
-    assert f'action="/admin/review/{o.id}"' in pagina
+    assert f'id="dosar-{o.id}"' in pagina and f'name="ora_id" value="{o.id}"' in pagina
     assert "✓ Confirmă" in pagina and f"/admin/activitate/{o.id}?inapoi=" in pagina
 
 
@@ -688,7 +688,7 @@ def test_confirmarea_scoate_activitatea_din_coada_si_tine_dupa_reincarcare(
     assert o.campuri_nesigure is None and o.confidence == 1.0
     c = s.get(Corectie, o.corectie_id)
     assert corectii.e_confirmare(c)
-    assert f'action="/admin/review/{o.id}"' not in client.get("/admin/review").text
+    assert f'id="dosar-{o.id}"' not in client.get("/admin/review").text
 
     # orarul nou aduce aceeasi citire; confirmarea se pune la loc
     assert _reingest(s, pagini_golden).aplicate == 1
@@ -817,3 +817,198 @@ def test_alta_parte_porneste_de_la_activitatea_existenta(client, s):
     assert f'value="{o.materie.nume}"' in formular
     assert f'name="perioada" value="{o.perioada_id}"' in formular
     assert formular.count('<div class="profesor-rand">') == 1  # profesorul se alege din nou
+
+
+# ------------------------------------------------------ capturile, pe sesiuni
+
+
+def test_capturile_vechi_se_muta_pe_sesiuni_si_coada_le_grupeaza(client, s, tmp_path, monkeypatch):
+    from datetime import datetime
+
+    from orar.db.models import SursaOrar
+    from orar.ingest.capturi import Sesiune, curata_capturile, muta_capturile_vechi
+    from orar.web.routers import admin
+
+    o = _nesigura(s)
+    o.sursa_pagina = "sem2-grupe/pag_001.png"
+    s.add(
+        SursaOrar(
+            an_univ="2025-2026", semestru=2, fel="grupe", url="x", ingestat_la=datetime(2026, 4, 26)
+        )
+    )
+    s.commit()
+    vechi = tmp_path / "sem2-grupe"
+    vechi.mkdir()
+    (vechi / "pag_001.png").write_bytes(b"png")
+
+    mutate = muta_capturile_vechi(s, tmp_path)
+    assert len(mutate) == 1 and not vechi.exists()
+    s.expire_all()
+    sesiune = Sesiune.din_sursa(o.sursa_pagina)
+    assert (sesiune.an, sesiune.semestru, sesiune.fel) == ("2025-2026", 2, "grupe")
+    assert (tmp_path / o.sursa_pagina).is_file()
+    # a doua oara nu mai e nimic de mutat
+    assert muta_capturile_vechi(s, tmp_path) == []
+
+    # o sesiune pe care n-o mai foloseste nimic se sterge; cea folosita ramane
+    (tmp_path / "2024-2025-sem1-grupe-20250101-120000").mkdir()
+    assert curata_capturile(s, tmp_path) == ["2024-2025-sem1-grupe-20250101-120000"]
+    assert (tmp_path / sesiune.director).is_dir()
+
+    monkeypatch.setattr(admin, "DIRECTOR_CAPTURI", tmp_path)
+    _intra(client)
+    pagina = client.get("/admin/review").text
+    assert "Semestrul 2 · 2025-2026" in pagina and "pagina 001" in pagina
+
+
+def test_o_pagina_suprascrisa_nu_arata_decupajul_altei_sesiuni(client, s, tmp_path, monkeypatch):
+    from orar.web.routers import admin
+
+    o = _nesigura(s)
+    o.sursa_pagina = "2025-2026-sem1-grupe-20260101-120000/pag_001.png"  # nu mai exista
+    s.commit()
+    alta = tmp_path / "2026-2027-sem1-grupe-20261004-120000"
+    alta.mkdir()
+    (alta / "pag_001.png").write_bytes(b"png")
+    monkeypatch.setattr(admin, "DIRECTOR_CAPTURI", tmp_path)
+    _intra(client)
+    assert client.get(f"/admin/decupaj/{o.id}").status_code == 404
+    assert "fără decupaj" in client.get("/admin/review").text
+
+
+def test_materiile_propuse_sunt_doar_ale_orarului_activitatii(client, s):
+    """O materie care exista doar in alt orar (alt semestru / alt an) nu se propune."""
+    from orar.db.models import Materie, Perioada
+    from orar.web.routers.editare import materii_din_orar
+
+    o = _nesigura(s)
+    alt_orar = Perioada(an_univ="2026-2027", semestru=1)
+    straina = Materie(nume="MaterieDinAltOrar", slug="materie-din-alt-orar")
+    s.add_all([alt_orar, straina])
+    s.flush()
+    s.add(
+        Ora(grupa=o.grupa, perioada=alt_orar, materie=straina, zi_saptamana="Luni",
+            ora_inceput=o.ora_inceput, ora_sfarsit=o.ora_sfarsit)
+    )  # fmt: skip
+    s.commit()
+
+    assert "MaterieDinAltOrar" not in materii_din_orar(s, o.perioada_id)
+    assert "MaterieDinAltOrar" in materii_din_orar(s, alt_orar.id)
+    assert o.materie.nume in materii_din_orar(s, o.perioada_id)
+
+    _intra(client)
+    coada = client.get("/admin/review").text
+    assert f'list="lista-materii-{o.perioada_id}"' in coada
+    assert "MaterieDinAltOrar" not in coada
+    assert "MaterieDinAltOrar" not in client.get(f"/admin/activitate/{o.id}").text
+
+
+# ------------------------------------------------------ coada: aceeasi activitate de pe mai multe pagini
+
+
+def _dublura(s, o: Ora, grupa: str, **campuri) -> Ora:  # noqa: ANN001, ANN003
+    """Aceeasi activitate ca `o`, citita de pe pagina altei grupe."""
+    from orar.db.queries import gaseste_grupa
+
+    alta = Ora(
+        grupa=gaseste_grupa(s, grupa), perioada=o.perioada, materie=o.materie, profesor=o.profesor,
+        sala=o.sala, tip_ora_materie=o.tip_ora_materie, zi_saptamana=o.zi_saptamana,
+        ora_inceput=o.ora_inceput, ora_sfarsit=o.ora_sfarsit, frecventa=o.frecventa,
+        saptamani=o.saptamani, semigrupa=o.semigrupa, sursa_pagina=f"pag_{grupa}.png",
+        sursa_bbox="1,2,30,40", campuri_nesigure="profesor", confidence=0.4,
+    )  # fmt: skip
+    for camp, valoare in campuri.items():
+        setattr(alta, camp, valoare)
+    s.add(alta)
+    s.commit()
+    return alta
+
+
+def _cu_sala(s, o: Ora) -> Ora:  # noqa: ANN001
+    from orar.db.models import Sala
+
+    if o.sala is None or o.sala.tip != "fizica":
+        o.sala = s.scalar(select(Sala).where(Sala.tip == "fizica"))
+        s.commit()
+    return o
+
+
+def test_aceeasi_activitate_de_pe_doua_pagini_e_un_singur_dosar(client, s):
+    from orar.db.coada import grupeaza
+    from orar.db.models import Materie
+
+    o = _cu_sala(s, _nesigura(s))
+    # pe pagina altei grupe, o litera citita altfel: `l` in loc de `I`
+    alta_scriere = Materie(nume=o.materie.nume + "Il", slug="alta-scriere")
+    o.materie = Materie(nume=o.materie.nume + "lI", slug="prima-scriere")
+    s.add(alta_scriere)
+    dubla = _dublura(s, o, "243", materie=alta_scriere)
+
+    dosare = grupeaza(s, [o, dubla])
+    assert len(dosare) == 1 and {x.id for x in dosare[0].membri} == {o.id, dubla.id}
+
+    _intra(client)
+    pagina = client.get("/admin/review").text
+    assert "aceeași activitate pe 2 pagini" in pagina
+    r = client.post(
+        "/admin/review/dosar",
+        data={"csrf": _csrf(client, "/admin/review"), "ora_id": [o.id, dubla.id],
+              "materie": o.materie.nume, "profesor": ["Ionescu Ana"], "sala": o.sala.nume},
+        follow_redirects=False,
+    )  # fmt: skip
+    assert r.status_code == 303
+    s.expire_all()
+    for x in (o, dubla):
+        assert (x.materie.nume, x.profesor.nume, x.campuri_nesigure) == (
+            o.materie.nume,
+            "Ionescu Ana",
+            None,
+        )
+    # fiecare ramane pe formatiunea ei
+    assert o.grupa.nume != dubla.grupa.nume
+
+
+@pytest.mark.parametrize(
+    ("deosebire", "motiv"),
+    [
+        ({"frecventa": "SP"}, "alta paritate: se tin in saptamani diferite"),
+        ({"semigrupa": "Gr_2"}, "alta semigrupa"),
+        ({"saptamani": "sapt 8-14"}, "alte saptamani"),
+        ({"sursa_pagina": "ACEEASI"}, "aceeasi pagina: doua benzi diferite"),
+    ],
+)
+def test_ce_difera_ramane_separat(s, deosebire, motiv):
+    from orar.db.coada import grupeaza
+
+    o = _cu_sala(s, _nesigura(s))
+    if deosebire.get("sursa_pagina") == "ACEEASI":
+        deosebire = {"sursa_pagina": o.sursa_pagina}
+    dubla = _dublura(s, o, "243", **deosebire)
+    assert len(grupeaza(s, [o, dubla])) == 2, motiv
+
+
+def test_materii_diferite_in_aceeasi_sala_raman_separate_dar_se_vad(s):
+    from orar.db.coada import grupeaza
+    from orar.db.models import Materie
+
+    o = _cu_sala(s, _nesigura(s))
+    alta = Materie(nume="AltCursCuTotulAltceva", slug="alt-curs")
+    s.add(alta)
+    dubla = _dublura(s, o, "243", materie=alta)
+    dosare = grupeaza(s, [o, dubla])
+    assert len(dosare) == 2
+    assert dubla in dosare[0].vecini  # apare ca indiciu, nu se confirma impreuna
+
+
+def test_citirea_sigura_de_pe_alta_pagina_da_propunerea(s):
+    from orar.db.coada import grupeaza
+    from orar.db.models import Profesor
+
+    o = _cu_sala(s, _nesigura(s))
+    o.profesor = Profesor(nume="Vasilescu Q", slug="vasilescu-q-citit")
+    s.commit()
+    sigur = _dublura(s, o, "243", campuri_nesigure=None, confidence=0.99,
+                     profesor=Profesor(nume="Vasilescu Qamar", slug="vasilescu-qamar"))  # fmt: skip
+    (dosar,) = grupeaza(s, [o])
+    assert dosar.referinte == [sigur]
+    assert dosar.propunere()["profesor"] == "Vasilescu Qamar"

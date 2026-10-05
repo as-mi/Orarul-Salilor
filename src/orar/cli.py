@@ -201,6 +201,17 @@ def _cmd_sincronizeaza(args: argparse.Namespace) -> int:
     return 0 if not rap.avertismente else 0
 
 
+def _cmd_capturi(args: argparse.Namespace) -> int:
+    from orar.ingest.capturi import curata_capturile, muta_capturile_vechi
+
+    with sesiune() as s:
+        for x in muta_capturile_vechi(s, args.director):
+            print(f"mutat: {x}")
+        for x in curata_capturile(s, args.director):
+            print(f"sters: {x}")
+    return 0
+
+
 def _cmd_crosscheck(args: argparse.Namespace) -> int:
     from orar.ingest.crosscheck import (
         citeste_orarul_profesorilor,
@@ -449,6 +460,13 @@ def main(argv: list[str] | None = None) -> int:
     pp.add_argument("director", type=Path, nargs="?", default=Path("data/planuri"))
     pp.add_argument("--descarca", action="store_true", help="ia intai PDF-urile de pe Drive")
     pp.set_defaults(func=_cmd_planuri)
+
+    pcp = sub.add_parser(
+        "capturi",
+        help="muta capturile vechi pe sesiuni de incarcare si sterge ce nu mai e folosit",
+    )
+    pcp.add_argument("-d", "--director", type=Path, default=Path("data/screenshots"))
+    pcp.set_defaults(func=_cmd_capturi)
 
     px = sub.add_parser(
         "crosscheck", help="compara baza cu orarul profesorilor (a doua sursa pentru aceleasi ore)"

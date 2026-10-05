@@ -366,8 +366,18 @@ class User(Base):
     profesor: Mapped[str | None] = mapped_column("PROFESOR", String(120))
     #: Cererea de a primi rolul de profesor: numele ales, pana o trateaza un admin.
     cerere_profesor: Mapped[str | None] = mapped_column("CERERE_PROFESOR", String(120))
+    #: True: "Orarul meu" urmeaza orarul implicit al sitului si se actualizeaza singur (la
+    #: un an universitar nou, grupa se reseteaza). False: ramane pe `orar_ales`, iar grupa
+    #: nu se mai reseteaza.
+    orar_automat: Mapped[bool] = mapped_column(
+        "ORAR_AUTOMAT", Boolean, nullable=False, default=True, server_default="1"
+    )
+    orar_ales_id: Mapped[int | None] = mapped_column(
+        "ORAR_ALES", ForeignKey("PERIOADA.ID_PERIOADA", ondelete="SET NULL")
+    )
 
     grupa: Mapped[Grupa | None] = relationship()
+    orar_ales: Mapped[Perioada | None] = relationship()
 
     __table_args__ = (
         CheckConstraint("ROL IN ('student','voluntar','profesor','admin')", name="ck_user_rol"),
@@ -828,3 +838,13 @@ class PerioadaStructura(Base):
             an=self.an_univ,
             pentru=self.pentru,
         )
+
+
+class Setare(Base):
+    """O valoare de tinut minte intre reporniri, care nu are o tabela a ei: de exemplu
+    anul universitar pentru care s-au resetat deja grupele conturilor."""
+
+    __tablename__ = "SETARE"
+
+    cheie: Mapped[str] = mapped_column("CHEIE", String(60), primary_key=True)
+    valoare: Mapped[str] = mapped_column("VALOARE", Text, nullable=False)

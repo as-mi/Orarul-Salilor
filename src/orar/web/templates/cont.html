@@ -7,14 +7,29 @@
   <p class="nota">{{ user.nume }} · {{ user.email }}
     {%- if user.rol != 'student' %} · <span class="pastila neutra">{{ user.rol }}</span>{% endif %}</p>
 
-  {% if not user.grupa_id and not (user.rol == 'profesor' and user.profesor) %}
+  {% if request.query_params.get('grupa_lipsa') %}
+    <p class="avertisment">Grupa ta nu mai există în orarul pe care îl urmezi. Alege-o din nou.</p>
+  {% elif not user.grupa_id and not (user.rol == 'profesor' and user.profesor) %}
     <p class="avertisment">Alege-ți grupa: „Orarul meu” e orarul ei.</p>
   {% endif %}
 
   <form method="post" action="/account" class="camp-lista">
     <input type="hidden" name="csrf" value="{{ csrf }}">
+    {# Ce orar urmeaza contul: implicit cel al sitului, actualizat singur; sau unul anume. #}
+    <fieldset class="alegere">
+      <legend>Orarul meu urmează</legend>
+      <label class="bifa"><input type="radio" name="orar" value="automat" {{ 'checked' if user.orar_automat }}>
+        <span><strong>Orarul curent al facultății, actualizat automat</strong>
+          <small>trece singur pe orarul nou când apare; la începutul unui an universitar nou îți alegi din nou grupa</small></span></label>
+      {% for o in orare %}
+        <label class="bifa"><input type="radio" name="orar" value="{{ o.perioada.id }}"
+               {{ 'checked' if not user.orar_automat and user.orar_ales_id == o.perioada.id }}>
+          <span><strong>Rămân pe {{ o.eticheta }}</strong>
+            <small>nu se schimbă singur și grupa nu se resetează{% if o.implicit %} · acum e și orarul curent{% endif %}</small></span></label>
+      {% endfor %}
+    </fieldset>
     <label>
-      <span>Grupa <small>orarul ei se deschide din „orarul meu”</small></span>
+      <span>Grupa <small>din {{ orar_urmat.an_univ if orar_urmat else 'orar' }}; orarul ei se deschide din „orarul meu”</small></span>
       <select name="grupa_id">
         <option value="">- niciuna -</option>
         {% for g in grupe %}
@@ -27,7 +42,8 @@
 
   <p class="nota">Semigrupa și opționalele / facultativele se aleg chiar pe
     {% if user.grupa %}<a href="/orarul-meu">orarul tău</a>{% else %}orarul tău{% endif %}
-    și rămân salvate în cont. Dacă schimbi grupa, alegerile vechi se șterg.</p>
+    și rămân salvate în cont. Dacă schimbi grupa, alegerile vechi se șterg; dacă doar treci pe
+    alt orar, grupa ta e căutată în el după nume și alegerile rămân.</p>
 
   <h2 id="profesor" class="titlu-sectiune">Sunt profesor</h2>
   {% if user.rol == 'profesor' and user.profesor %}

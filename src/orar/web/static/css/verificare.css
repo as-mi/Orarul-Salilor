@@ -85,3 +85,31 @@
 }
 
 .necunoscut { color: var(--text-slab); cursor: help; }
+
+/* sesiunile de incarcare si paginile din care vin decupajele */
+.sesiuni { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .8rem; }
+.pagina-sursa {
+  margin: 1.2rem 0 .1rem; padding-bottom: .3rem; border-bottom: 1px solid var(--linie);
+  font-size: .95rem; text-transform: capitalize;
+}
+.pagina-sursa small { font-weight: 400; color: var(--text-slab); font-size: .8rem; margin-left: .4rem; text-transform: none; }
+.decupaj-lipsa {
+  display: grid; place-items: center; min-height: 4rem; color: var(--text-slab); font-size: .8rem;
+  background: var(--suprafata-2); border-style: dashed;
+}
+
+/* un dosar: mai multe citiri ale aceleiasi activitati */
+.decupaje { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+.decupaje figure { margin: 0; }
+.decupaje figcaption { font-size: .72rem; color: var(--text-slab); margin-top: .15rem; }
+.membri { grid-column: 1 / -1; border: 1px solid var(--linie); border-radius: 6px; padding: .4rem .6rem; margin: 0; }
+.membri legend { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-slab); padding: 0 .3rem; }
+.membri legend small { text-transform: none; letter-spacing: 0; }
+.rezolvare-campuri .membri label.bifa { flex-direction: row; align-items: center; gap: .45rem; padding: .15rem 0; }
+.rezolvare-campuri .membri label.bifa > span {
+  font-size: .84rem; text-transform: none; letter-spacing: 0; color: var(--text); font-weight: 600;
+}
+.membri .bifa small { color: var(--text-slab); margin-left: .3rem; font-weight: 400; }
+.referinta { margin: .1rem 0 .3rem; font-size: .8rem; color: var(--text-slab); }
+.referinta::before { content: "✓ "; color: var(--accent); }
+.vecini { grid-column: 1 / -1; margin: 0; font-size: .78rem; color: var(--text-slab); }
