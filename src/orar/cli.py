@@ -373,7 +373,7 @@ def _cmd_rol(args: argparse.Namespace) -> int:
     n-ai (inca) un admin care sa intre in panou."""
     from sqlalchemy import func, select
 
-    from orar.db.models import ROLURI, User
+    from orar.db.models import ROLURI_LOCALE as ROLURI, User
 
     if args.rol not in ROLURI:
         print(f"[eroare] rol necunoscut: {args.rol!r}; alege dintre {', '.join(ROLURI)}")
@@ -421,9 +421,9 @@ def main(argv: list[str] | None = None) -> int:
     ps = sub.add_parser("stats", help="cate randuri sunt in baza")
     ps.set_defaults(func=_cmd_stats)
 
-    prl = sub.add_parser("rol", help="seteaza rolul unui cont (student/voluntar/profesor/admin)")
+    prl = sub.add_parser("rol", help="seteaza rolul unui cont (student/voluntar/profesor; adminul il da rolul cddd din SSO)")
     prl.add_argument("email", help="adresa contului")
-    prl.add_argument("rol", help="student, voluntar, profesor sau admin")
+    prl.add_argument("rol", help="student, voluntar sau profesor")
     prl.set_defaults(func=_cmd_rol)
 
     py = sub.add_parser(

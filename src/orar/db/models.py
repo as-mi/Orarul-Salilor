@@ -326,6 +326,8 @@ class OraGrupa(Base):
 
 #: Rolurile unui cont. `student` e cel implicit; celelalte le da un admin, din /admin.
 ROLURI = ("student", "voluntar", "profesor", "admin")
+#: Rolurile date din Orar. Adminul nu e printre ele: il da rolul `cddd` din SSO-ul ASMI.
+ROLURI_LOCALE = ("student", "voluntar", "profesor")
 
 
 class User(Base):
@@ -375,6 +377,9 @@ class User(Base):
     orar_ales_id: Mapped[int | None] = mapped_column(
         "ORAR_ALES", ForeignKey("PERIOADA.ID_PERIOADA", ondelete="SET NULL")
     )
+    #: Identificatorul contului in SSO-ul ASMI (claim-ul `sub` din Keycloak). Numele si
+    #: emailul de mai sus sunt doar o copie de afisare, rescrisa la fiecare autentificare.
+    sso_sub: Mapped[str | None] = mapped_column("SSO_SUB", String(64), unique=True)
 
     grupa: Mapped[Grupa | None] = relationship()
     orar_ales: Mapped[Perioada | None] = relationship()
@@ -385,6 +390,36 @@ class User(Base):
 
     def __repr__(self) -> str:
         return f"<User {self.nume!r} ({self.rol})>"
+
+
+class SsoSesiune(Base):
+    """O sesiune deschisa prin SSO-ul ASMI, tinuta pe server.
+
+    Cookie-ul sitului poarta doar `id`-ul; tokenurile Keycloak raman aici, nu ajung in
+    browser. `roluri` (JSON: `{"realm": [...], "client": [...]}`) e ce spunea ultimul token;
+    se reimprospateaza la cateva minute (`web.sso`), deci un rol retras in Keycloak se pierde
+    repede, iar un logout din alt sit ASMI (backchannel, dupa `sid`) inchide sesiunea.
+    """
+
+    __tablename__ = "SSO_SESIUNE"
+
+    id: Mapped[str] = mapped_column("ID", String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        "ID_USER", ForeignKey("USER.ID", ondelete="CASCADE"), nullable=False, index=True
+    )
+    #: Sesiunea Keycloak (claim-ul `sid`), pentru logout-ul backchannel.
+    sid: Mapped[str | None] = mapped_column("SID", String(64), index=True)
+    refresh_token: Mapped[str | None] = mapped_column("REFRESH_TOKEN", Text)
+    id_token: Mapped[str | None] = mapped_column("ID_TOKEN", Text)
+    roluri: Mapped[str] = mapped_column("ROLURI", Text, nullable=False, default="{}")
+    #: Campurile de studii din profilul ASMI (scope-ul `orar-profile`), pentru grupa propusa.
+    profil: Mapped[str | None] = mapped_column("PROFIL", Text)
+    creata_la: Mapped[datetime] = mapped_column("CREATA_LA", DateTime, nullable=False)
+    verificat_la: Mapped[datetime] = mapped_column("VERIFICAT_LA", DateTime, nullable=False)
+    #: Dupa asta sesiunea nu mai e valabila, oricum (expirarea refresh token-ului).
+    expira_la: Mapped[datetime] = mapped_column("EXPIRA_LA", DateTime, nullable=False)
+
+    user: Mapped[User] = relationship()
 
 
 class SursaOrar(Base):
@@ -848,3 +883,45 @@ class Setare(Base):
 
     cheie: Mapped[str] = mapped_column("CHEIE", String(60), primary_key=True)
     valoare: Mapped[str] = mapped_column("VALOARE", Text, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Permisiuni
+# ---------------------------------------------------------------------------
+
+#: Permisiunile care se pot acorda unui cont, pe langa rol: (cheie, descriere).
+#: Fiecare cheie deschide o zona functionala a aplicatiei. Rolurile de realm din SSO
+#: (`ROLURI_REALM_PERMISIUNI` din web/sso.py) aduc un set implicit, iar un admin le poate
+#: acorda individual aici (tabela PERMISIUNE) sau prin roluri de client in Keycloak.
+PERMISIUNI = (
+    ("incarcare", "Încarcă un orar nou și alege orarul implicit"),
+    ("review", "Coada de verificare a activităților citite automat"),
+    ("editare", "Corecții manuale în orar"),
+    ("sesizari", "Tratează sesizările"),
+    ("evenimente", "Evenimente ASMI și rezervări de săli"),
+    ("statistici", "Statistici și filtre salvate"),
+    ("structura", "Structura anului universitar"),
+    ("utilizatori", "Gestionarea conturilor, rolurilor și permisiunilor"),
+)
+
+
+class Permisiune(Base):
+    """O responsabilitate a unui cont, pe langa rolul lui: de exemplu un voluntar care
+    raspunde de tutoriate. Tabela si nu un rol nou: rolurile sunt exclusive, responsabilitatile
+    se aduna, iar constrangerea pe USER.ROL nu se poate schimba fara a reconstrui tabela."""
+
+    __tablename__ = "PERMISIUNE"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        "ID_USER", ForeignKey("USER.ID", ondelete="CASCADE"), nullable=False, index=True
+    )
+    cheie: Mapped[str] = mapped_column("CHEIE", String(30), nullable=False)
+    acordat_de: Mapped[str] = mapped_column("ACORDAT_DE", String(120), nullable=False)
+    acordat_la: Mapped[datetime] = mapped_column("ACORDAT_LA", DateTime, nullable=False)
+
+    user: Mapped[User] = relationship()
+
+    __table_args__ = (UniqueConstraint("ID_USER", "CHEIE", name="uq_permisiune"),)
+
+

@@ -1,4 +1,4 @@
-"""Conturi: inregistrare, autentificare, grupa contului si "Orarul meu"."""
+"""Conturi (prin SSO-ul ASMI, fals in teste): grupa contului si "Orarul meu"."""
 
 from __future__ import annotations
 
@@ -8,9 +8,10 @@ import re
 import pytest
 from sqlalchemy import delete, select
 
-from orar.db.models import User
+from orar.db.models import SsoSesiune, User
 from orar.db.queries import gaseste_grupa
 from orar.web.auth import hash_parola, verifica_parola
+from tests.conftest import intra_sso
 
 EMAIL, PAROLA = "ana@example.com", "o-parola-destul-de-lunga"
 
@@ -24,6 +25,7 @@ def _fara_conturi_ramase(db, monkeypatch):
     monkeypatch.delenv("ORAR_ADMIN_PAROLA_HASH", raising=False)
     yield
     db.rollback()
+    db.execute(delete(SsoSesiune))
     db.execute(delete(User))
     db.commit()
     # stergerea e directa pe tabela; scoatem si obiectele ramase in sesiunea comuna
@@ -35,26 +37,16 @@ def _csrf(client, cale: str = "/login") -> str:  # noqa: ANN001
     return re.search(r'name="csrf" value="([^"]+)"', client.get(cale).text).group(1)
 
 
-def _inregistreaza(client, *, grupa: str = "", email: str = EMAIL, parola: str = PAROLA):  # noqa: ANN001, ANN202
-    return client.post(
-        "/signup",
-        data={
-            "csrf": _csrf(client, "/signup"),
-            "nume": "Ana Pop",
-            "email": email,
-            "parola": parola,
-            "grupa_id": grupa,
-        },
-        follow_redirects=False,
-    )
-
-
-def _intra(client, email: str = EMAIL, parola: str = PAROLA):  # noqa: ANN001, ANN202
-    return client.post(
-        "/login",
-        data={"csrf": _csrf(client), "email": email, "parola": parola},
-        follow_redirects=False,
-    )
+def _inregistreaza(client, sso, db=None, *, grupa: str = ""):  # noqa: ANN001, ANN202
+    """Primul login prin SSO (contul se creeaza), apoi, optional, alegerea grupei."""
+    r = intra_sso(client, sso, email=EMAIL, nume="Ana Pop")
+    if grupa:
+        r = client.post(
+            "/account",
+            data={"csrf": _csrf(client, "/account"), "grupa_id": grupa},
+            follow_redirects=False,
+        )
+    return r
 
 
 def _iese(client) -> None:  # noqa: ANN001
@@ -88,52 +80,32 @@ def test_hash_stricat_nu_arunca(stocat):
 # ---------------------------------------------- inregistrare si autentificare
 
 
-def test_inregistrarea_te_duce_la_orarul_tau(client, db):
-    r = _inregistreaza(client, grupa=_id_grupa(db, "244"))
-    assert r.status_code == 303 and r.headers["location"] == "/orarul-meu"
-    r = client.get("/orarul-meu", follow_redirects=False)
-    assert r.headers["location"] == "/grupa/244"
-
-    user = _user(db)
-    assert user.rol == "student"
-    assert user.parola_hash.startswith("scrypt$") and PAROLA not in user.parola_hash
-
-
-def test_parola_scurta_si_emailul_duplicat_sunt_respinse(client, db):
-    assert _inregistreaza(client, parola="scurta").status_code == 400
-    assert _user(db) is None
-    assert _inregistreaza(client).status_code == 303
-    _iese(client)
-    assert _inregistreaza(client, email=EMAIL.upper()).status_code == 409
-
-
-def test_intrarea_si_mesajul_unic_de_eroare(client, db):
-    _inregistreaza(client, grupa=_id_grupa(db, "244"))
-    _iese(client)
-
-    gresita = _intra(client, parola="gresita-gresita")
-    inexistent = _intra(client, email="nimeni@example.com")
-    assert gresita.status_code == inexistent.status_code == 401
-    assert "Email sau parolă greșită." in gresita.text
-    assert "Email sau parolă greșită." in inexistent.text
-
-    r = _intra(client)
-    assert r.status_code == 303 and r.headers["location"] == "/orarul-meu"
+def test_primul_login_cere_grupa_apoi_duce_la_orarul_tau(client, db, sso_fals):
+    r = _inregistreaza(client, sso_fals)
+    assert r.status_code == 303 and r.headers["location"] == "/account?nou=1"
+    r = client.post(
+        "/account",
+        data={"csrf": _csrf(client, "/account"), "grupa_id": _id_grupa(db, "244")},
+        follow_redirects=False,
+    )
+    assert r.headers["location"] == "/orarul-meu"
+    assert client.get("/orarul-meu", follow_redirects=False).headers["location"] == "/grupa/244"
     assert "Orarul meu" in client.get("/").text
 
+    user = _user(db)
+    assert user.rol == "student" and user.parola_hash is None and user.sso_sub
 
-def test_fara_csrf_nu_te_autentifici(client, db):
-    _inregistreaza(client)
-    _iese(client)
+
+def test_fara_csrf_adminul_de_urgenta_nu_intra(client, monkeypatch):
+    monkeypatch.setenv("ORAR_ADMIN_USER", "sefa")
+    monkeypatch.setenv("ORAR_ADMIN_PAROLA", PAROLA)
     r = client.post(
         "/login",
-        data={"csrf": "gresit", "email": EMAIL, "parola": PAROLA},
+        data={"csrf": "gresit", "email": "sefa", "parola": PAROLA},
         follow_redirects=False,
     )
     assert r.status_code == 400
-    assert (
-        client.get("/orarul-meu", follow_redirects=False).headers["location"].startswith("/login")
-    )
+    assert client.get("/admin", follow_redirects=False).headers["location"].startswith("/login")
 
 
 def test_paginile_publice_raman_publice(client):
@@ -145,8 +117,8 @@ def test_paginile_publice_raman_publice(client):
 # ------------------------------------------------------- grupa si orarul meu
 
 
-def test_fara_grupa_orarul_meu_cere_alegerea_ei(client, db):
-    _inregistreaza(client)
+def test_fara_grupa_orarul_meu_cere_alegerea_ei(client, db, sso_fals):
+    _inregistreaza(client, sso_fals, db)
     assert client.get("/orarul-meu", follow_redirects=False).headers["location"] == "/account"
 
     r = client.post(
@@ -158,17 +130,17 @@ def test_fara_grupa_orarul_meu_cere_alegerea_ei(client, db):
     assert client.get("/orarul-meu", follow_redirects=False).headers["location"] == "/grupa/141"
 
 
-def test_grupa_contului_trebuie_sa_fie_o_grupa(client, db):
+def test_grupa_contului_trebuie_sa_fie_o_grupa(client, db, sso_fals):
     """Un `<option>` fabricat nu poate lega contul de o serie sau de un pachet."""
-    _inregistreaza(client)
+    _inregistreaza(client, sso_fals, db)
     client.post(
         "/account", data={"csrf": _csrf(client, "/account"), "grupa_id": _id_grupa(db, "seria-24")}
     )
     assert _user(db).grupa_id is None
 
 
-def test_pe_orarul_meu_alegerile_se_tin_in_cont(client, db):
-    _inregistreaza(client, grupa=_id_grupa(db, "244"))
+def test_pe_orarul_meu_alegerile_se_tin_in_cont(client, db, sso_fals):
+    _inregistreaza(client, sso_fals, db, grupa=_id_grupa(db, "244"))
 
     # semigrupa: in cont, nu in cookie
     r = client.get("/grupa/244?semigrupa=Gr_1")
@@ -193,32 +165,32 @@ def test_pe_orarul_meu_alegerile_se_tin_in_cont(client, db):
     assert json.loads(_user(db).ascunse) == [oferite[0]]
 
 
-def test_alegerile_din_cont_te_urmeaza_pe_alt_dispozitiv(client, db):
+def test_alegerile_din_cont_te_urmeaza_pe_alt_dispozitiv(client, db, sso_fals):
     from fastapi.testclient import TestClient
 
     from orar.web.app import app
 
-    _inregistreaza(client, grupa=_id_grupa(db, "244"))
+    _inregistreaza(client, sso_fals, db, grupa=_id_grupa(db, "244"))
     toate = int(re.search(r"<strong>(\d+)</strong> activități", client.get("/grupa/244").text)[1])
     client.get("/grupa/244?semigrupa=Gr_2")
 
     with TestClient(app) as alt_browser:  # fara niciun cookie de-al primului
-        _intra(alt_browser)
+        intra_sso(alt_browser, sso_fals, email=EMAIL)
         pagina = alt_browser.get("/grupa/244").text
         assert int(re.search(r"<strong>(\d+)</strong> activități", pagina)[1]) < toate
         assert re.search(r'class="filtru activ"\s+href="\?semigrupa=Gr_2', pagina)
 
 
-def test_pe_alta_grupa_alegerile_raman_in_cookie(client, db):
-    _inregistreaza(client, grupa=_id_grupa(db, "244"))
+def test_pe_alta_grupa_alegerile_raman_in_cookie(client, db, sso_fals):
+    _inregistreaza(client, sso_fals, db, grupa=_id_grupa(db, "244"))
     r = client.get("/grupa/243?semigrupa=Gr_1")
     assert "orar_semigrupa=" in r.headers["set-cookie"]
     assert ">orarul meu</span>" not in r.text
     assert _user(db).semigrupa is None
 
 
-def test_schimbarea_grupei_sterge_alegerile_vechi(client, db):
-    _inregistreaza(client, grupa=_id_grupa(db, "244"))
+def test_schimbarea_grupei_sterge_alegerile_vechi(client, db, sso_fals):
+    _inregistreaza(client, sso_fals, db, grupa=_id_grupa(db, "244"))
     client.get("/grupa/244?semigrupa=Gr_1")
     assert _user(db).semigrupa == "Gr_1"
 

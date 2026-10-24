@@ -17,6 +17,7 @@ from orar.db.models import User
 from orar.web.auth import hash_parola
 from orar.worker import incarcare
 from orar.worker.sync import RaportSincronizare
+from tests.conftest import intra_sso
 
 ADMIN, PAROLA_ADMIN = "sefu", "parola-adminului-de-test"
 LINK = "https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/view"
@@ -39,7 +40,7 @@ def _curat(db, monkeypatch):
         db.expunge(obiect)
 
 
-def _csrf(client, cale: str = "/login") -> str:  # noqa: ANN001
+def _csrf(client, cale: str = "/login?admin=1") -> str:  # noqa: ANN001
     return re.search(r'name="csrf" value="([^"]+)"', client.get(cale).text).group(1)
 
 
@@ -145,7 +146,7 @@ def test_linkul_scurt_se_urmeaza_doar_pana_pe_drive(monkeypatch):
 # -------------------------------------------------------------------- accesul
 
 
-def test_doar_adminul_poate_incarca(client, db, monkeypatch):
+def test_doar_adminul_poate_incarca(client, db, monkeypatch, sso_fals):
     cereri = _lant_fals(monkeypatch)
     r = client.post("/admin/orar", data={"url_grupe": LINK}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].startswith("/login")
@@ -153,10 +154,7 @@ def test_doar_adminul_poate_incarca(client, db, monkeypatch):
 
     db.add(User(nume="Dan", email="dan@example.com", parola_hash=hash_parola("parola-lui-dan-x")))
     db.commit()
-    client.post(
-        "/login",
-        data={"csrf": _csrf(client), "email": "dan@example.com", "parola": "parola-lui-dan-x"},
-    )
+    intra_sso(client, sso_fals, email="dan@example.com")
     assert _trimite_fara_panou(client).status_code == 403
     assert cereri == [] and incarcare.stare_curenta().faza == "inactiv"
 

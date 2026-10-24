@@ -5,7 +5,12 @@
 <section class="formular">
   <h1>Contul meu</h1>
   <p class="nota">{{ user.nume }} · {{ user.email }}
-    {%- if user.rol != 'student' %} · <span class="pastila neutra">{{ user.rol }}</span>{% endif %}</p>
+    {%- if cont.e_admin %} · <span class="pastila">admin (CDDD)</span>
+    {%- elif user.rol != 'student' %} · <span class="pastila neutra">{{ user.rol }}</span>{% endif %}</p>
+  {% if profil_asmi %}
+    <p class="nota">Numele, emailul și parola le schimbi în <a href="{{ profil_asmi }}" rel="noopener">profilul tău ASMI</a>;
+      aici apar la următoarea intrare.</p>
+  {% endif %}
 
   {% if request.query_params.get('grupa_lipsa') %}
     <p class="avertisment">Grupa ta nu mai există în orarul pe care îl urmezi. Alege-o din nou.</p>
@@ -32,9 +37,16 @@
       <span>Grupa <small>din {{ orar_urmat.an_univ if orar_urmat else 'orar' }}; orarul ei se deschide din „orarul meu”</small></span>
       <select name="grupa_id">
         <option value="">- niciuna -</option>
+        {% if potrivite %}
+          <optgroup label="Potrivite cu profilul tău ASMI">
+            {% for g in potrivite %}<option value="{{ g.id }}">{{ g.nume }}</option>{% endfor %}
+          </optgroup>
+          <optgroup label="Toate grupele">
+        {% endif %}
         {% for g in grupe %}
           <option value="{{ g.id }}" {% if user.grupa_id == g.id %}selected{% endif %}>{{ g.nume }}</option>
         {% endfor %}
+        {% if potrivite %}</optgroup>{% endif %}
       </select>
     </label>
     <button type="submit" class="principal">Salvează</button>

@@ -16,7 +16,7 @@ from orar.ingest.load import incarca_pagini
 from orar.web.auth import hash_parola
 from orar.web.routers import sesizari as ruta_sesizari
 from orar.worker.sync import _sterge_semestrul
-from tests.conftest import _engine_memorie
+from tests.conftest import _engine_memorie, intra_sso
 
 ADMIN, PAROLA_ADMIN = "sefu", "parola-adminului-de-test"
 EMAIL, PAROLA = "ana@example.com", "parola-anei-lunga"
@@ -56,7 +56,7 @@ def client(s):
     app.dependency_overrides.clear()
 
 
-def _csrf(client, cale: str = "/login") -> str:  # noqa: ANN001
+def _csrf(client, cale: str = "/login?admin=1") -> str:  # noqa: ANN001
     return re.search(r'name="csrf" value="([^"]+)"', client.get(cale).text).group(1)
 
 
@@ -336,8 +336,8 @@ def test_vizitatorul_trimite_o_sesizare(client, s):
     assert o.materie.nume in z.activitate and o.sala.nume in z.activitate
 
 
-def test_utilizatorul_autentificat_e_retinut(client, s):
-    _intra(client, EMAIL, PAROLA)
+def test_utilizatorul_autentificat_e_retinut(client, s, sso_fals):
+    intra_sso(client, sso_fals, email=EMAIL)
     _trimite(client)
     z = s.scalar(select(Sesizare))
     assert z.user.email == EMAIL and z.ora_id is None
@@ -387,9 +387,9 @@ def test_sesizarea_ramane_dupa_ce_orarul_se_reincarca(client, s, pagini_golden):
     assert z.ora_id is None and z.activitate  # legatura a disparut, descrierea nu
 
 
-def test_coada_e_doar_pentru_admini(client, s):
+def test_coada_e_doar_pentru_admini(client, s, sso_fals):
     assert client.get("/admin/sesizari", follow_redirects=False).status_code == 303
-    _intra(client, EMAIL, PAROLA)
+    intra_sso(client, sso_fals, email=EMAIL)
     assert client.get("/admin/sesizari").status_code == 403
 
 
@@ -591,10 +591,10 @@ def test_lista_de_modificari_si_anularea_din_ea(client, s):
     assert "Nicio modificare manuală" in client.get("/admin/corectii").text
 
 
-def test_fara_rol_de_admin_nu_se_editeaza_nimic(client, s):
+def test_fara_rol_de_admin_nu_se_editeaza_nimic(client, s, sso_fals):
     o = _o_ora(s)
     sala = o.sala.nume
-    _intra(client, EMAIL, PAROLA)
+    intra_sso(client, sso_fals, email=EMAIL)
     token = _csrf(client, "/")
     assert client.get(f"/admin/activitate/{o.id}").status_code == 403
     assert client.get("/admin/corectii").status_code == 403

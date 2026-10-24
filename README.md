@@ -25,8 +25,12 @@ oficial rămâne cel al facultății.
 - În colțul din dreapta jos e panoul „Orare”: de acolo treci la alt semestru sau la o
   versiune mai veche a orarului.
 
-**Cu cont** (`/signup`, `/login`)
+**Cu cont ASMI** (`/login`, `/signup`)
 
+- Intri cu același cont ca pe celelalte site-uri ASMI (SSO-ul asociației, Keycloak). Dacă
+  aveai un cont vechi în Orar, la prima intrare se leagă de contul ASMI după email și
+  își păstrează grupa și alegerile.
+- La prima intrare, grupa îți e propusă din anul și specializarea din profilul ASMI.
 - Îți alegi grupa, iar „Orarul meu” te duce direct la orarul ei. Semigrupa și opționalele
   alese se salvează în cont, deci le găsești la fel de pe orice dispozitiv.
 - Dacă ești profesor, ceri rolul din „Contul și grupa mea”. După ce un admin aprobă,
@@ -91,24 +95,51 @@ cp .env.example .env
 | Variabilă | La ce folosește |
 | :--- | :--- |
 | `ORAR_SECRET` | Cheia cu care se semnează sesiunile. Obligatorie în producție (`openssl rand -hex 32`). Fără ea se generează una la fiecare pornire și toată lumea e delogată la repornire. |
-| `ORAR_ADMIN_USER` | Numele adminului principal. Intră pe `/login` cu el în câmpul de email. |
+| `ORAR_SSO_ISSUER` | Realm-ul SSO-ului ASMI, de exemplu `https://sso.asmi.ro/realms/asmi-prod`. Fără el, SSO-ul e oprit și intră doar adminul de urgență. |
+| `ORAR_SSO_CLIENT_ID` | `orarul-salilor-web`. |
+| `ORAR_SSO_CLIENT_SECRET` | Secretul clientului, din Keycloak (Clients → `orarul-salilor-web` → Credentials). |
+| `ORAR_SSO_ROL_ADMIN` | Rolul de realm care face pe cineva admin. Implicit `cddd`. |
+| `ORAR_ADMIN_USER` | Numele adminului de urgență. Intră pe `/login?admin=1`. |
 | `ORAR_ADMIN_PAROLA` | Parola lui. Poți pune în loc `ORAR_ADMIN_PAROLA_HASH`, ca parola să nu stea în clar. |
 | `ORAR_HTTPS=1` | Pune-o când situl rulează în spatele HTTPS, ca sesiunea să meargă doar pe conexiuni sigure. |
 | `ORAR_SCHEDULER=1` | Pornește verificarea zilnică a orarului în procesul web (vezi mai jos). |
 | `ORAR_ORA_VERIFICARE` | Ora la care rulează verificarea zilnică. Implicit 4 dimineața. |
 | `ORAR_DB` | Alt loc pentru baza de date. |
 
-Adminul principal nu e un cont din baza de date: există doar cât timp numele și parola lui
-sunt în mediu. Ceilalți admini sunt conturi obișnuite, ridicate la rolul de admin din panou
-sau din linia de comandă:
+### Conturile și rolurile, prin SSO-ul ASMI
+
+Conturile intră doar prin SSO-ul ASMI (Keycloak, OpenID Connect cu PKCE). Clientul
+`orarul-salilor-web` îl creează `../SSO-ASMI/scripts/configure-orarul.sh`. Din Keycloak vin:
+
+| Rol în Keycloak | În Orar |
+| :--- | :--- |
+| `cddd` (rol de realm) | administrator (poate tot) |
+| `secretar` / `administrator` / `decanat` (rol de realm) | oficiu, cu un set implicit de permisiuni (`ROLURI_REALM_PERMISIUNI` din `src/orar/web/sso.py`) |
+| roluri de client pe `orarul-salilor-web` | câte o permisiune (`ROLURI_CLIENT` din `src/orar/web/sso.py`) |
+
+Permisiunile sunt granularitățile în care se grupează funcționalitățile: `incarcare`,
+`review`, `editare`, `sesizari`, `evenimente`, `statistici`, `structura` și `utilizatori`. Ele vin din Keycloak (rol de client sau oficiu), dar un admin le poate
+ajusta per cont din panou, în coloana „Permisiuni acordate”: tabela `PERMISIUNE` se adaugă
+peste ce vine din SSO. O rută nouă se protejează cu `Depends(cere_permisiune("cheie"))`.
+
+Rolurile se recitesc la 5 minute, deci un rol dat sau retras în Keycloak se vede fără să
+ieși din cont. Logout-ul din Orar te scoate și din SSO. Invers, un logout din alt site ASMI
+te scoate și din Orar, prin backchannel logout (doar în producție). Tokenurile stau pe
+server, în `SSO_SESIUNE`, nu în cookie. Din profilul ASMI, Orarul păstrează doar `sub`-ul,
+plus numele și emailul ca să le afișeze.
+
+Pentru o funcționalitate nouă cu rolul ei: adaugi rolul de client în `configure-orarul.sh`,
+o intrare în `ROLURI_CLIENT` din `src/orar/web/sso.py` și una în `PERMISIUNI` din
+`src/orar/db/models.py`, apoi protejezi ruta cu `cere_permisiune(...)`.
+Student, voluntar și profesor rămân roluri locale, date din panou sau din linia de comandă:
 
 ```bash
-.venv/bin/python -m orar.cli rol ana@example.com admin
+.venv/bin/python -m orar.cli rol ana@example.com voluntar
 ```
 
-Parolele conturilor se păstrează ca hash `scrypt`. Situl nu limitează numărul de încercări
-de autentificare, așa că, dacă îl pui pe internet, adaugă o limitare în fața lui (nginx,
-fail2ban).
+Adminul de urgență nu e un cont din baza de date: există doar cât timp numele și parola lui
+sunt în mediu și intră pe `/login?admin=1`. Situl nu limitează numărul de încercări pe acest
+formular, așa că, dacă îl pui pe internet, adaugă o limitare în fața lui (nginx, fail2ban).
 
 ## Cum ajunge orarul în bază
 

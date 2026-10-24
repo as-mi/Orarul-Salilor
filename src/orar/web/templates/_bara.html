@@ -56,6 +56,12 @@
             </div>
             <a href="/orarul-meu">Orarul meu</a>
             <a href="/account">Contul și grupa mea</a>
+            {% if cont.poate('review') %}<a href="/admin/review">Coada de verificare</a>{% endif %}
+            {% if cont.poate('editare') %}<a href="/admin/corectii">Corecții în orar</a>{% endif %}
+            {% if cont.poate('sesizari') %}<a href="/admin/sesizari">Sesizări</a>{% endif %}
+            {% if cont.poate('evenimente') %}<a href="/admin/evenimente">Evenimente și săli</a>{% endif %}
+            {% if cont.poate('statistici') %}<a href="/admin/statistici">Orarul în cifre</a>{% endif %}
+            {% if cont.poate('structura') %}<a href="/admin/an-universitar">Anul universitar</a>{% endif %}
             <form method="post" action="/logout">
               <input type="hidden" name="csrf" value="{{ csrf }}">
               <button type="submit">Log out</button>
