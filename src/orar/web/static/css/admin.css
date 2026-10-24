@@ -8,16 +8,23 @@
 .sub-grila > .legenda { margin-top: 0; flex: 1 1 20rem; align-self: center; }
 /* mesajele sesizarii ocupa randul lor, deasupra */
 .sub-grila > .reusit, .sub-grila > .avertisment { order: -1; flex-basis: 100%; margin: 0; }
-.raporteaza { margin-left: auto; }
+.exporta { margin-left: auto; }
 /* deschis, formularul sta sub rand, aliniat la marginea din dreapta a orarului */
 .raporteaza[open] { flex-basis: 100%; display: flex; flex-direction: column; align-items: flex-end; order: 1; }
 .raporteaza > .panou-raport { width: min(34rem, 100%); margin-left: auto; margin-right: 0; }
 @media (max-width: 720px) {
-  .sub-grila > .raporteaza { margin-left: 0; width: 100%; }
-  .sub-grila > .raporteaza > summary { width: 100%; justify-content: center; }
+  .sub-grila > .raporteaza, .sub-grila > .exporta { margin-left: 0; width: 100%; }
+  .sub-grila > .raporteaza > summary, .sub-grila > .exporta > summary { width: 100%; justify-content: center; }
 }
 .raporteaza > summary { list-style: none; width: fit-content; font-weight: 500; font-size: .82rem; }
 .raporteaza > summary::-webkit-details-marker { display: none; }
+.exporta > summary { list-style: none; width: fit-content; font-weight: 500; font-size: .82rem; }
+.exporta > summary::-webkit-details-marker { display: none; }
+.meniu-export {
+  margin-top: .5rem; padding: .4rem;
+  background: var(--suprafata); border: 1px solid var(--linie-tare); border-radius: 8px;
+  display: flex; gap: .3rem; width: max-content; flex-wrap: wrap;
+}
 .panou-raport {
   margin-top: .5rem; padding: .8rem .9rem;
   background: var(--suprafata); border: 1px solid var(--linie-tare); border-radius: 8px;

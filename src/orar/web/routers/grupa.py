@@ -6,7 +6,7 @@ from datetime import date
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from orar.db.evenimente import evenimente_in_grila
@@ -41,6 +41,7 @@ from orar.web.deps import (
     selectie,
     templates,
 )
+from orar.web.export import raspuns_export
 from orar.web.routers.tutoriate import tutoriate_alese_de
 
 router = APIRouter(prefix="/grupa", tags=["grupa"])
@@ -113,9 +114,10 @@ def afiseaza_grupa(
     versiune: int | None = Query(None, description="o versiune anterioara a orarului"),
     perioada: int | None = Query(None, description="alt orar decat cel implicit"),
     editare: bool = Query(False, description="modul de editare, pentru admini"),
+    export: str | None = Query(None, description="descarca grila ca imagine: png sau jpg"),
     s: Session = Depends(get_db),
     cont: Cont | None = Depends(cont_curent),
-) -> HTMLResponse | RedirectResponse:
+) -> HTMLResponse | RedirectResponse | Response:
     # Ce orar se afiseaza: cel implicit, altul ales din panoul de versiuni, sau o versiune
     # anterioara. Baza poate tine mai multe semestre; pagina arata unul singur.
     sel = selectie(s, perioada, versiune)
@@ -200,6 +202,18 @@ def afiseaza_grupa(
         + blocuri_tutoriate
         + blocuri_personal,
     )
+
+    if export in ("png", "jpg"):
+        return raspuns_export(
+            grila,
+            titlu=grupa.nume,
+            slug=grupa.slug,
+            mod="grupa",
+            format=export,
+            sel=sel,
+            semigrupa=semigrupa,
+            doar_saptamana=doar_saptamana,
+        )
 
     lant = []
     cur: Grupa | None = grupa.parinte

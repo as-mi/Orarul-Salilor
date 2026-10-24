@@ -1,0 +1,35 @@
+/* Printul orarului: pastreaza doar titlul, grila si legenda, cu tema deschisa si culorile
+   de fundal, ca pagina sa iasa curata (si ca PDF). Se incarca ultimul in `base.html`, ca
+   regulile sa castige la sursa egala. */
+
+@media print {
+  @page { size: A4 landscape; margin: 1cm; }
+
+  /* forta tema deschisa indiferent de preferinta sistemului */
+  :root {
+    color-scheme: light;
+    --fundal: #fff; --suprafata: #fff; --suprafata-2: #f4f5f8;
+    --text: #14161c; --text-slab: #5d6472; --linie: #e3e6ec; --linie-tare: #c8cdd8;
+    --accent: #2f5de6; --accent-slab: #eaefff;
+    --curs: #ffd9a8; --curs-linie: #e8a13c; --seminar: #cdeac0; --seminar-linie: #6aa84f;
+    --lab: #bcd8f5; --lab-linie: #4a8fd4; --proiect: #e6cdf0; --proiect-linie: #a568c4;
+    --alta: #e4e6eb; --alta-linie: #a8afbd;
+  }
+
+  /* ascunde tot in afara de titlu, grila si legenda */
+  .bara, .alerta-an, .subsol,
+  .firimituri, .sumar, .filtre, .banner-versiune,
+  .ocupare-zile, .conflicte, .versiuni,
+  details.optiuni, .sub-grila .raporteaza, .sub-grila .exporta,
+  .personal-sterge { display: none !important; }
+
+  main { max-width: none; padding: 0; }
+  h1 { font-size: 1.4rem; margin: 0 0 .6rem; }
+
+  /* grila sa incapa pe pagina, fara banda de derulare orizontala */
+  .grila-scroll { overflow: visible !important; }
+  .grila { min-width: 0 !important; overflow: visible !important; }
+
+  /* fundalurile colorate ale blocurilor si legendei se tiparesc */
+  .grila, .bloc, .cheie::before { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

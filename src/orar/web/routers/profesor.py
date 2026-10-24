@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from orar.db.queries import gaseste_profesor, ore_pentru_profesor
@@ -22,11 +22,12 @@ from orar.web.deps import (
     selectie,
     templates,
 )
+from orar.web.export import raspuns_export
 
 router = APIRouter(prefix="/profesor", tags=["profesor"])
 
 
-@router.get("/{identificator}", response_class=HTMLResponse)
+@router.get("/{identificator}", response_class=HTMLResponse, response_model=None)
 def orar_profesor(
     request: Request,
     identificator: str,
@@ -35,9 +36,10 @@ def orar_profesor(
     ),
     zi: date | None = Query(None),
     perioada: int | None = Query(None, description="alt orar decat cel implicit"),
+    export: str | None = Query(None, description="descarca grila ca imagine: png sau jpg"),
     s: Session = Depends(get_db),
     cont: Cont | None = Depends(cont_curent),
-) -> HTMLResponse:
+) -> HTMLResponse | Response:
     profesor = gaseste_profesor(s, identificator)
     if profesor is None:
         raise HTTPException(status_code=404, detail=f"Nu există profesorul {identificator!r}")
@@ -48,6 +50,11 @@ def orar_profesor(
     grila = construieste_grila(
         ore, saptamana=sapt, doar_saptamana_curenta=doar_saptamana and sapt is not None
     )
+    if export in ("png", "jpg"):
+        return raspuns_export(
+            grila, titlu=profesor.nume, slug=profesor.slug, mod="profesor", format=export,
+            sel=sel, doar_saptamana=doar_saptamana,
+        )
     user = cont.user if cont else None
     al_meu = bool(user and user.rol == "profesor" and user.profesor == profesor.nume)
     return templates.TemplateResponse(

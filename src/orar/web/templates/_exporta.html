@@ -1,0 +1,12 @@
+{# „Exportă”, sub grila, pe toate paginile cu orar (grupa, sala, profesor). Printul/PDF-ul
+   se face cu dialogul browserului (`window.print()` + `print.css`); PNG/JPG se descarca de
+   pe aceeasi adresa, cu `?export=`. Linkurile pastreaza automat orarul si filtrele alese. #}
+<details class="exporta">
+  <summary class="buton">Exportă</summary>
+  <div class="meniu-export">
+    <button type="button" class="buton" onclick="window.print()">Imprimă / PDF</button>
+    {% set q = request.url.query %}
+    <a class="buton" href="{{ request.url.path }}{% if q %}?{{ q }}&amp;export=png{% else %}?export=png{% endif %}">Descarcă PNG</a>
+    <a class="buton" href="{{ request.url.path }}{% if q %}?{{ q }}&amp;export=jpg{% else %}?export=jpg{% endif %}">Descarcă JPG</a>
+  </div>
+</details>
