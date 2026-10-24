@@ -6,30 +6,40 @@
 /* butonul si formularul de sub grila */
 .sub-grila { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .5rem 1rem; margin-top: .7rem; }
 .sub-grila > .legenda { margin-top: 0; flex: 1 1 20rem; align-self: center; }
-/* mesajele sesizarii ocupa randul lor, deasupra */
-.sub-grila > .reusit, .sub-grila > .avertisment { order: -1; flex-basis: 100%; margin: 0; }
-.exporta { margin-left: auto; }
-/* deschis, formularul sta sub rand, aliniat la marginea din dreapta a orarului */
-.raporteaza[open] { flex-basis: 100%; display: flex; flex-direction: column; align-items: flex-end; order: 1; }
-.raporteaza > .panou-raport { width: min(34rem, 100%); margin-left: auto; margin-right: 0; }
-@media (max-width: 720px) {
-  .sub-grila > .raporteaza, .sub-grila > .exporta { margin-left: 0; width: 100%; }
-  .sub-grila > .raporteaza > summary, .sub-grila > .exporta > summary { width: 100%; justify-content: center; }
+/* „Exportă” și „Raportează o problemă”, aliniate la dreapta. Containerul e contextul de
+   pozitionare, ca meniul de export sa se intinda exact de la marginea stanga a lui
+   „Exportă” pana la marginea dreapta a lui „Raportează o problemă”. */
+.sub-grila-dreapta {
+  margin-left: auto;
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: .5rem;
+  position: relative;
 }
-.raporteaza > summary { list-style: none; width: fit-content; font-weight: 500; font-size: .82rem; }
-.raporteaza > summary::-webkit-details-marker { display: none; }
+/* mesajele sesizarii (reusit/avertisment) deasupra grupului de butoane */
+.sub-grila-dreapta > .reusit, .sub-grila-dreapta > .avertisment { order: -1; flex-basis: 100%; margin: 0; }
 .exporta > summary { list-style: none; width: fit-content; font-weight: 500; font-size: .82rem; }
 .exporta > summary::-webkit-details-marker { display: none; }
 .meniu-export {
-  margin-top: .5rem; padding: .4rem;
+  position: absolute; z-index: 45; top: calc(100% + .4rem); left: 0; right: 0;
+  padding: .4rem;
   background: var(--suprafata); border: 1px solid var(--linie-tare); border-radius: 8px;
-  display: flex; gap: .3rem; width: max-content; flex-wrap: wrap;
+  box-shadow: 0 8px 24px rgb(0 0 0 / .14);
+  display: flex; flex-direction: column; gap: .3rem;
 }
+.raporteaza { position: relative; }
+.raporteaza > summary { list-style: none; width: fit-content; font-weight: 500; font-size: .82rem; }
+.raporteaza > summary::-webkit-details-marker { display: none; }
 .panou-raport {
-  margin-top: .5rem; padding: .8rem .9rem;
+  position: absolute; z-index: 45; top: calc(100% + .4rem); right: 0;
+  width: min(34rem, calc(100vw - 2rem));
+  padding: .8rem .9rem;
   background: var(--suprafata); border: 1px solid var(--linie-tare); border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / .14);
 }
 .panou-raport .nota { margin: 0; }
+@media (max-width: 720px) {
+  .sub-grila-dreapta { margin-left: 0; width: 100%; }
+  .sub-grila-dreapta > .raporteaza > summary, .sub-grila-dreapta > .exporta > summary { width: 100%; justify-content: center; }
+}
 .camp-lista textarea {
   font: inherit; font-size: .92rem; padding: .45rem .6rem; width: 100%; resize: vertical;
   border: 1px solid var(--linie-tare); border-radius: 6px;

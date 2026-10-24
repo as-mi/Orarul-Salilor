@@ -144,6 +144,8 @@
     <span class="cheie inactiv">{{ grila.inactive }} nu se țin săptămâna aceasta</span>
   {% endif %}
 </div>
-{% include "_exporta.html" %}
-{% if ore_raport is defined %}{% include "_raporteaza.html" %}{% endif %}
+<div class="sub-grila-dreapta">
+  {% include "_exporta.html" %}
+  {% if ore_raport is defined %}{% include "_raporteaza.html" %}{% endif %}
+</div>
 </div>

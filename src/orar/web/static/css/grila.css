@@ -7,7 +7,7 @@
 .grila-scroll { overflow-x: auto; margin-top: 1rem; padding-bottom: .3rem; }
 .grila {
   min-width: 62rem;
-  border: 2px solid var(--text); border-radius: var(--radius);
+  border: 1px solid var(--linie-tare); border-radius: var(--radius);
   background: var(--suprafata); overflow: hidden;
 }
 
