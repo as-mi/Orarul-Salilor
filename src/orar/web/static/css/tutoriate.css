@@ -3,6 +3,9 @@
 :root { --tut: #13856b; --tut-slab: #e3f5ef; }
 @media (prefers-color-scheme: dark) { :root { --tut: #4fd1a9; --tut-slab: #15332b; } }
 
+/* rolul „tutore" (asignare de tutor valabila azi) */
+.pastila.tut { background: var(--tut-slab); color: var(--tut); }
+
 /* ---------------- in grila ---------------- */
 .tip-eveniment-tutoriat { background: var(--tut-slab); border-color: var(--tut); border-style: dashed; }
 .cheie.tip-eveniment-tutoriat::before { background: var(--tut-slab); border-color: var(--tut); border-style: dashed; }

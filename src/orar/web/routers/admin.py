@@ -35,7 +35,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from orar.db.coada import grupeaza
-from orar.db.models import PERMISIUNI, ROLURI_LOCALE, Corectie, Ora, Permisiune, Sesizare, SsoSesiune, User
+from orar.db.models import PERMISIUNI, ROLURI_LOCALE, Corectie, Ora, Permisiune, Sesizare, SsoSesiune, Tutor, TutoriatTutor, User
 from orar.db.orare import fa_implicita, orare_vii
 from orar.db.queries import profesori_de_ales
 from orar.ingest.capturi import Sesiune
@@ -88,6 +88,7 @@ def panou(
             "roluri": ROLURI_LOCALE,
             "permisiuni": PERMISIUNI,
             "permisiuni_acordate": _permisiunile_acordate(s),
+            "tutori": _tutorii(s),
             "incarcare": incarcare.stare_curenta(),
             "nr_sesizari": numara(Sesizare, Sesizare.stare == "noua"),
             "nr_corectii": numara(Corectie),
@@ -231,6 +232,29 @@ def _permisiunile_acordate(s: Session) -> dict[int, frozenset[str]]:
     for user_id, cheie in s.execute(select(Permisiune.user_id, Permisiune.cheie)):
         rez.setdefault(user_id, set()).add(cheie)
     return {k: frozenset(v) for k, v in rez.items()}
+
+
+def _tutorii(s: Session) -> set[int]:
+    """Id-urile conturilor tutor (rolul „tutore"): asignare valabila in TUTOR sau membru in
+    echipa unui tutoriat (TUTORIAT_TUTOR)."""
+    from datetime import date
+
+    azi = date.today()
+    ids = {
+        user_id
+        for (user_id,) in s.execute(
+            select(Tutor.user_id).where(
+                Tutor.user_id.is_not(None), Tutor.valabil_de_la <= azi, Tutor.valabil_pana_la >= azi
+            )
+        )
+    }
+    ids |= {
+        user_id
+        for (user_id,) in s.execute(
+            select(TutoriatTutor.user_id).where(TutoriatTutor.user_id.is_not(None))
+        )
+    }
+    return ids
 
 
 @router.post("/utilizatori/{user_id}/cerere")

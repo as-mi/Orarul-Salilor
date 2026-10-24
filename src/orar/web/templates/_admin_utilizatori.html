@@ -8,7 +8,8 @@
     <strong>permisiunile</strong> vin din Keycloak (rol de realm, respectiv rol de client pe
     <code>orarul-salilor-web</code>) și se văd aici după următoarea intrare. Coloana <em>Permisiuni acordate</em>
     e ce mai poți adăuga sau retrage de aici, peste ce vine din SSO. Aici alegi și rolul local din Orar:
-    student, voluntar sau profesor.</p>
+    student, voluntar sau profesor. <span class="pastila tut">tutore</span> apare singur când contul are o
+    asignare de tutor valabilă.</p>
   {% if request.query_params.get('salvat') %}
     <p class="reusit" role="status">Rolul a fost salvat.</p>
   {% endif %}
@@ -65,6 +66,7 @@
                          aria-label="Profesorul lui {{ u.nume }}" {{ 'hidden' if u.rol != 'profesor' }}>
                   <button type="submit" class="buton" aria-label="Salvează rolul lui {{ u.nume }}">Salvează</button>
                 </form>
+                {% if u.id in tutori %}<span class="pastila tut">tutore</span>{% endif %}
               </td>
               <td>
                 {% set d = drepturi_sso.get(u.id) %}

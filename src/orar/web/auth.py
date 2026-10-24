@@ -291,20 +291,29 @@ def _permisiuni_acordate(s: Session, user: User) -> frozenset[str]:
 
 
 def _e_tutor(s: Session, user: User) -> bool:
-    """Are azi o asignare de tutor -- citit la fiecare cerere, ca o asignare facuta de
-    responsabil sa se vada imediat."""
+    """E tutor: are o asignare valabila de tutor (tabela TUTOR) sau e in echipa unui tutoriat
+    (TUTORIAT_TUTOR). Citit la fiecare cerere, ca o asignare facuta de responsabil sa se vada
+    imediat."""
     from datetime import date
 
-    from orar.db.models import Tutor
+    from orar.db.models import Tutor, TutoriatTutor
 
     azi = date.today()
-    return (
+    asignat = (
         s.scalar(
             select(Tutor.id)
             .where(
                 Tutor.user_id == user.id, Tutor.valabil_de_la <= azi, Tutor.valabil_pana_la >= azi
             )
             .limit(1)
+        )
+        is not None
+    )
+    if asignat:
+        return True
+    return (
+        s.scalar(
+            select(TutoriatTutor.tutoriat_id).where(TutoriatTutor.user_id == user.id).limit(1)
         )
         is not None
     )

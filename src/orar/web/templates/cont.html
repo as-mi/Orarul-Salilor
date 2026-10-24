@@ -7,7 +7,8 @@
   <p class="nota">{{ user.nume }} · {{ user.email }}
     {%- if cont.e_admin %} · <span class="pastila">admin (CDDD)</span>
     {%- elif user.rol != 'student' %} · <span class="pastila neutra">{{ user.rol }}</span>{% endif %}
-    {%- if cont.poate('tutoriate') and not cont.e_admin %} · <span class="pastila neutra">responsabil tutoriate</span>{% endif %}</p>
+    {%- if cont.poate('tutoriate') and not cont.e_admin %} · <span class="pastila neutra">responsabil tutoriate</span>{% endif %}
+    {%- if cont.e_tutor %} · <span class="pastila tut">tutore</span>{% endif %}</p>
   {% if profil_asmi %}
     <p class="nota">Numele, emailul și parola le schimbi în <a href="{{ profil_asmi }}" rel="noopener">profilul tău ASMI</a>;
       aici apar la următoarea intrare.</p>
