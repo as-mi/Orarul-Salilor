@@ -25,7 +25,7 @@ from orar.domain.weeks import (
     ce_lipseste,
     numeroteaza,
 )
-from orar.web.auth import Cont, cere_admin, verifica_csrf
+from orar.web.auth import Cont, cere_permisiune, verifica_csrf
 from orar.web.deps import context_saptamana, get_db, templates
 
 router = APIRouter(prefix="/admin/an-universitar", tags=["structura"])
@@ -137,7 +137,7 @@ def structura(
     request: Request,
     an: str = Query(""),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("structura")),
 ) -> HTMLResponse:
     return _pagina(request, s, _an_valid(an))
 
@@ -155,7 +155,7 @@ def adauga_perioada(
     pentru: str = Form("toti"),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("structura")),
 ) -> HTMLResponse | RedirectResponse:
     an = _an_valid(an)
     v = {
@@ -235,7 +235,7 @@ def sterge_perioada(
     perioada_id: int,
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("structura")),
 ) -> RedirectResponse:
     p = s.get(PerioadaStructura, perioada_id)
     if p is None:

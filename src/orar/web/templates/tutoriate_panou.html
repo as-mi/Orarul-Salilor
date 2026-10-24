@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titlu %}Tutoriate{% endblock %}
+
+{% block continut %}
+<section class="antet tut-panou">
+  <nav class="firimituri"><a href="/tutoriate">tutoriate</a><span>›</span><strong>panoul responsabilului</strong></nav>
+  <h1>Panoul tutoriatelor</h1>
+  <p class="nota">Planifici tutoriatele semestrului, le alegi sălile, asignezi tutorii și le publici pe
+    <a href="/tutoriate">pagina tutoriatelor</a>. Studenții și le adaugă apoi în orar.</p>
+
+  {% if orare|length > 1 %}
+    <form method="get" class="tut-orar">
+      <input type="hidden" name="tab" value="{{ tab }}">
+      <label><span>Semestrul</span>
+        <select name="perioada" onchange="this.form.submit()">
+          {% for o in orare %}
+            <option value="{{ o.perioada.id }}" {{ 'selected' if orar and o.perioada.id == orar.id }}>Semestrul {{ o.perioada.semestru }} · {{ o.perioada.an_univ }}</option>
+          {% endfor %}
+        </select></label>
+      <noscript><button type="submit" class="buton">Alege</button></noscript>
+    </form>
+  {% endif %}
+
+  <nav class="tut-taburi" aria-label="Secțiunile panoului">
+    {% for cheie, nume in taburi %}
+      <a href="/tutoriate/panou?tab={{ cheie }}{{ '&perioada=' ~ orar.id if orar }}" {{ 'aria-current=page' if tab == cheie }}>{{ nume }}</a>
+    {% endfor %}
+  </nav>
+
+  {% if request.query_params.get('eroare') %}<p class="avertisment" role="alert">{{ request.query_params.get('eroare') }}</p>{% endif %}
+  {% if request.query_params.get('salvat') %}<p class="reusit" role="status">Salvat.</p>{% endif %}
+
+  {% if orar is none %}
+    <p class="avertisment">Nu e încărcat niciun orar. Tutoriatele țin de un semestru: încarcă întâi orarul.</p>
+  {% else %}
+    {% include "_tut_" ~ tab ~ ".html" %}
+  {% endif %}
+</section>
+<script src="{{ static_versionat(request, 'js/tutoriate.js') }}" defer></script>
+{% endblock %}

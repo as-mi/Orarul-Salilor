@@ -35,13 +35,14 @@
               {% if b.eveniment %}
                 {# O activitate cu data (ASMI sau alta), doar in saptamana ei. #}
                 {% set e = b.eveniment %}
-                <a class="bloc tip-{{ b.clasa_tip }}{{ ' ' ~ e.clasa_culoare if e.clasa_culoare }}"
+                <a class="bloc tip-{{ b.clasa_tip }}{{ ' ' ~ e.clasa_culoare if e.clasa_culoare }}{{ ' anulat' if e.anulat is defined and e.anulat }}{{ ' al-meu' if e.al_meu is defined and e.al_meu }}"
                    style="grid-column: {{ b.col_start }} / span {{ b.col_span }}; {{ e.stil_culoare }}"
-                   href="{% if poate_edita is defined and poate_edita %}/admin/evenimente/{{ e.id }}{% elif e.fel == 'asmi' %}/calendar-asmi#ev-{{ e.id }}{% elif mod == 'grupa' and e.sala %}/sala/{{ e.sala.slug }}{{ qv }}{% else %}#{% endif %}"
+                   href="{% if e.fel == 'tutoriat' %}/tutoriate#tut-{{ e.id }}{% elif poate_edita is defined and poate_edita %}/admin/evenimente/{{ e.id }}{% elif e.fel == 'asmi' %}/calendar-asmi#ev-{{ e.id }}{% elif mod == 'grupa' and e.sala %}/sala/{{ e.sala.slug }}{{ qv }}{% else %}#{% endif %}"
                    title="{{ e.titlu }} · {{ e.data_inceput.strftime('%d.%m.%Y') }} · {{ e.ora_inceput.strftime('%H:%M') }}-{{ e.ora_sfarsit.strftime('%H:%M') }}{% if e.sala %} · {{ e.sala.nume }}{% endif %}">
                   <span class="bloc-sus"><span class="bloc-materie">{{ e.titlu }}</span></span>
                   <span class="bloc-mij">
-                    <span class="et et-tip">{{ 'ASMI' if e.fel == 'asmi' else 'rezervare' }}</span>
+                    <span class="et et-tip">{{ {'asmi': 'ASMI', 'tutoriat': 'tutoriat'}.get(e.fel, 'rezervare') }}</span>
+                    {% if e.anulat is defined and e.anulat %}<span class="et">anulat</span>{% elif e.al_meu is defined and e.al_meu %}<span class="et">ții tu</span>{% endif %}
                     <span class="et et-sapt">{{ e.data_inceput.strftime('%d.%m') }} · {{ e.ora_inceput.strftime('%H:%M') }}-{{ e.ora_sfarsit.strftime('%H:%M') }}</span>
                   </span>
                   <span class="bloc-jos">
@@ -103,6 +104,7 @@
     <span class="cheie tip-eveniment-asmi">activitate ASMI</span>
     <span class="cheie tip-eveniment-alta">altă activitate</span>
   {% endif %}
+  {% if grila.are_tutoriate %}<span class="cheie tip-eveniment-tutoriat">tutoriat</span>{% endif %}
   {% if mod == 'grupa' %}
     <span class="sep"></span>
     <span class="cheie prov-mostenita">moștenită de la serie/an</span>

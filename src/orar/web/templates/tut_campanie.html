@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block titlu %}{{ campanie.nume }}{% endblock %}
+
+{% block continut %}
+<section class="antet tut-panou">
+  <nav class="firimituri"><a href="/tutoriate/campanii">campanii</a><span>›</span><strong>{{ campanie.nume }}</strong></nav>
+  <h1>{{ campanie.nume }}</h1>
+  <p class="nota">Semestrul {{ campanie.semestru }} · {{ campanie.an_univ }} · stare
+    <span class="pastila {{ 'neutra' if campanie.stare != 'deschisa' }}">{{ campanie.stare }}</span> ·
+    aplicări {{ campanie.data_deschidere.strftime('%d.%m') }}–{{ campanie.data_inchidere.strftime('%d.%m.%Y') }}</p>
+
+  <form method="post" action="/tutoriate/campanii/{{ campanie.id }}/stare" class="tut-orar">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label><span>Schimbă starea</span>
+      <select name="stare" onchange="this.form.submit()">
+        {% for s in stari %}
+          <option value="{{ s }}" {{ 'selected' if s == campanie.stare }}>{{ s }}</option>
+        {% endfor %}
+      </select></label>
+    <noscript><button type="submit" class="buton">Schimbă</button></noscript>
+  </form>
+
+  <nav class="tut-taburi" aria-label="Secțiunile campaniei">
+    {% for cheie, nume in taburi %}
+      <a href="/tutoriate/campanii/{{ campanie.id }}/{{ cheie }}" {{ 'aria-current=page' if tab == cheie }}>{{ nume }}</a>
+    {% endfor %}
+    <a href="/tutoriate/campanii/{{ campanie.id }}/aplica">Vezi aplicarea ↗</a>
+  </nav>
+
+  {% include "_tutc_" ~ tab ~ ".html" %}
+</section>
+<script src="{{ static_versionat(request, 'js/tutoriate.js') }}" defer></script>
+{% endblock %}

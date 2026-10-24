@@ -9,22 +9,29 @@
 
   {% if eroare %}<p class="avertisment" role="alert">{{ eroare }}</p>{% endif %}
 
-  <form method="post" action="/login" class="camp-lista">
-    <input type="hidden" name="csrf" value="{{ csrf }}">
-    <input type="hidden" name="inapoi" value="{{ inapoi or '' }}">
-    <label>
-      <span>Email</span>
-      {# `text`, nu `email`: adminul intra cu un nume, nu cu o adresa. #}
-      <input type="text" name="email" value="{{ email or '' }}" required autofocus
-             autocomplete="username" autocapitalize="none" spellcheck="false">
-    </label>
-    <label>
-      <span>Parolă</span>
-      <input type="password" name="parola" required autocomplete="current-password">
-    </label>
-    <button type="submit" class="principal">Intră</button>
-  </form>
+  {% if sso_activ %}
+    <p><a class="buton plin intrare-asmi" href="/login{{ '?inapoi=' ~ inapoi if inapoi }}">
+      <img src="{{ static_versionat(request, 'asmi.png') }}" alt="" width="20" height="20"> Intră cu contul ASMI</a></p>
+    <p class="nota">Același cont ca pe celelalte site-uri ASMI. Nu ai unul? <a href="/signup">Fă-ți unul</a>.</p>
+  {% endif %}
 
-  <p class="nota">Nu ai cont? <a href="/signup">Fă-ți unul</a>.</p>
+  {# Adminul de urgenta, din mediu: singura intrare cand SSO-ul nu e configurat. #}
+  <details class="mai-multe" {{ 'open' if not sso_activ or eroare and email is defined }}>
+    <summary>Acces de urgență pentru administrator</summary>
+    <form method="post" action="/login" class="camp-lista">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="inapoi" value="{{ inapoi or '' }}">
+      <label>
+        <span>Nume</span>
+        <input type="text" name="email" value="{{ email or '' }}" required
+               autocomplete="username" autocapitalize="none" spellcheck="false">
+      </label>
+      <label>
+        <span>Parolă</span>
+        <input type="password" name="parola" required autocomplete="current-password">
+      </label>
+      <button type="submit" class="principal">Intră</button>
+    </form>
+  </details>
 </section>
 {% endblock %}

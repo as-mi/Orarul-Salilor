@@ -1,0 +1,48 @@
+{# Echipele formate pe posturi, si un formular de formare a unei echipe noi. #}
+<h2>Formează o echipă</h2>
+{% if not acceptati %}
+  <p class="nota">Niciun student acceptat încă. Acceptă aplicații la tabul „Aplicații”.</p>
+{% else %}
+  <form method="post" action="/tutoriate/campanii/{{ campanie.id }}/echipe" class="formular-strans">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label><span>Postul (materia)</span>
+      <select name="post_id" required>
+        {% for p in posturi %}
+          <option value="{{ p.id }}">{{ p.materie }}</option>
+        {% endfor %}
+      </select></label>
+    <label><span>Membri ({{ campanie.min_tutori_echipa }}–{{ campanie.max_tutori_echipa }})</span>
+      <select name="membri" multiple size="5" required>
+        {% for a in acceptati %}
+          <option value="{{ a.user_id }}">{{ a.user.nume }}</option>
+        {% endfor %}
+      </select></label>
+    <label><span>Tutor principal</span>
+      <select name="principal">
+        {% for a in acceptati %}
+          <option value="{{ a.user_id }}">{{ a.user.nume }}</option>
+        {% endfor %}
+      </select></label>
+    <p class="actiuni-sesizare"><button type="submit" class="buton plin">Formează echipa</button></p>
+  </form>
+{% endif %}
+
+<h2>Echipe</h2>
+{% if not echipe %}
+  <p class="nota">Nicio echipă formată.</p>
+{% else %}
+  <div class="tabel-scroll">
+    <table class="tabel-sali tut-tabel">
+      <thead><tr><th>Materia</th><th>Membri</th><th>Stare</th></tr></thead>
+      <tbody>
+      {% for e in echipe %}
+        <tr>
+          <td><strong>{{ e.post.materie }}</strong></td>
+          <td>{% for m in e.membri %}{{ m.user.nume }}{{ ' ★' if m.principal and e.membri|length > 1 }}{{ ', ' if not loop.last }}{% endfor %}</td>
+          <td><span class="pastila {{ 'neutra' if e.stare != 'confirmata' }}">{{ e.stare }}</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}

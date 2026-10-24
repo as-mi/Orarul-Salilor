@@ -30,7 +30,7 @@ from orar.db.orare import perioada_implicita
 from orar.db.structura import perioade_anului
 from orar.domain.hierarchy import DENUMIRI_SPECIALIZARE
 from orar.domain.weeks import FELURI_PERIOADA, an_universitar_al
-from orar.web.auth import Cont, cere_admin, verifica_csrf
+from orar.web.auth import Cont, cere_permisiune, verifica_csrf
 from orar.web.deps import calendar, context_saptamana, get_db, templates
 
 router = APIRouter(tags=["evenimente"])
@@ -195,7 +195,7 @@ def calendar_asmi(
 
 @router.get("/admin/evenimente", response_class=HTMLResponse)
 def lista(
-    request: Request, s: Session = Depends(get_db), _admin: Cont = Depends(cere_admin)
+    request: Request, s: Session = Depends(get_db), _admin: Cont = Depends(cere_permisiune("evenimente"))
 ) -> HTMLResponse:
     toate = list(
         s.scalars(
@@ -271,7 +271,7 @@ def cauta_sali(
     eveniment: str = Query("", description="evenimentul editat, ca sala lui sa ramana"),
     sala: str = Query("", description="sala aleasa pana acum"),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("evenimente")),
 ) -> HTMLResponse:
     """Salile libere in ziua si la orele date, de la cea mai incapatoare."""
     zi, inceput, sfarsit = _data(data_inceput), _ora(ora_inceput), _ora(ora_sfarsit)
@@ -351,7 +351,7 @@ def formular_nou(
     request: Request,
     fel: str = Query("asmi"),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("evenimente")),
 ) -> HTMLResponse:
     v = _valori(None)
     # un eveniment nou porneste de la ziua de azi
@@ -373,7 +373,7 @@ def formular_editare(
     request: Request,
     eveniment_id: int,
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("evenimente")),
 ) -> HTMLResponse:
     e = _eveniment(s, eveniment_id)
     return _formular(request, s, e=e, v=_valori(e))
@@ -476,7 +476,7 @@ def adauga(
     v: dict[str, object] = Depends(_din_formular),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    admin: Cont = Depends(cere_admin),
+    admin: Cont = Depends(cere_permisiune("evenimente")),
 ) -> HTMLResponse | RedirectResponse:
     if not verifica_csrf(request, csrf):
         return _formular(request, s, e=None, v=v, stare=400, eroare="Formularul a expirat.")
@@ -495,7 +495,7 @@ def modifica(
     v: dict[str, object] = Depends(_din_formular),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("evenimente")),
 ) -> HTMLResponse | RedirectResponse:
     e = _eveniment(s, eveniment_id)
     if not verifica_csrf(request, csrf):
@@ -513,7 +513,7 @@ def sterge(
     eveniment_id: int,
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("evenimente")),
 ) -> RedirectResponse:
     if verifica_csrf(request, csrf):
         s.delete(_eveniment(s, eveniment_id))

@@ -1,14 +1,16 @@
-"""Conturi: parole, sesiune, cine e autentificat, CSRF.
+"""Conturi: sesiune, cine e autentificat, CSRF.
 
-Doua feluri de conturi, acelasi formular de intrare (`/login`):
+Doua feluri de conturi:
 
-  - **conturile din baza** (tabela USER), create la `/signup`. Au un rol -- `student`
-    implicit; `voluntar`, `profesor` sau `admin` il da un admin, din /admin -- o grupa si
-    preferintele orarului propriu;
-  - **adminul principal, din mediu**: `ORAR_ADMIN_USER` si `ORAR_ADMIN_PAROLA` (sau
-    `ORAR_ADMIN_PAROLA_HASH`, in formatul de mai jos). Nu sta in baza, deci nu poate fi
-    retrogradat sau sters din panou si exista chiar pe o baza goala. Fara aceste variabile,
-    el pur si simplu nu exista.
+  - **conturile ASMI**, prin SSO-ul asociatiei (`web/sso.py`). Fiecare are un rand in USER,
+    legat prin `SSO_SUB`, cu grupa si preferintele orarului propriu. Adminii sunt cei cu rolul
+    de realm `cddd`, iar permisiunile (de exemplu responsabilul de tutoriate) vin din rolurile
+    de client -- totul din Keycloak, recitit la cateva minute. Rolurile ramase locale
+    (student / voluntar / profesor) le da un admin din /admin;
+  - **adminul de urgenta, din mediu**: `ORAR_ADMIN_USER` si `ORAR_ADMIN_PAROLA` (sau
+    `ORAR_ADMIN_PAROLA_HASH`, in formatul de mai jos), cu formularul de pe `/login?admin=1`.
+    Nu sta in baza si exista chiar cand SSO-ul nu raspunde. Fara aceste variabile, el pur
+    si simplu nu exista.
 
 Orarul ramane public: `cont_curent` nu blocheaza nimic, intoarce `None` si paginile merg
 mai departe. Doar /admin cere autentificare (`cere_admin`).
@@ -42,7 +44,7 @@ from dataclasses import dataclass
 from urllib.parse import quote
 
 from fastapi import Depends, HTTPException, Request
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from orar.db.models import User
@@ -55,6 +57,7 @@ __all__ = [
     "Cont",
     "autentifica",
     "cere_admin",
+    "cere_permisiune",
     "cheie_secreta",
     "cont_curent",
     "deconecteaza",
@@ -75,6 +78,8 @@ PAROLA_MINIM = 10
 
 _CHEIE_USER = "user_id"
 _CHEIE_ADMIN_MEDIU = "admin_mediu"
+#: Id-ul randului din SSO_SESIUNE; tokenurile raman pe server.
+_CHEIE_SSO = "sso"
 _CHEIE_CSRF = "csrf"
 
 
@@ -149,10 +154,21 @@ class Cont:
     nume: str
     rol: str
     user: User | None = None
+    #: Responsabilitatile contului, pe langa rol (`PERMISIUNE`): de exemplu "tutoriate".
+    #: Se aduna din rolurile de client, din oficiul de realm si din tabela PERMISIUNE.
+    permisiuni: frozenset[str] = frozenset()
+    #: Oficiul din SSO, daca e unul: secretar / administrator / decanat.
+    oficii: frozenset[str] = frozenset()
+    #: Are o asignare de tutor valabila azi.
+    e_tutor: bool = False
 
     @property
     def e_admin(self) -> bool:
         return self.rol == "admin"
+
+    def poate(self, permisiune: str) -> bool:
+        """Adminii pot tot; ceilalti, ce li s-a dat."""
+        return self.e_admin or permisiune in self.permisiuni
 
 
 def _admin_din_mediu() -> tuple[str, str, str] | None:
@@ -184,33 +200,31 @@ def _e_adminul_din_mediu(identificator: str, parola: str) -> Cont | None:
 _HASH_DE_UMPLUTURA = hash_parola(secrets.token_urlsafe(16))
 
 
-def autentifica(s: Session, identificator: str, parola: str) -> Cont | None:
-    """Contul, daca parola se potriveste. Altfel None -- fara sa spunem care parte a picat.
-
-    `identificator` e emailul unui cont din baza sau numele adminului din mediu.
-    """
+def autentifica(identificator: str, parola: str) -> Cont | None:
+    """Adminul de urgenta, daca numele si parola se potrivesc. Altfel None -- fara sa
+    spunem care parte a picat. Conturile din baza intra doar prin SSO."""
     if admin := _e_adminul_din_mediu(identificator, parola):
         return admin
-    user = s.scalar(select(User).where(func.lower(User.email) == normalizeaza_email(identificator)))
-    if user is None:
-        verifica_parola(parola, _HASH_DE_UMPLUTURA)
-        return None
-    if not verifica_parola(parola, user.parola_hash):
-        return None
-    return Cont(nume=user.nume, rol=user.rol, user=user)
+    verifica_parola(parola, _HASH_DE_UMPLUTURA)
+    return None
 
 
 # ------------------------------------------------------------------- sesiunea
 
 
-def logheaza(request: Request, cont: Cont) -> None:
-    """Leaga sesiunea de cont. Regenereaza tokenul CSRF, ca sa nu fie refolosit."""
+def logheaza(request: Request, cont: Cont | None = None, *, sesiune_sso: str | None = None) -> None:
+    """Leaga sesiunea de adminul din mediu (`cont`) sau de o sesiune SSO. Regenereaza
+    tokenul CSRF, ca sa nu fie refolosit."""
     request.session.clear()
-    if cont.user is not None:
-        request.session[_CHEIE_USER] = cont.user.id
-    else:
+    if sesiune_sso is not None:
+        request.session[_CHEIE_SSO] = sesiune_sso
+    elif cont is not None:
         request.session[_CHEIE_ADMIN_MEDIU] = cont.nume
     request.session[_CHEIE_CSRF] = secrets.token_urlsafe(24)
+
+
+def sesiunea_sso(request: Request) -> str | None:
+    return request.session.get(_CHEIE_SSO) if "session" in request.scope else None
 
 
 def deconecteaza(request: Request) -> None:
@@ -235,12 +249,29 @@ def cont_curent(request: Request, s: Session = Depends(get_db)) -> Cont | None:
         # Sesiunea e valabila doar cat timp mediul numeste acelasi admin.
         if admin is not None and admin[0] == nume:
             cont = Cont(nume=nume, rol="admin")
-    elif (uid := request.session.get(_CHEIE_USER)) is not None:
-        user = s.get(User, uid)
-        if user is not None:
-            cont = Cont(nume=user.nume, rol=user.rol, user=user)
+    elif (sid := request.session.get(_CHEIE_SSO)) is not None:
+        from orar.web import sso
 
-    if cont is None and (_CHEIE_ADMIN_MEDIU in request.session or _CHEIE_USER in request.session):
+        sesiune = sso.sesiune_valida(s, sid)
+        if sesiune is not None:
+            user = sesiune.user
+            roluri = sso.roluri_sesiunii(sesiune)
+            admin, permisiuni = sso.drepturi(roluri, sso.configurare())
+            rol = "admin" if admin else (user.rol if user.rol != "admin" else "student")
+            cont = Cont(
+                nume=user.nume,
+                rol=rol,
+                user=user,
+                permisiuni=permisiuni | _permisiuni_acordate(s, user),
+                oficii=sso.oficii(roluri),
+                e_tutor=_e_tutor(s, user),
+            )
+
+    if cont is None and (
+        _CHEIE_ADMIN_MEDIU in request.session
+        or _CHEIE_SSO in request.session
+        or _CHEIE_USER in request.session
+    ):
         # Contul a fost sters (sau adminul scos din mediu); sesiunea nu mai inseamna nimic.
         request.session.clear()
     request.state.cont = cont
@@ -249,6 +280,45 @@ def cont_curent(request: Request, s: Session = Depends(get_db)) -> Cont | None:
         from orar.db.structura import alerta_an_curent
 
         request.state.alerta_an = alerta_an_curent(s)
+    return cont
+
+
+def _permisiuni_acordate(s: Session, user: User) -> frozenset[str]:
+    """Permisiunile date contului de un admin, din tabela PERMISIUNE (pe langa cele din SSO)."""
+    from orar.db.models import Permisiune
+
+    return frozenset(s.scalars(select(Permisiune.cheie).where(Permisiune.user_id == user.id)))
+
+
+def _e_tutor(s: Session, user: User) -> bool:
+    """Are azi o asignare de tutor -- citit la fiecare cerere, ca o asignare facuta de
+    responsabil sa se vada imediat."""
+    from datetime import date
+
+    from orar.db.models import Tutor
+
+    azi = date.today()
+    return (
+        s.scalar(
+            select(Tutor.id)
+            .where(
+                Tutor.user_id == user.id, Tutor.valabil_de_la <= azi, Tutor.valabil_pana_la >= azi
+            )
+            .limit(1)
+        )
+        is not None
+    )
+
+
+def cere_tutoriate(request: Request, cont: Cont | None = Depends(cont_curent)) -> Cont:
+    """Dependinta pentru panoul tutoriatelor: responsabilul de tutoriate sau un admin."""
+    if cont is None:
+        inapoi = quote(request.url.path, safe="/")
+        raise HTTPException(status_code=303, headers={"Location": f"/login?inapoi={inapoi}"})
+    if not cont.poate("tutoriate"):
+        raise HTTPException(
+            status_code=403, detail="Pagina e doar pentru responsabilii de tutoriate."
+        )
     return cont
 
 
@@ -261,6 +331,27 @@ def cere_admin(request: Request, cont: Cont | None = Depends(cont_curent)) -> Co
     if not cont.e_admin:
         raise HTTPException(status_code=403, detail="Pagina e doar pentru administratori.")
     return cont
+
+
+def cere_permisiune(cheie: str):
+    """Dependinta pentru o zona functionala: orice cont cu permisiunea `cheie` (sau admin).
+
+    Intoarce o dependinta noua, deci se foloseste ca `Depends(cere_permisiune("editare"))`.
+    Fara cont trimite la autentificare; fara permisiune, 403."""
+    from orar.db.models import PERMISIUNI
+
+    if cheie not in dict(PERMISIUNI):
+        raise ValueError(f"permisiune necunoscuta: {cheie!r}")
+
+    def dependenta(request: Request, cont: Cont | None = Depends(cont_curent)) -> Cont:
+        if cont is None:
+            inapoi = quote(request.url.path, safe="/")
+            raise HTTPException(status_code=303, headers={"Location": f"/login?inapoi={inapoi}"})
+        if not cont.poate(cheie):
+            raise HTTPException(status_code=403, detail=f"Pagina cere permisiunea „{cheie}”.")
+        return cont
+
+    return dependenta
 
 
 # ---------------------------------------------------------------------- CSRF

@@ -12,6 +12,7 @@ dependencies = [
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
     "itsdangerous>=2.2",          # sesiuni semnate (Etapa 7)
+    "authlib>=1.6",               # autentificarea prin SSO-ul ASMI (OpenID Connect, PKCE)
     "python-dotenv>=1.0",         # configurarea locala din `.env` (cheia de sesiune, adminul)
     # db
     "sqlalchemy>=2.0",

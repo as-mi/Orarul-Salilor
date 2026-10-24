@@ -1,0 +1,43 @@
+{# Posturile (materiile) deschise in campanie. #}
+<form method="post" action="/tutoriate/campanii/{{ campanie.id }}/posturi" class="formular-strans">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <h2>Adaugă un post</h2>
+  <label><span>Materia</span><input type="text" name="materie" required placeholder="Algebră I"></label>
+  <label><span>Descriere (opțional)</span><input type="text" name="descriere" placeholder="Recapitulare pentru examen"></label>
+
+  <fieldset class="alegere">
+    <legend>Pentru cine e tutoriatul</legend>
+    {% set ales = {'specializari': [], 'ani': [], 'serii': []} %}
+    {% include "_tut_bife_public.html" %}
+  </fieldset>
+
+  <label><span>Maxim tutori în echipă (0 = limita campaniei)</span><input type="number" name="nr_max_tutori" min="0" max="3" value="0"></label>
+  <p class="actiuni-sesizare"><button type="submit" class="buton plin">Adaugă postul</button></p>
+</form>
+
+<h2>Posturi deschise</h2>
+{% if not posturi %}
+  <p class="nota">Niciun post. Adaugă materiile la care se caută tutori.</p>
+{% else %}
+  <div class="tabel-scroll">
+    <table class="tabel-sali tut-tabel">
+      <thead><tr><th>Materia</th><th>Publicul</th><th>Max tutori</th><th></th></tr></thead>
+      <tbody>
+      {% for p in posturi %}
+        <tr>
+          <td><strong>{{ p.materie }}</strong>{% if p.descriere %}<br><small>{{ p.descriere }}</small>{% endif %}</td>
+          <td>{{ p.specializari or '—' }} · {{ p.ani or '—' }} · {{ p.serii or '—' }}</td>
+          <td>{{ p.nr_max_tutori or '—' }}</td>
+          <td class="tut-actiuni">
+            <form method="post" action="/tutoriate/campanii/{{ campanie.id }}/posturi/{{ p.id }}/sterge" class="pe-linie"
+                  onsubmit="return confirm('Ștergi postul {{ p.materie }}?');">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <button type="submit" class="buton">Șterge</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}

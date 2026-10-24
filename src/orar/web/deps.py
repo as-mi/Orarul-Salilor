@@ -5,6 +5,7 @@ Traiesc separat de `app.py` ca routerele sa le poata importa fara import circula
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date
@@ -63,6 +64,19 @@ def _static_versionat(request, path: str) -> str:  # noqa: ANN001
 
 
 templates.env.globals["static_versionat"] = _static_versionat
+
+
+def _json_parse(text: str | None, implicit=None):  # noqa: ANN001
+    """Parsea o coloana JSON din sablon; `implicit` daca e gol sau stricat."""
+    if not text:
+        return implicit
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return implicit
+
+
+templates.env.filters["json_parse"] = _json_parse
 
 #: Ancorele publicate de FMI pentru semestrul II 2025-2026, ca rezerva. Sunt doua, la
 #: distanta de doua saptamani calendaristice dar una academica -- vacanta de Paste dintre

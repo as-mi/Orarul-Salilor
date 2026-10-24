@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block titlu %}{{ t.materie if t else 'Tutoriat nou' }}{% endblock %}
+
+{% block continut %}
+<section class="formular lat">
+  <nav class="firimituri"><a href="/tutoriate/panou">tutoriate</a><span>›</span><strong>{{ t.materie if t else 'tutoriat nou' }}</strong></nav>
+  <h1>{{ 'Tutoriatul' if t else 'Tutoriat nou' }}</h1>
+  {% if t %}<p class="nota">Stare: <strong>{{ {'ciorna': 'ciornă (nu apare nicăieri)', 'publicat': 'publicat', 'incheiat': 'încheiat'}[t.stare] }}</strong>
+    · creat de {{ t.creat_de }}</p>{% endif %}
+  {% if eroare %}<p class="avertisment" role="alert">{{ eroare }}</p>{% endif %}
+  {% if request.query_params.get('salvat') %}<p class="reusit" role="status">Tutoriatul a fost salvat.</p>{% endif %}
+  {% for c in conflicte %}<p class="avertisment">⚠ {{ c }}</p>{% endfor %}
+
+  <form method="post" action="/tutoriate/panou/tutoriat/{{ t.id if t else 'nou' }}" class="camp-lista" id="formular-tutoriat">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="perioada" value="{{ orar.id if orar }}">
+
+    <label>
+      <span>Materia <small>numele întreg, ca în foaia tutoriatelor</small></span>
+      <input type="text" name="materie" required maxlength="160" value="{{ v.materie }}" list="materii-tutori" placeholder="de ex. Programare orientată pe obiecte">
+      <datalist id="materii-tutori">{% for m in materii_tutori %}<option value="{{ m }}">{% endfor %}</datalist>
+    </label>
+
+    <fieldset class="alegere">
+      <legend>Când</legend>
+      <div class="pe-rand">
+        <label><span>Ziua</span>
+          <select name="zi_saptamana">{% for z in zile %}<option value="{{ z }}" {{ 'selected' if v.zi_saptamana == z }}>{{ zile_ro[z] }}</option>{% endfor %}</select></label>
+        <label><span>De la ora</span>
+          <select name="ora_inceput">{% for h in ore[:-1] %}<option value="{{ h }}" {{ 'selected' if v.ora_inceput|string == h|string }}>{{ h }}</option>{% endfor %}</select></label>
+        <label><span>Până la ora</span>
+          <select name="ora_sfarsit">{% for h in ore[1:] %}<option value="{{ h }}" {{ 'selected' if v.ora_sfarsit|string == h|string }}>{{ h }}</option>{% endfor %}</select></label>
+      </div>
+      <div class="pe-rand">
+        <label><span>Prima zi</span><input type="date" name="data_inceput" required value="{{ v.data_inceput }}"></label>
+        <label><span>Ultima zi</span><input type="date" name="data_sfarsit" required value="{{ v.data_sfarsit }}"></label>
+        <label><span>Frecvența</span>
+          <select name="frecventa">
+            {% for cod, nume in (('', 'săptămânal'), ('SI', 'săptămânile impare'), ('SP', 'săptămânile pare')) %}
+              <option value="{{ cod }}" {{ 'selected' if v.frecventa == cod }}>{{ nume }}</option>{% endfor %}
+          </select></label>
+      </div>
+      <p class="nota">Ședințele sar peste vacanțe, sesiune și zilele libere din structura anului.</p>
+    </fieldset>
+
+    <fieldset class="alegere">
+      <legend>Unde</legend>
+      <button type="button" class="buton"
+              hx-get="/tutoriate/panou/sali-libere"
+              hx-include="[name='zi_saptamana'], [name='data_inceput'], [name='data_sfarsit'], [name='frecventa'], [name='sala']:checked"
+              hx-vals='js:{ora_inceput: String(document.querySelector("[name=ora_inceput]").value).padStart(2, "0") + ":00", ora_sfarsit: String(document.querySelector("[name=ora_sfarsit]").value).padStart(2, "0") + ":00", tutoriat: "{{ t.id if t else '' }}"}'
+              hx-target="#sali-libere" hx-swap="outerHTML">Caută săli libere, săptămânal</button>
+      {% include "_tut_sali_libere.html" %}
+      <label><span>Alt loc <small>doar fără sală din listă: online, o sală din alt corp</small></span>
+        <input type="text" name="loc" maxlength="160" value="{{ v.loc }}" placeholder="de ex. online pe Teams"></label>
+      <p class="nota">Lipsește o sală? Adaug-o din <a href="/tutoriate/panou?tab=sali">Săli</a>.</p>
+    </fieldset>
+
+    <fieldset class="alegere">
+      <legend>Pentru cine</legend>
+      {% set ales = v %}
+      {% include "_tut_bife_public.html" %}
+    </fieldset>
+
+    <fieldset class="alegere">
+      <legend>Echipa</legend>
+      {% if not tutori %}
+        <p class="nota">Niciun tutor activ. Asignează tutori din <a href="/tutoriate/panou?tab=tutori">Tutori</a>.</p>
+      {% else %}
+        <div class="tut-echipa">
+          {% for id, u in tutori %}
+            <div class="tut-membru {{ 'la-materie' if id in la_materie }}">
+              <label class="bifa"><input type="checkbox" name="tutori" value="{{ id }}" {{ 'checked' if id|string in v.tutori }}>
+                <span><strong>{{ u.nume }}</strong>{% if id in la_materie %}<small>tutor la materia aceasta</small>{% endif %}</span></label>
+              <label class="tut-principal" title="Persoana de contact"><input type="radio" name="principal" value="{{ id }}" {{ 'checked' if v.principal == id|string }}> contact</label>
+            </div>
+          {% endfor %}
+        </div>
+        <p class="nota">Primii sunt cei asignați la materia scrisă sus. Avertismentele de suprapunere cu orele lor apar după salvare.</p>
+      {% endif %}
+    </fieldset>
+
+    <details class="mai-multe" open>
+      <summary>Linkuri și descriere <small>tutorii le pot schimba și singuri</small></summary>
+      <div class="pe-rand">
+        <label><span>Link WhatsApp</span><input type="text" name="link_whatsapp" inputmode="url" maxlength="300" value="{{ v.link_whatsapp }}" placeholder="https://chat.whatsapp.com/…"></label>
+        <label><span>Link Teams</span><input type="text" name="link_teams" inputmode="url" maxlength="300" value="{{ v.link_teams }}" placeholder="https://teams.microsoft.com/…"></label>
+      </div>
+      <label><span>Descriere</span><textarea name="descriere" rows="3" maxlength="2000">{{ v.descriere }}</textarea></label>
+    </details>
+
+    <div class="butoane">
+      <button type="submit" class="principal">{{ 'Salvează' if t else 'Adaugă ca ciornă' }}</button>
+      <a class="buton" href="/tutoriate/panou?tab=tutoriate">Înapoi</a>
+    </div>
+  </form>
+
+  {% if t %}
+    <div class="actiuni-sesizare">
+      {% for stare, text in (('publicat', 'Publică'), ('ciorna', 'Treci în ciornă'), ('incheiat', 'Încheie')) if stare != t.stare %}
+        <form method="post" action="/tutoriate/panou/tutoriat/{{ t.id }}/stare" class="pe-linie">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="stare" value="{{ stare }}">
+          <button type="submit" class="buton {{ 'plin' if stare == 'publicat' }}">{{ text }}</button></form>
+      {% endfor %}
+      <form method="post" action="/tutoriate/panou/tutoriat/{{ t.id }}/duplica" class="pe-linie">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="buton">Duplică pentru alt interval</button></form>
+      <form method="post" action="/tutoriate/panou/tutoriat/{{ t.id }}/sterge" class="pe-linie" onsubmit="return confirm('Ștergi tutoriatul? Dispare din orarele celor care l-au ales.')">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="buton pericol">Șterge</button></form>
+    </div>
+
+    <h2>Ședințele</h2>
+    {% set inapoi = '/tutoriate/panou/tutoriat/' ~ t.id %}
+    {% include "_tut_sedinte.html" %}
+  {% endif %}
+
+  <script src="{{ static_versionat(request, 'js/tutoriate.js') }}" defer></script>
+</section>
+{% endblock %}

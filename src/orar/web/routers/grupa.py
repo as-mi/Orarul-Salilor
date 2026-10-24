@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from orar.db.evenimente import evenimente_in_grila
 from orar.db.models import Grupa, Ora, OraArhivata, User
 from orar.db.queries import gaseste_grupa, ids_descendenti, ids_stramosi, ore_pentru_grupa
+from orar.db.tutoriate import oferite_grupei, tutoriate_in_grila
 from orar.db.versiuni import versiuni_pentru_grupa
 from orar.domain.grid import Provenienta, construieste_grila
 from orar.web.afisare import (
@@ -34,6 +35,7 @@ from orar.web.deps import (
     selectie,
     templates,
 )
+from orar.web.routers.tutoriate import tutoriate_alese_de
 
 router = APIRouter(prefix="/grupa", tags=["grupa"])
 
@@ -158,6 +160,22 @@ def afiseaza_grupa(
 
     provenienta, surse = _clasifica(ore, grupa, stramosi, descendenti)
     ctx_sapt = context_saptamana(zi, s)
+
+    # Tutoriatele: se aleg (opt-in) din dropdownul lor; cele tinute de contul care se uita
+    # apar mereu pe orarul lui. O versiune veche a orarului nu le are.
+    tutoriate = [] if arhiva else oferite_grupei(s, grupa)
+    tutoriate_alese = tutoriate_alese_de(request, cont)
+    blocuri_tutoriate = (
+        []
+        if arhiva
+        else tutoriate_in_grila(
+            s,
+            ctx_sapt["azi"],
+            grupa=grupa,
+            alese=tutoriate_alese,
+            tutor=al_meu,
+        )
+    )
     sapt = saptamana_activa(ctx_sapt)
     grila = construieste_grila(
         ore,
@@ -166,7 +184,9 @@ def afiseaza_grupa(
         saptamana=sapt,
         doar_saptamana_curenta=doar_saptamana and sapt is not None,
         # evenimentele cu data din saptamana afisata; o versiune veche a orarului nu le are
-        evenimente=[] if arhiva else evenimente_in_grila(s, ctx_sapt["azi"], grupa=grupa),
+        evenimente=[]
+        if arhiva
+        else evenimente_in_grila(s, ctx_sapt["azi"], grupa=grupa) + blocuri_tutoriate,
     )
 
     lant = []
@@ -212,6 +232,8 @@ def afiseaza_grupa(
             "toate_semigrupele": TOATE_SEMIGRUPELE,
             **context_editare(request, cont, ore, editare=editare, versiune=arhiva),
             "orarul_meu": al_meu is not None,
+            "tutoriate": tutoriate,
+            "tutoriate_alese": tutoriate_alese,
         },
     )
     if de_salvat != salvata:

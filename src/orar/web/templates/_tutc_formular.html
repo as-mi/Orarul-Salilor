@@ -1,0 +1,306 @@
+{# Constructorul de formular: intrebari in stil Google Forms, salvate ca JSON. #}
+<div class="tut-builder" id="formular-builder"
+     data-url="/tutoriate/campanii/{{ campanie.id }}/formular"
+     data-csrf="{{ csrf }}">
+  <p class="nota">Întrebările pe care le văd studenții când aplică. Disponibilitatea (grila de
+    orar) se cere mereu, separat. Alege tipul din stânga sus, scrie întrebarea și vezi în
+    previzualizare exact cum va arăta la completare.</p>
+
+  <div id="formular-meniu" class="tut-meniu"></div>
+
+  <p class="actiuni-sesizare">
+    <button type="button" class="buton plin" id="adauga-intrebare">+ Adaugă întrebare</button>
+  </p>
+
+  <div id="formular-editor" hidden></div>
+  <div id="formular-toast" class="tut-toast" role="status" hidden></div>
+</div>
+
+<script type="application/json" id="intrebari-init">{{ intrebari|tojson }}</script>
+<script type="application/json" id="formular-config">{{ {'zile': zile, 'zile_ro': zile_ro, 'ore': ore, 'etichete': tipuri_etichete}|tojson }}</script>
+
+<template id="sablon-intrebare">
+  <div class="tut-q-card">
+    <input type="hidden" data-camp="cheie">
+    <div class="tut-q-antet">
+      <select data-camp="tip" class="tut-q-tip" title="Tipul întrebării" aria-label="Tipul întrebării">
+        {% for cod, eticheta in tipuri_intrebare %}
+          <option value="{{ cod }}">{{ eticheta }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <input type="text" data-camp="text" class="tut-q-titlu" placeholder="Întrebare fără titlu" maxlength="300">
+    <div class="tut-q-preview" data-preview></div>
+    <div class="tut-q-subsol">
+      <label class="tut-obligatoriu" title="Studenții nu pot trimite aplicația fără un răspuns">
+        <input type="checkbox" data-camp="obligatoriu">
+        <span>Obligatoriu</span>
+      </label>
+      <span class="tut-q-edit-actiuni">
+        <button type="button" class="buton" id="anuleaza-intrebare">Anulează</button>
+        <button type="button" class="buton plin" id="salveaza-intrebare">Salvează întrebarea</button>
+      </span>
+    </div>
+  </div>
+</template>
+
+<script>
+(function () {
+  const builder = document.getElementById("formular-builder");
+  if (!builder) return;
+  const meniu = document.getElementById("formular-meniu");
+  const editor = document.getElementById("formular-editor");
+  const toast = document.getElementById("formular-toast");
+  const adaugaBtn = document.getElementById("adauga-intrebare");
+  const sablon = document.getElementById("sablon-intrebare");
+
+  const url = builder.dataset.url;
+  const csrf = builder.dataset.csrf;
+  const config = JSON.parse(document.getElementById("formular-config").textContent);
+  const zile = config.zile;
+  const zileRo = config.zile_ro;
+  const ore = config.ore;
+  const etichete = config.etichete;
+
+  let intrebari = [];
+  try { intrebari = JSON.parse(document.getElementById("intrebari-init").textContent) || []; }
+  catch (e) { intrebari = []; }
+
+  let editIndex = -1;
+  let editorOptiuni = [];
+  let toastTimer = null;
+
+  function arataToast(text, eroare) {
+    toast.textContent = text;
+    toast.classList.toggle("eroare", !!eroare);
+    toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.hidden = true; }, 2600);
+  }
+
+  function salveaza() {
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "HX-Request": "true" },
+      body: new URLSearchParams({ csrf: csrf, intrebari: JSON.stringify(intrebari) }).toString(),
+    })
+      .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); arataToast("Formular salvat"); })
+      .catch(() => arataToast("Nu am putut salva", true));
+  }
+
+  function cheieNoua() {
+    const existente = new Set(intrebari.map((q) => q.cheie));
+    let i = intrebari.length;
+    while (existente.has("q" + i)) i += 1;
+    return "q" + i;
+  }
+
+  function grilaPreview() {
+    const tabel = document.createElement("table");
+    tabel.className = "tut-prev-grila-tabel";
+    const cap = "<thead><tr><th></th>" + ore.map((h) => "<th>" + h + "</th>").join("") + "</tr></thead>";
+    const corp = zile.map((z) => "<tr><th>" + zileRo[z] + "</th>" + ore.map(() => "<td></td>").join("") + "</tr>").join("");
+    tabel.innerHTML = cap + "<tbody>" + corp + "</tbody>";
+    return tabel;
+  }
+
+  function randOptiune(tip, valoare, i) {
+    const rand = document.createElement("label");
+    rand.className = "tut-optiune";
+    const bula = document.createElement("input");
+    bula.type = tip === "radio" ? "radio" : "checkbox";
+    bula.disabled = true;
+    bula.tabIndex = -1;
+    const text = document.createElement("input");
+    text.type = "text";
+    text.className = "tut-optiune-text";
+    text.placeholder = "Opțiunea " + (i + 1);
+    text.value = valoare;
+    text.addEventListener("input", () => { editorOptiuni[i] = text.value; });
+    const sterge = document.createElement("button");
+    sterge.type = "button";
+    sterge.className = "tut-optiune-sterg";
+    sterge.textContent = "✕";
+    sterge.title = "Șterge opțiunea";
+    sterge.setAttribute("aria-label", "Șterge opțiunea");
+    sterge.addEventListener("click", () => { editorOptiuni.splice(i, 1); rendereazaPreview(); });
+    rand.append(bula, text, sterge);
+    return rand;
+  }
+
+  function rendereazaPreview() {
+    const tip = editor.querySelector("[data-camp=tip]").value;
+    const prev = editor.querySelector("[data-preview]");
+    prev.innerHTML = "";
+
+    if (tip === "text") {
+      const cutie = document.createElement("div");
+      cutie.className = "tut-prev tut-prev-text";
+      cutie.innerHTML = '<span class="tut-prev-et">Răspuns scurt</span><input type="text" disabled placeholder="Răspunsul tău">';
+      prev.appendChild(cutie);
+    } else if (tip === "radio" || tip === "checkbox") {
+      const lista = document.createElement("div");
+      lista.className = "tut-prev tut-prev-optiuni";
+      editorOptiuni.forEach((o, i) => lista.appendChild(randOptiune(tip, o, i)));
+      const adauga = document.createElement("button");
+      adauga.type = "button";
+      adauga.className = "tut-adauga-optiune";
+      adauga.textContent = "+ Adaugă opțiune";
+      adauga.addEventListener("click", () => {
+        editorOptiuni.push("");
+        rendereazaPreview();
+        const texte = prev.querySelectorAll(".tut-optiune-text");
+        if (texte.length) texte[texte.length - 1].focus();
+      });
+      lista.appendChild(adauga);
+      prev.appendChild(lista);
+    } else if (tip === "grila_orar") {
+      const cutie = document.createElement("div");
+      cutie.className = "tut-prev tut-prev-grila";
+      cutie.appendChild(grilaPreview());
+      const hint = document.createElement("p");
+      hint.className = "tut-prev-hint";
+      hint.textContent = "Studenții își bifează ceasurile libere pe această grilă.";
+      cutie.appendChild(hint);
+      prev.appendChild(cutie);
+    }
+  }
+
+  function cardMeniu(q, i) {
+    const card = document.createElement("div");
+    card.className = "tut-q-card";
+
+    const meta = document.createElement("div");
+    meta.className = "tut-q-meta";
+    const badge = document.createElement("span");
+    badge.className = "tut-q-badge";
+    badge.textContent = etichete[q.tip] || q.tip;
+    meta.appendChild(badge);
+    if (q.obligatoriu) {
+      const oblig = document.createElement("span");
+      oblig.className = "tut-q-badge-obligatoriu";
+      oblig.textContent = "obligatoriu";
+      meta.appendChild(oblig);
+    }
+    card.appendChild(meta);
+
+    const titlu = document.createElement("div");
+    titlu.className = "tut-q-text";
+    titlu.textContent = q.text || "Întrebare fără titlu";
+    card.appendChild(titlu);
+
+    const mini = document.createElement("div");
+    mini.className = "tut-q-prev-mini";
+    if (q.tip === "text") {
+      mini.innerHTML = '<input type="text" disabled placeholder="Răspunsul tău">';
+    } else if (q.tip === "radio" || q.tip === "checkbox") {
+      const optiuni = (q.optiuni || []).length ? q.optiuni : ["—"];
+      mini.textContent = optiuni.map((o) => (q.tip === "radio" ? "◉ " : "☐ ") + o).join("  ·  ");
+    } else {
+      mini.textContent = "Grila de orar (disponibilitatea)";
+    }
+    card.appendChild(mini);
+
+    const actiuni = document.createElement("div");
+    actiuni.className = "tut-q-actiuni";
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "buton editeaza-intrebare";
+    edit.dataset.index = i;
+    edit.textContent = "Editează";
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "buton sterge-intrebare";
+    del.dataset.index = i;
+    del.textContent = "Șterge";
+    actiuni.append(edit, del);
+    card.appendChild(actiuni);
+
+    return card;
+  }
+
+  function rendereazaMeniu() {
+    meniu.innerHTML = "";
+    if (!intrebari.length) {
+      const gol = document.createElement("p");
+      gol.className = "nota";
+      gol.textContent = "Nicio întrebare încă. Adaugă prima întrebare cu butonul de mai jos.";
+      meniu.appendChild(gol);
+    } else {
+      intrebari.forEach((q, i) => meniu.appendChild(cardMeniu(q, i)));
+    }
+  }
+
+  function deschideEditor(i) {
+    editIndex = i;
+    const q = i >= 0 ? intrebari[i] : { cheie: "", tip: "text", text: "", obligatoriu: false, optiuni: [] };
+
+    editor.innerHTML = "";
+    editor.appendChild(sablon.content.firstElementChild.cloneNode(true));
+
+    editor.querySelector("[data-camp=cheie]").value = (i >= 0 && q.cheie) ? q.cheie : cheieNoua();
+    editor.querySelector("[data-camp=tip]").value = q.tip || "text";
+    editor.querySelector("[data-camp=text]").value = q.text || "";
+    editor.querySelector("[data-camp=obligatoriu]").checked = !!q.obligatoriu;
+    editorOptiuni = Array.isArray(q.optiuni) ? q.optiuni.slice() : [];
+
+    editor.querySelector("[data-camp=tip]").addEventListener("change", () => {
+      const tip = editor.querySelector("[data-camp=tip]").value;
+      if ((tip === "radio" || tip === "checkbox") && editorOptiuni.length === 0) editorOptiuni = [""];
+      rendereazaPreview();
+    });
+    editor.querySelector("#salveaza-intrebare").addEventListener("click", salveazaIntrebarea);
+    editor.querySelector("#anuleaza-intrebare").addEventListener("click", inchideEditor);
+
+    rendereazaPreview();
+    editor.hidden = false;
+    meniu.hidden = true;
+    adaugaBtn.hidden = true;
+    editor.querySelector("[data-camp=text]").focus();
+  }
+
+  function inchideEditor() {
+    editor.hidden = true;
+    editor.innerHTML = "";
+    meniu.hidden = false;
+    adaugaBtn.hidden = false;
+    editIndex = -1;
+  }
+
+  function salveazaIntrebarea() {
+    const tip = editor.querySelector("[data-camp=tip]").value;
+    const cheie = editor.querySelector("[data-camp=cheie]").value || cheieNoua();
+    const text = editor.querySelector("[data-camp=text]").value.trim();
+    const obligatoriu = editor.querySelector("[data-camp=obligatoriu]").checked;
+    const optiuni = (tip === "radio" || tip === "checkbox")
+      ? editorOptiuni.map((o) => o.trim()).filter(Boolean)
+      : [];
+    const intrebare = { cheie: cheie, tip: tip, text: text, obligatoriu: obligatoriu, optiuni: optiuni };
+
+    if (editIndex >= 0) intrebari[editIndex] = intrebare;
+    else intrebari.push(intrebare);
+
+    rendereazaMeniu();
+    salveaza();
+    inchideEditor();
+  }
+
+  meniu.addEventListener("click", (e) => {
+    const edit = e.target.closest(".editeaza-intrebare");
+    const del = e.target.closest(".sterge-intrebare");
+    if (edit) {
+      deschideEditor(parseInt(edit.dataset.index, 10));
+    } else if (del) {
+      const i = parseInt(del.dataset.index, 10);
+      if (window.confirm("Ștergi această întrebare?")) {
+        intrebari.splice(i, 1);
+        rendereazaMeniu();
+        salveaza();
+      }
+    }
+  });
+
+  adaugaBtn.addEventListener("click", () => deschideEditor(-1));
+  rendereazaMeniu();
+})();
+</script>

@@ -20,7 +20,7 @@ from orar.db.orare import orare_vii
 from orar.db.statistici import METRICI, Filtre, GrupaTinta, calculeaza, grupe_de_baza
 from orar.domain.grid import ORA_MAX, ORA_MIN, ZILE
 from orar.domain.hierarchy import DENUMIRI_SPECIALIZARE
-from orar.web.auth import Cont, cere_admin, verifica_csrf
+from orar.web.auth import Cont, cere_permisiune, verifica_csrf
 from orar.web.deps import context_saptamana, get_db, templates
 
 router = APIRouter(prefix="/admin/statistici", tags=["statistici"])
@@ -87,7 +87,7 @@ def statistici(
     prag_plin: int = Query(100),
     celula: str = Query("", description="celula deschisa: `Luni-10`"),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("statistici")),
 ) -> HTMLResponse:
     vii = orare_vii(s)
     orar = next((o.perioada for o in vii if o.perioada.id == perioada), None) or (
@@ -158,7 +158,7 @@ def salveaza_filtrul(
     parametri: str = Form(""),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    admin: Cont = Depends(cere_admin),
+    admin: Cont = Depends(cere_permisiune("statistici")),
 ) -> RedirectResponse:
     """Salveaza configurarea curenta de filtre, cu nume. Acelasi nume o inlocuieste."""
     inapoi = f"/admin/statistici?{parametri}" if parametri else "/admin/statistici"
@@ -183,7 +183,7 @@ def sterge_filtrul(
     inapoi: str = Form(""),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("statistici")),
 ) -> RedirectResponse:
     tinta = f"/admin/statistici?{urlencode(parse_qsl(inapoi))}" if inapoi else "/admin/statistici"
     if verifica_csrf(request, csrf):

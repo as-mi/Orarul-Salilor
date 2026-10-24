@@ -5,7 +5,13 @@
 <section class="formular">
   <h1>Contul meu</h1>
   <p class="nota">{{ user.nume }} · {{ user.email }}
-    {%- if user.rol != 'student' %} · <span class="pastila neutra">{{ user.rol }}</span>{% endif %}</p>
+    {%- if cont.e_admin %} · <span class="pastila">admin (CDDD)</span>
+    {%- elif user.rol != 'student' %} · <span class="pastila neutra">{{ user.rol }}</span>{% endif %}
+    {%- if cont.poate('tutoriate') and not cont.e_admin %} · <span class="pastila neutra">responsabil tutoriate</span>{% endif %}</p>
+  {% if profil_asmi %}
+    <p class="nota">Numele, emailul și parola le schimbi în <a href="{{ profil_asmi }}" rel="noopener">profilul tău ASMI</a>;
+      aici apar la următoarea intrare.</p>
+  {% endif %}
 
   {% if request.query_params.get('grupa_lipsa') %}
     <p class="avertisment">Grupa ta nu mai există în orarul pe care îl urmezi. Alege-o din nou.</p>
@@ -32,9 +38,16 @@
       <span>Grupa <small>din {{ orar_urmat.an_univ if orar_urmat else 'orar' }}; orarul ei se deschide din „orarul meu”</small></span>
       <select name="grupa_id">
         <option value="">- niciuna -</option>
+        {% if potrivite %}
+          <optgroup label="Potrivite cu profilul tău ASMI">
+            {% for g in potrivite %}<option value="{{ g.id }}">{{ g.nume }}</option>{% endfor %}
+          </optgroup>
+          <optgroup label="Toate grupele">
+        {% endif %}
         {% for g in grupe %}
           <option value="{{ g.id }}" {% if user.grupa_id == g.id %}selected{% endif %}>{{ g.nume }}</option>
         {% endfor %}
+        {% if potrivite %}</optgroup>{% endif %}
       </select>
     </label>
     <button type="submit" class="principal">Salvează</button>
@@ -73,6 +86,27 @@
       </label>
       <button type="submit" class="buton">Cere rolul de profesor</button>
     </form>
+  {% endif %}
+
+  {% if asignari or tutoriatele_mele %}
+    <h2 id="tutor" class="titlu-sectiune">Sunt tutor</h2>
+    {% if asignari %}
+      <p class="nota">Ești tutor la:
+        {% for a in asignari %}<strong>{{ a.materie }}</strong> (până la {{ a.valabil_pana_la.strftime('%d.%m.%Y') }}){{ ', ' if not loop.last else '.' }}{% endfor %}
+        Asignările le face responsabilul de tutoriate.</p>
+    {% endif %}
+    {% if tutoriatele_mele %}
+      <ul class="tut-ale-mele">
+        {% for t in tutoriatele_mele %}
+          <li><a href="/tutoriate/al-meu/{{ t.id }}"><strong>{{ t.materie }}</strong></a>
+            <small>{{ {'Marti': 'Marți'}.get(t.zi_saptamana, t.zi_saptamana) }} {{ t.interval }} · {{ t.unde }}{{ ' · ciornă' if t.stare == 'ciorna' }}</small></li>
+        {% endfor %}
+      </ul>
+      <p class="nota">Pe fiecare îți poți schimba linkurile și descrierea și poți anula o ședință. Tutoriatele pe care le ții
+        apar mereu pe <a href="/orarul-meu">orarul tău</a>, marcate „ții tu”.</p>
+    {% else %}
+      <p class="nota">Încă nu ești în echipa niciunui tutoriat.</p>
+    {% endif %}
   {% endif %}
 </section>
 {% endblock %}

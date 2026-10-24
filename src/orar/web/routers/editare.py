@@ -19,7 +19,7 @@ from orar.db import corectii
 from orar.db.models import Corectie, Grupa, Materie, Ora, Perioada, Sala, Sesizare
 from orar.db.orare import perioada_implicita
 from orar.db.queries import gaseste_grupa, profesori_de_ales
-from orar.web.auth import Cont, cere_admin, verifica_csrf
+from orar.web.auth import Cont, cere_permisiune, verifica_csrf
 from orar.web.deps import context_saptamana, get_db, templates
 from orar.web.routers.sesizari import marcheaza
 
@@ -278,7 +278,7 @@ def formular_adaugare(
     dupa: int | None = Query(None, description="activitatea dupa care se completeaza formularul"),
     inapoi: str = Query("/admin"),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("editare")),
 ) -> HTMLResponse:
     valori = {**dict.fromkeys(CAMPURI, ""), "grupa": grupa, "sala": sala, "ora_sfarsit": "10"}
     if dupa is not None:
@@ -298,7 +298,7 @@ def adauga(
     perioada: str = Form(""),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    admin: Cont = Depends(cere_admin),
+    admin: Cont = Depends(cere_permisiune("editare")),
 ) -> HTMLResponse | RedirectResponse:
     if not verifica_csrf(request, csrf):
         return _pagina(
@@ -333,7 +333,7 @@ def formular_modificare(
     inapoi: str = Query("/admin"),
     sesizare: int | None = Query(None, description="sesizarea de la care s-a ajuns aici"),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("editare")),
 ) -> HTMLResponse:
     o = _activitate(s, ora_id)
     return _pagina(
@@ -356,7 +356,7 @@ def modifica(
     rezolva: str = Form(""),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    admin: Cont = Depends(cere_admin),
+    admin: Cont = Depends(cere_permisiune("editare")),
 ) -> HTMLResponse | RedirectResponse:
     o = _activitate(s, ora_id)
     sesizare = s.get(Sesizare, int(sesizare_id)) if sesizare_id.isdigit() else None
@@ -396,7 +396,7 @@ def rezolva_dosarul(
     inapoi: str = Form("/admin/review"),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    admin: Cont = Depends(cere_admin),
+    admin: Cont = Depends(cere_permisiune("editare")),
 ) -> RedirectResponse:
     """Confirma impreuna mai multe citiri ale aceleiasi activitati (vezi `db/coada.py`):
     aceleasi materie, profesori, sala si saptamani pe fiecare, fiecare pe formatiunea ei.
@@ -441,7 +441,7 @@ def rezolva_din_coada(
     inapoi: str = Form("/admin/review"),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    admin: Cont = Depends(cere_admin),
+    admin: Cont = Depends(cere_permisiune("editare")),
 ) -> RedirectResponse:
     """Rezolva o activitate direct din coada de verificare: ce e scris in cele trei campuri
     se salveaza (schimbat sau nu), iar activitatea iese din coada."""
@@ -475,7 +475,7 @@ def rezolva_din_coada(
 
 @router.get("/corectii", response_class=HTMLResponse)
 def lista_corectii(
-    request: Request, s: Session = Depends(get_db), _admin: Cont = Depends(cere_admin)
+    request: Request, s: Session = Depends(get_db), _admin: Cont = Depends(cere_permisiune("editare"))
 ) -> HTMLResponse:
     lista = list(s.scalars(select(Corectie).order_by(Corectie.aplicata, Corectie.id.desc())))
     # activitatea fiecarei corectii aplicate, ca sa se poata deschide de aici
@@ -507,7 +507,7 @@ def anuleaza(
     inapoi: str = Form("/admin/corectii"),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("editare")),
 ) -> RedirectResponse:
     inapoi = _inapoi_sigur(inapoi, "/admin/corectii")
     if not verifica_csrf(request, csrf):
