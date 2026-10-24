@@ -1,0 +1,58 @@
+{# Planificarea: ruleaza schedulerul per echipa si confirma sesiunile propuse. #}
+<h2>Propune sesiuni</h2>
+{% if not echipe_plan %}
+  <p class="nota">Nicio echipă formată. Formează echipe la tabul „Echipe”, apoi propune sesiuni aici.</p>
+{% else %}
+  {% for e in echipe_plan %}
+    <div class="tut-echipa-plan">
+      <p class="actiuni-sesizare">
+        <strong>{{ e.post.materie }}</strong>
+        <span class="nota">— {{ e.membri|map(attribute='user')|map(attribute='nume')|join(', ') }}</span>
+        <button class="buton" hx-get="/tutoriate/campanii/{{ campanie.id }}/propuneri?echipa_id={{ e.id }}"
+                hx-target="#propuneri-{{ e.id }}" hx-swap="innerHTML">Calculează propuneri</button>
+      </p>
+      <div id="propuneri-{{ e.id }}"></div>
+    </div>
+  {% endfor %}
+{% endif %}
+
+<h2>Sesiunile propuse</h2>
+{% if not sesiuni %}
+  <p class="nota">Nicio sesiune propusă încă.</p>
+{% else %}
+  <div class="tabel-scroll">
+    <table class="tabel-sali tut-tabel">
+      <thead><tr><th>Materia</th><th>Când</th><th>Unde</th><th>Echipa</th><th>Stare</th><th></th></tr></thead>
+      <tbody>
+      {% for s in sesiuni %}
+        <tr class="tut-{{ s.stare }}">
+          <td><strong>{{ s.post.materie }}</strong></td>
+          <td>{{ zile_ro[s.zi_saptamana] }} {{ s.ora_inceput.strftime('%H:%M') }}–{{ s.ora_sfarsit.strftime('%H:%M') }}</td>
+          <td>{{ s.sala.nume if s.sala else '—' }}</td>
+          <td>{{ s.echipa.membri|map(attribute='user')|map(attribute='nume')|join(', ') }}</td>
+          <td><span class="pastila {{ 'neutra' if s.stare != 'confirmata' }}">{{ s.stare }}</span>
+            {% if s.acoperire is not none %}<br><small>acoperire {{ s.acoperire }}%</small>{% endif %}</td>
+          <td class="tut-actiuni">
+            {% if s.stare == 'propusa' %}
+              <form method="post" action="/tutoriate/campanii/{{ campanie.id }}/sesiuni/{{ s.id }}/confirma" class="pe-linie">
+                <input type="hidden" name="csrf" value="{{ csrf }}">
+                <select name="sala_id" aria-label="Sala">
+                  <option value="0">fără sală</option>
+                  {% for x in sali %}
+                    <option value="{{ x.id }}" {{ 'selected' if s.sala_id == x.id }}>{{ x.nume }}</option>
+                  {% endfor %}
+                </select>
+                <button type="submit" class="buton plin">Confirmă</button>
+              </form>
+              <form method="post" action="/tutoriate/campanii/{{ campanie.id }}/sesiuni/{{ s.id }}/respinge" class="pe-linie">
+                <input type="hidden" name="csrf" value="{{ csrf }}">
+                <button type="submit" class="buton">Respinge</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import date
 
 import httpx
 from fastapi import APIRouter, Depends, Form, Query, Request
@@ -27,9 +28,10 @@ from orar.db.conturi import (
     orarul_contului,
     reseteaza_grupele_daca_e_cazul,
 )
-from orar.db.models import Grupa, SsoSesiune, User
+from orar.db.models import Grupa, SsoSesiune, Tutor, User
 from orar.db.orare import orare_vii, perioada_implicita
 from orar.db.queries import gaseste_profesor, profesori_de_ales
+from orar.db.tutoriate import tutoriatele_tutorului
 from orar.web import sso
 from orar.web.auth import (
     Cont,
@@ -299,6 +301,14 @@ def formular_cont(
         orare=orare_vii(s),
         orar_urmat=orarul_contului(s, cont.user),
         profesori=profesori_de_ales(s),
+        asignari=list(
+            s.scalars(
+                select(Tutor)
+                .where(Tutor.user_id == cont.user.id, Tutor.valabil_pana_la >= date.today())
+                .order_by(Tutor.valabil_pana_la)
+            )
+        ),
+        tutoriatele_mele=tutoriatele_tutorului(s, cont.user),
     )
 
 

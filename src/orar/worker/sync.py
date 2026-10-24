@@ -512,7 +512,7 @@ def curata_orfanii(s: Session) -> dict[str, int]:
     Cele folosite doar de versiunile anterioare raman: fara ele, orarul vechi ar pierde
     profesorul sau sala unei activitati.
     """
-    from orar.db.models import Eveniment, Materie, OraArhivata, Profesor, Sala
+    from orar.db.models import Eveniment, Materie, OraArhivata, Profesor, Sala, Tutoriat
 
     sterse: dict[str, int] = {}
     for model, camp, camp_arhiva in (
@@ -527,10 +527,13 @@ def curata_orfanii(s: Session) -> dict[str, int]:
         )
         conditii = [model.id.not_in(folosite)]
         if model is Sala:
-            # o sala rezervata pentru un eveniment ramane, chiar fara ore in orar
-            conditii.append(
-                Sala.id.not_in(select(Eveniment.sala_id).where(Eveniment.sala_id.is_not(None)))
-            )
+            # o sala rezervata pentru un eveniment sau un tutoriat ramane, chiar fara ore in
+            # orar, ca si salile adaugate anume pentru tutoriate
+            conditii += [
+                Sala.id.not_in(select(Eveniment.sala_id).where(Eveniment.sala_id.is_not(None))),
+                Sala.id.not_in(select(Tutoriat.sala_id).where(Tutoriat.sala_id.is_not(None))),
+                Sala.doar_tutoriate.is_(False),
+            ]
         if model is Profesor:
             # cei din orarul profesorilor raman: sunt lista din care se alege la editare
             conditii.append(Profesor.din_orar.is_(False))

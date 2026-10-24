@@ -1,0 +1,55 @@
+{# Asignarea tutorilor: pe o materie, pe 6 luni, cumulabil. #}
+<form method="post" action="/tutoriate/panou/tutori" class="camp-lista tut-formular" id="formular-tutoriat">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <h2>Asignează un tutor</h2>
+  <div class="pe-rand">
+    <label><span>Contul</span>
+      <input type="text" name="cine" list="conturi" required placeholder="alege un cont sau scrie un email" autocomplete="off">
+      <datalist id="conturi">{% for u in utilizatori %}<option value="{{ u.id }}">{{ u.nume }}{{ ' · ' ~ u.email if u.email }}</option>{% endfor %}</datalist>
+    </label>
+    <label><span>Materia</span><input type="text" name="materie" required maxlength="160" placeholder="de ex. Programare orientată pe obiecte"></label>
+  </div>
+  <div class="pe-rand">
+    <label><span>De la</span><input type="date" name="de_la" value="{{ azi.isoformat() }}"></label>
+    <label><span>Până la <small>implicit 6 luni</small></span><input type="date" name="pana_la" value="{{ pana_la_implicit.isoformat() }}"></label>
+  </div>
+  <details class="mai-multe">
+    <summary>Pentru ce public ține tutoriatul…</summary>
+    {% set ales = {'specializari': [], 'ani': [], 'serii': []} %}
+    {% set serii = [] %}
+    {% include "_tut_bife_public.html" %}
+  </details>
+  <p class="nota">Un email fără cont devine invitație: asignarea trece pe cont când cineva se înregistrează cu el.
+    Un tutor poate avea mai multe materii; asignările se cumulează.</p>
+  <div class="butoane"><button type="submit" class="principal">Asignează</button></div>
+</form>
+
+{% macro rand(t, actiuni=True) %}
+  <tr class="{{ 'tut-expira' if t.id in expira_curand }}">
+    <td>{% if t.user %}<strong>{{ t.user.nume }}</strong>{% if t.user.email %}<br><small>{{ t.user.email }}</small>{% endif %}
+        {% else %}<strong>{{ t.email }}</strong><br><small>invitație: fără cont încă</small>{% endif %}</td>
+    <td>{{ t.materie }}</td>
+    <td>{{ t.valabil_de_la.strftime('%d.%m.%Y') }}-{{ t.valabil_pana_la.strftime('%d.%m.%Y') }}
+      {% if t.id in expira_curand %}<br><small class="avertisment-mic">expiră curând</small>{% endif %}</td>
+    <td class="tut-actiuni">
+      <form method="post" action="/tutoriate/panou/tutori/{{ t.id }}/prelungeste" class="pe-linie">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="buton">+6 luni</button></form>
+      {% if actiuni %}
+      <form method="post" action="/tutoriate/panou/tutori/{{ t.id }}/retrage" class="pe-linie" onsubmit="return confirm('Retragi asignarea?')">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="buton pericol">Retrage</button></form>
+      {% endif %}
+    </td>
+  </tr>
+{% endmacro %}
+
+{% for titlu, lista, actiuni in (('Active', active, True), ('Încep mai târziu', viitoare, True), ('Expirate', expirate, False)) if lista %}
+  <h2>{{ titlu }} <small>{{ lista|length }}</small></h2>
+  <div class="tabel-scroll">
+    <table class="tabel-sali tut-tabel">
+      <thead><tr><th>Tutor</th><th>Materia</th><th>Valabil</th><th></th></tr></thead>
+      <tbody>{% for t in lista %}{{ rand(t, actiuni) }}{% endfor %}</tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="nota">Niciun tutor asignat încă.</p>
+{% endfor %}

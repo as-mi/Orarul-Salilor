@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from orar.db.evenimente import evenimente_in_grila
 from orar.db.models import Ora, Sala
 from orar.db.queries import gaseste_sala, ore_pentru_sala
+from orar.db.tutoriate import tutoriate_in_grila
 from orar.db.versiuni import versiuni_generale, versiuni_pentru_sala
 from orar.domain.grid import ORA_MAX, ORA_MIN, ZILE, construieste_grila
 from orar.domain.weeks import parse_interval_saptamani
@@ -173,7 +174,11 @@ def afiseaza_sala(
         saptamana=sapt,
         doar_saptamana_curenta=doar_saptamana and sapt is not None,
         # rezervarile cu data din saptamana afisata
-        evenimente=[] if arhiva else evenimente_in_grila(s, ctx_sapt["azi"], sala=sala),
+        # evenimentele si tutoriatele din saptamana afisata ocupa si ele sala
+        evenimente=[]
+        if arhiva
+        else evenimente_in_grila(s, ctx_sapt["azi"], sala=sala)
+        + tutoriate_in_grila(s, ctx_sapt["azi"], sala=sala),
     )
     pe_zi, total_ocupate = _ocupare(ore)
 

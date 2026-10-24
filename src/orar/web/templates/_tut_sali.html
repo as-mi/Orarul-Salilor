@@ -1,0 +1,24 @@
+{# Salile din afara orarului FMI, folosite la tutoriate ("sala 220", "L-321"). #}
+<form method="post" action="/tutoriate/panou/sali" class="camp-lista tut-formular">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <h2>Adaugă o sală</h2>
+  <div class="pe-rand">
+    <label><span>Numele</span><input type="text" name="nume" required maxlength="80" placeholder="de ex. sala 220, L-321"></label>
+    <label><span>Locuri</span><input type="number" name="locuri" min="1" max="500" inputmode="numeric"></label>
+  </div>
+  <p class="nota">Numele se scrie ca la orar, deci „L-321” și „L.321” sunt aceeași sală. O sală care e deja în orar nu se dublează.</p>
+  <div class="butoane"><button type="submit" class="principal">Adaugă</button></div>
+</form>
+
+<h2>Săli adăugate pentru tutoriate <small>{{ sali_tutoriate|length }}</small></h2>
+{% if sali_tutoriate %}
+  <ul class="tut-sali">
+    {% for x in sali_tutoriate %}
+      <li><a href="/sala/{{ x.slug }}">{{ x.nume }}</a> <small>{{ (x.nr_locuri ~ ' locuri') if x.nr_locuri else 'locuri necunoscute' }}</small>
+        <form method="post" action="/tutoriate/panou/sali/{{ x.id }}/sterge" class="pe-linie">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="buton pericol" title="Scoate sala">×</button></form></li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="nota">Niciuna. Sălile din orar ({{ sali_orar|length }}) se pot folosi oricând.</p>
+{% endif %}

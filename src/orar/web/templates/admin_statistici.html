@@ -3,7 +3,7 @@
 
 {% block continut %}
 <section class="antet">
-  <nav class="firimituri"><a href="/admin">administrare</a><span>›</span><strong>statistici</strong></nav>
+  <nav class="firimituri">{% if cont and cont.e_admin %}<a href="/admin">administrare</a>{% else %}<a href="/tutoriate/panou">tutoriate</a>{% endif %}<span>›</span><strong>statistici</strong></nav>
   <h1>Orarul în cifre</h1>
   <p class="nota">Câți oameni au ore în fiecare interval și cât de pline sunt sălile. Alege publicul și
     filtrele; configurările pe care le folosești des le poți salva cu nume.</p>

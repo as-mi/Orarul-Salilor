@@ -1,0 +1,54 @@
+{# Planificarea: pentru un public, intervalele in care cei mai multi sunt liberi si exista o
+   sala libera la toate sedintele. Un click duce in formularul de tutoriat, completat. #}
+<form method="get" class="camp-lista tut-formular" id="formular-tutoriat">
+  <input type="hidden" name="tab" value="planificare">
+  <input type="hidden" name="perioada" value="{{ orar.id }}">
+  <input type="hidden" name="cauta" value="1">
+  <fieldset class="alegere">
+    <legend>Pentru cine</legend>
+    {% include "_tut_bife_public.html" %}
+  </fieldset>
+  <fieldset class="alegere">
+    <legend>Cât și când</legend>
+    <div class="pe-rand">
+      <label><span>Durata</span>
+        <select name="durata">{% for h in (1, 2, 3) %}<option value="{{ h }}" {{ 'selected' if durata == h }}>{{ h }} {{ 'oră' if h == 1 else 'ore' }}</option>{% endfor %}</select></label>
+      <label><span>De la</span><input type="date" name="de_la" value="{{ de_la.isoformat() }}"></label>
+      <label><span>Până la</span><input type="date" name="pana_la" value="{{ pana_la.isoformat() }}"></label>
+    </div>
+    <p class="nota">Implicit: de luni viitoare până la sfârșitul activității didactice a semestrului.
+      Sălile se verifică la fiecare ședință, cu orarul, evenimentele și celelalte tutoriate.</p>
+  </fieldset>
+  <div class="butoane"><button type="submit" class="principal">Caută intervale</button></div>
+</form>
+
+{% if propuse is defined %}
+  <h2>Intervale propuse</h2>
+  {% if not populatie %}
+    <p class="avertisment">Publicul ales nu are nicio grupă în orarul acestui semestru.</p>
+  {% elif not propuse %}
+    <p class="avertisment">Niciun interval cu o sală liberă la toate ședințele. Încearcă o perioadă mai scurtă sau altă durată.</p>
+  {% else %}
+    <p class="nota">Publicul are aproximativ <strong>{{ populatie }}</strong> de studenți. Procentul e cât din ei sunt liberi
+      în cea mai aglomerată oră a intervalului, în cea mai aglomerată săptămână.</p>
+    <ol class="tut-propuse">
+      {% for p in propuse %}
+        <li>
+          <div class="tut-propus-cap">
+            <strong>{{ zile_ro[p.zi] }} {{ p.inceput }}-{{ p.sfarsit }}</strong>
+            <span class="tut-procent" style="--p: {{ p.liberi }}%">{{ p.liberi }}% liberi</span>
+            <small>{{ p.persoane_libere }} studenți</small>
+          </div>
+          <div class="tut-propus-sali">
+            {% for x in p.sali %}
+              <a class="buton" href="/tutoriate/panou/tutoriat/nou?perioada={{ orar.id }}&zi={{ p.zi }}&ora={{ p.inceput }}&durata={{ durata }}&sala={{ x.sala.slug }}&de_la={{ de_la.isoformat() }}&pana_la={{ pana_la.isoformat() }}{% for c in ales.specializari %}&specializari={{ c }}{% endfor %}{% for c in ales.ani %}&ani={{ c }}{% endfor %}{% for c in ales.serii %}&serii={{ c }}{% endfor %}"
+                 title="Tutoriat nou aici">+ {{ x.sala.nume }}{% if x.sala.nr_locuri %} <small>{{ x.sala.nr_locuri }} locuri</small>{% endif %}</a>
+            {% endfor %}
+          </div>
+        </li>
+      {% endfor %}
+    </ol>
+  {% endif %}
+  <p class="nota">Pentru harta completă a disponibilității, pe ore și săptămâni, vezi
+    <a href="/admin/statistici">Orarul în cifre</a>.</p>
+{% endif %}

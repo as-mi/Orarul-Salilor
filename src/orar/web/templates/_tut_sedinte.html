@@ -1,0 +1,27 @@
+{# Lista sedintelor unui tutoriat, cu anularea / refacerea fiecareia.
+   Asteapta `t`, `sedinte`, `anulate` (data -> TutoriatAnulare) si `inapoi`. #}
+{% if not sedinte %}
+  <p class="nota">Nicio ședință în perioada aleasă (poate cade toată în vacanță).</p>
+{% else %}
+  <ul class="tut-sedinte">
+    {% for d in sedinte %}
+      {% set a = anulate.get(d) %}
+      <li class="{{ 'anulata' if a }}">
+        <time datetime="{{ d.isoformat() }}">{{ d.strftime('%d.%m.%Y') }}</time>
+        {% if a %}<span class="pastila neutra">anulată</span>{% if a.motiv %} <small>{{ a.motiv }}</small>{% endif %}{% endif %}
+        <form method="post" action="/tutoriate/{{ t.id }}/anulare" class="pe-linie">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <input type="hidden" name="data" value="{{ d.isoformat() }}">
+          <input type="hidden" name="inapoi" value="{{ inapoi }}">
+          {% if a %}
+            <input type="hidden" name="reface" value="1">
+            <button type="submit" class="buton">Reface</button>
+          {% else %}
+            <input type="text" name="motiv" maxlength="200" placeholder="motivul (opțional)" aria-label="Motivul anulării">
+            <button type="submit" class="buton pericol">Anulează</button>
+          {% endif %}
+        </form>
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}

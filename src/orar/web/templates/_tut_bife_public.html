@@ -1,0 +1,32 @@
+{# Bifele pentru publicul unui tutoriat: specializari, ani, serii, fiecare cu "toate".
+   Asteapta `specializari`, `ani`, `serii` (optiunile) si `ales` (dict cu listele bifate). #}
+<div class="bife-grup tut-bife">
+  <span class="bife-titlu">Specializări</span>
+  <div class="bife-rand">
+    <label class="bifa toate"><input type="checkbox" data-toate><span><strong>toate</strong></span></label>
+    {% for cod, nume in specializari %}
+      <label class="bifa"><input type="checkbox" name="specializari" value="{{ cod }}" {{ 'checked' if cod in ales.specializari }}><span>{{ nume }}</span></label>
+    {% endfor %}
+  </div>
+</div>
+<div class="bife-grup tut-bife">
+  <span class="bife-titlu">Ani</span>
+  <div class="bife-rand">
+    <label class="bifa toate"><input type="checkbox" data-toate><span><strong>toți</strong></span></label>
+    {% for cheie, nume in ani %}
+      <label class="bifa"><input type="checkbox" name="ani" value="{{ cheie }}" {{ 'checked' if cheie in ales.ani }}><span>{{ nume }}</span></label>
+    {% endfor %}
+  </div>
+</div>
+{% if serii %}
+<details class="bife-grup tut-bife" {{ 'open' if ales.serii }}>
+  <summary class="bife-titlu">Serii <small>doar dacă tutoriatul e pentru anumite serii</small></summary>
+  <div class="bife-rand">
+    <label class="bifa toate"><input type="checkbox" data-toate><span><strong>toate</strong></span></label>
+    {% for slug, nume in serii %}
+      <label class="bifa"><input type="checkbox" name="serii" value="{{ slug }}" {{ 'checked' if slug in ales.serii }}><span>{{ nume }}</span></label>
+    {% endfor %}
+  </div>
+</details>
+{% endif %}
+<p class="nota">Ce lași nebifat nu restrânge: fără nimic bifat, tutoriatul e pentru toți.</p>

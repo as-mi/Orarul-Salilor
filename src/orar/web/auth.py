@@ -159,6 +159,8 @@ class Cont:
     permisiuni: frozenset[str] = frozenset()
     #: Oficiul din SSO, daca e unul: secretar / administrator / decanat.
     oficii: frozenset[str] = frozenset()
+    #: Are o asignare de tutor valabila azi.
+    e_tutor: bool = False
 
     @property
     def e_admin(self) -> bool:
@@ -262,6 +264,7 @@ def cont_curent(request: Request, s: Session = Depends(get_db)) -> Cont | None:
                 user=user,
                 permisiuni=permisiuni | _permisiuni_acordate(s, user),
                 oficii=sso.oficii(roluri),
+                e_tutor=_e_tutor(s, user),
             )
 
     if cont is None and (
@@ -285,6 +288,38 @@ def _permisiuni_acordate(s: Session, user: User) -> frozenset[str]:
     from orar.db.models import Permisiune
 
     return frozenset(s.scalars(select(Permisiune.cheie).where(Permisiune.user_id == user.id)))
+
+
+def _e_tutor(s: Session, user: User) -> bool:
+    """Are azi o asignare de tutor -- citit la fiecare cerere, ca o asignare facuta de
+    responsabil sa se vada imediat."""
+    from datetime import date
+
+    from orar.db.models import Tutor
+
+    azi = date.today()
+    return (
+        s.scalar(
+            select(Tutor.id)
+            .where(
+                Tutor.user_id == user.id, Tutor.valabil_de_la <= azi, Tutor.valabil_pana_la >= azi
+            )
+            .limit(1)
+        )
+        is not None
+    )
+
+
+def cere_tutoriate(request: Request, cont: Cont | None = Depends(cont_curent)) -> Cont:
+    """Dependinta pentru panoul tutoriatelor: responsabilul de tutoriate sau un admin."""
+    if cont is None:
+        inapoi = quote(request.url.path, safe="/")
+        raise HTTPException(status_code=303, headers={"Location": f"/login?inapoi={inapoi}"})
+    if not cont.poate("tutoriate"):
+        raise HTTPException(
+            status_code=403, detail="Pagina e doar pentru responsabilii de tutoriate."
+        )
+    return cont
 
 
 def cere_admin(request: Request, cont: Cont | None = Depends(cont_curent)) -> Cont:

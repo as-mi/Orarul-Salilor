@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block titlu %}Tutoriate{% endblock %}
+
+{% block continut %}
+<section class="antet tut-public">
+  <h1>Tutoriate</h1>
+  <p class="nota">Studenți din anii mai mari țin săptămânal ședințe de pregătire la materiile grele. Bifează tutoriatele
+    care te interesează și apasă „Salvează”: apar în orarul grupei tale, lângă opționale.</p>
+  {% if cont and cont.poate('tutoriate') %}<p><a class="buton" href="/tutoriate/panou">Panoul tutoriatelor</a></p>{% endif %}
+
+  {% if not grupate %}
+    <p class="nota">Nu e publicat niciun tutoriat acum. Revino la începutul semestrului.</p>
+  {% else %}
+  <form method="post" action="/tutoriate/alegere">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="inapoi" value="/tutoriate">
+    {% for public, lista in grupate.items() %}
+      <h2>{{ public }}</h2>
+      <div class="tut-carduri">
+        {% for t in lista %}
+          <article class="tut-card {{ 'ales' if t.id in alese }}" id="tut-{{ t.id }}">
+            <input type="hidden" name="oferite" value="{{ t.id }}">
+            <header>
+              <label class="bifa"><input type="checkbox" name="alese" value="{{ t.id }}" {{ 'checked' if t.id in alese }}>
+                <span><strong>{{ t.materie }}</strong></span></label>
+            </header>
+            <p><strong>{{ zile_ro[t.zi_saptamana] }} {{ t.interval }}</strong>{% if t.frecventa %} · săptămânile {{ 'impare' if t.frecventa == 'SI' else 'pare' }}{% endif %}
+              · {% if t.sala %}<a href="/sala/{{ t.sala.slug }}">{{ t.sala.nume }}</a>{% else %}{{ t.unde }}{% endif %}</p>
+            {% if t.echipa %}<p class="nota">cu {% for m in t.echipa %}{{ m.user.nume }}{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+            {% if t.descriere %}<p class="tut-descriere">{{ t.descriere }}</p>{% endif %}
+            {% if t.link_whatsapp or t.link_teams %}
+              <p class="tut-linkuri">
+                {% if t.link_whatsapp %}<a href="{{ t.link_whatsapp }}" rel="noopener" target="_blank">WhatsApp</a>{% endif %}
+                {% if t.link_teams %}<a href="{{ t.link_teams }}" rel="noopener" target="_blank">Teams</a>{% endif %}
+              </p>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    {% endfor %}
+    <div class="butoane tut-salveaza"><button type="submit" class="principal">Salvează în orarul meu</button></div>
+    <p class="nota">{% if cont %}Alegerea se ține în contul tău.{% else %}Fără cont, alegerea se ține în browserul acesta.{% endif %}</p>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

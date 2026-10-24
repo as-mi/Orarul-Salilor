@@ -47,6 +47,7 @@ REIMPROSPATARE = timedelta(minutes=5)
 #: Keycloak a catalogului `PERMISIUNI`: o functionalitate noua inseamna o intrare aici si
 #: rolul adaugat in `../SSO-ASMI/scripts/configure-orarul.sh`.
 ROLURI_CLIENT = {
+    "responsabil-tutoriate": "tutoriate",
     "incarcare": "incarcare",
     "review": "review",
     "editare": "editare",
@@ -294,9 +295,11 @@ def leaga_sau_creeaza(s: Session, claims: dict[str, Any]) -> User:
     """Contul Orarului pentru o identitate SSO.
 
     Dupa `sub`; altfel, daca emailul e verificat in Keycloak, contul local vechi cu acelasi
-    email (care isi pastreaza grupa si alegerile, dar nu si parola); altfel unul
+    email (care isi pastreaza grupa, alegerile si tutoriatele, dar nu si parola); altfel unul
     nou. Numele si emailul se rescriu din token: Keycloak e sursa lor.
     """
+    from orar.db.tutoriate import leaga_invitatiile
+
     sub = str(claims.get("sub") or "")
     if not sub:
         raise EroareSso("token fara sub")
@@ -327,6 +330,7 @@ def leaga_sau_creeaza(s: Session, claims: dict[str, Any]) -> User:
         if ocupata is None:
             user.email = email
     s.flush()
+    leaga_invitatiile(s, user)
     return user
 
 

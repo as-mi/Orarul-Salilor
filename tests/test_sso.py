@@ -144,6 +144,15 @@ def test_rolul_de_admin_e_configurabil(client, sso_fals, monkeypatch):
     assert client.get("/admin").status_code == 403
 
 
+def test_rolul_de_client_da_panoul_tutoriatelor(client, sso_fals):
+    intra_sso(client, sso_fals, email="edu@asmi.ro")
+    assert client.get("/tutoriate/panou").status_code == 403
+    client.cookies.clear()
+    intra_sso(client, sso_fals, email="edu@asmi.ro", roluri_client=("responsabil-tutoriate",))
+    assert client.get("/tutoriate/panou").status_code == 200
+    assert client.get("/admin").status_code == 403
+
+
 def test_rolul_retras_in_keycloak_se_pierde_la_reimprospatare(client, s, sso_fals):
     intra_sso(client, sso_fals, email="sef@asmi.ro", realm=("cddd",))
     assert client.get("/admin").status_code == 200
@@ -225,14 +234,14 @@ def test_roluri_din_token():
     claims = {
         "realm_access": {"roles": ["student", "cddd"]},
         "resource_access": {
-            SSO_CLIENT: {"roles": ["statistici"]},
+            SSO_CLIENT: {"roles": ["responsabil-tutoriate"]},
             "alt": {"roles": ["pm"]},
         },
     }
     roluri = sso.roluri_din_token(claims, SSO_CLIENT)
-    assert roluri == {"realm": ["cddd", "student"], "client": ["statistici"]}
+    assert roluri == {"realm": ["cddd", "student"], "client": ["responsabil-tutoriate"]}
     cfg = sso.Configurare(SSO_ISSUER, SSO_CLIENT, "x")
-    assert sso.drepturi(roluri, cfg) == (True, frozenset({"statistici"}))
+    assert sso.drepturi(roluri, cfg) == (True, frozenset({"tutoriate"}))
 
 
 def test_oficiul_aduce_permisiunile_implicite():

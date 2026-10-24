@@ -109,6 +109,11 @@ class Sala(Base):
     #: Numarul de locuri, din tabelul de pe pagina 2 a orarului. NULL cand sala nu apare
     #: acolo (salile externe) sau cand sursa insasi scrie "?" (L.414 Robotica).
     nr_locuri: Mapped[int | None] = mapped_column("NR_LOCURI", Integer)
+    #: O sala din afara orarului FMI ("sala 220", "L-321"), adaugata pentru tutoriate. Nu o
+    #: sterge curatenia de dupa incarcarea unui orar, desi n-are nicio ora.
+    doar_tutoriate: Mapped[bool] = mapped_column(
+        "DOAR_TUTORIATE", Boolean, nullable=False, default=False, server_default="0"
+    )
 
     ore: Mapped[list[Ora]] = relationship(back_populates="sala")
 
@@ -377,6 +382,9 @@ class User(Base):
     orar_ales_id: Mapped[int | None] = mapped_column(
         "ORAR_ALES", ForeignKey("PERIOADA.ID_PERIOADA", ondelete="SET NULL")
     )
+    #: Tutoriatele alese pe "Orarul meu": lista JSON de id-uri. Spre deosebire de optionale,
+    #: se tine ce e *ales* -- tutoriatele nu apar decat daca le vrei.
+    tutoriate_alese: Mapped[str | None] = mapped_column("TUTORIATE_ALESE", Text)
     #: Identificatorul contului in SSO-ul ASMI (claim-ul `sub` din Keycloak). Numele si
     #: emailul de mai sus sunt doar o copie de afisare, rescrisa la fiecare autentificare.
     sso_sub: Mapped[str | None] = mapped_column("SSO_SUB", String(64), unique=True)
@@ -886,7 +894,7 @@ class Setare(Base):
 
 
 # ---------------------------------------------------------------------------
-# Permisiuni
+# Tutoriate
 # ---------------------------------------------------------------------------
 
 #: Permisiunile care se pot acorda unui cont, pe langa rol: (cheie, descriere).
@@ -901,6 +909,7 @@ PERMISIUNI = (
     ("evenimente", "Evenimente ASMI și rezervări de săli"),
     ("statistici", "Statistici și filtre salvate"),
     ("structura", "Structura anului universitar"),
+    ("tutoriate", "Responsabil de tutoriate"),
     ("utilizatori", "Gestionarea conturilor, rolurilor și permisiunilor"),
 )
 
@@ -925,3 +934,503 @@ class Permisiune(Base):
     __table_args__ = (UniqueConstraint("ID_USER", "CHEIE", name="uq_permisiune"),)
 
 
+class Tutor(Base):
+    """Un cont asignat ca tutor la o materie, pe o perioada (implicit 6 luni). Un cont poate
+    avea mai multe asignari deodata (materii diferite) si o asignare se poate prelungi.
+
+    Fara cont inca: `user_id` gol si `email` completat; asignarea se leaga de cont cand
+    cineva se inregistreaza cu acel email."""
+
+    __tablename__ = "TUTOR"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        "ID_USER", ForeignKey("USER.ID", ondelete="CASCADE"), index=True
+    )
+    email: Mapped[str | None] = mapped_column("EMAIL", String(180), index=True)
+    #: Numele intreg al materiei ("Programare orientată pe obiecte"), ca in foaia tutoriatelor.
+    materie: Mapped[str] = mapped_column("MATERIE", String(160), nullable=False)
+    #: Publicul tutoriatelor lui: coduri de specializare si de an (`INFO`, `L1`), ca la evenimente.
+    specializari: Mapped[str | None] = mapped_column("SPECIALIZARI", String(200))
+    ani: Mapped[str | None] = mapped_column("ANI", String(40))
+    valabil_de_la: Mapped[date] = mapped_column("VALABIL_DE_LA", Date, nullable=False)
+    valabil_pana_la: Mapped[date] = mapped_column("VALABIL_PANA_LA", Date, nullable=False)
+    creat_de: Mapped[str] = mapped_column("CREAT_DE", String(120), nullable=False)
+    creat_la: Mapped[datetime] = mapped_column("CREAT_LA", DateTime, nullable=False)
+
+    user: Mapped[User | None] = relationship()
+
+    __table_args__ = (
+        CheckConstraint("VALABIL_DE_LA <= VALABIL_PANA_LA", name="ck_tutor_perioada"),
+        CheckConstraint("ID_USER IS NOT NULL OR EMAIL IS NOT NULL", name="ck_tutor_cine"),
+    )
+
+    def activ(self, zi: date) -> bool:
+        return self.valabil_de_la <= zi <= self.valabil_pana_la
+
+    @property
+    def nume(self) -> str:
+        return self.user.nume if self.user is not None else (self.email or "?")
+
+
+#: Starile unui tutoriat: ciorna (doar in panou), publicat (pe sit), incheiat (arhiva).
+STARI_TUTORIAT = ("ciorna", "publicat", "incheiat")
+
+
+class Tutoriat(Base):
+    """O sedinta saptamanala de sprijin la o materie, tinuta de o echipa de tutori.
+
+    Nu e o `ORA`: orele se reincarca la fiecare orar nou; un tutoriat il pune responsabilul
+    si ramane. Se tine in `ZI_SAPTAMANA`, intre `DATA_INCEPUT` si `DATA_SFARSIT`, mai putin
+    zilele fara activitate didactica (vacante, zile libere) si sedintele anulate."""
+
+    __tablename__ = "TUTORIAT"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True)
+    an_univ: Mapped[str] = mapped_column("AN_UNIV", String(9), nullable=False)
+    semestru: Mapped[int] = mapped_column("SEMESTRU", Integer, nullable=False)
+    materie: Mapped[str] = mapped_column("MATERIE", String(160), nullable=False)
+    zi_saptamana: Mapped[str] = mapped_column("ZI_SAPTAMANA", String(10), nullable=False)
+    ora_inceput: Mapped[time] = mapped_column("ORA_INCEPUT", Time, nullable=False)
+    ora_sfarsit: Mapped[time] = mapped_column("ORA_SFARSIT", Time, nullable=False)
+    sala_id: Mapped[int | None] = mapped_column(
+        "SALA", ForeignKey("SALA.ID_SALA", ondelete="SET NULL")
+    )
+    #: Locul, cand nu e o sala din lista (online, alta cladire).
+    loc: Mapped[str | None] = mapped_column("LOC", String(160))
+    data_inceput: Mapped[date] = mapped_column("DATA_INCEPUT", Date, nullable=False)
+    data_sfarsit: Mapped[date] = mapped_column("DATA_SFARSIT", Date, nullable=False)
+    #: SI / SP: doar in saptamanile impare / pare. Gol: in fiecare saptamana.
+    frecventa: Mapped[str | None] = mapped_column("FRECVENTA", String(4))
+    #: Publicul: coduri de specializare, de an si slug-uri de serie (gol = fara restrictie).
+    specializari: Mapped[str | None] = mapped_column("SPECIALIZARI", String(200))
+    ani: Mapped[str | None] = mapped_column("ANI", String(40))
+    serii: Mapped[str | None] = mapped_column("SERII", String(300))
+    link_whatsapp: Mapped[str | None] = mapped_column("LINK_WHATSAPP", String(300))
+    link_teams: Mapped[str | None] = mapped_column("LINK_TEAMS", String(300))
+    descriere: Mapped[str | None] = mapped_column("DESCRIERE", Text)
+    stare: Mapped[str] = mapped_column(
+        "STARE", String(10), nullable=False, default="ciorna", server_default="ciorna"
+    )
+    creat_de: Mapped[str] = mapped_column("CREAT_DE", String(120), nullable=False)
+    creat_la: Mapped[datetime] = mapped_column("CREAT_LA", DateTime, nullable=False)
+
+    sala: Mapped[Sala | None] = relationship()
+    echipa: Mapped[list[TutoriatTutor]] = relationship(
+        back_populates="tutoriat",
+        cascade="all, delete-orphan",
+        order_by="TutoriatTutor.principal.desc()",
+    )
+    anulari: Mapped[list[TutoriatAnulare]] = relationship(
+        back_populates="tutoriat", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        CheckConstraint("STARE IN ('ciorna','publicat','incheiat')", name="ck_tutoriat_stare"),
+        CheckConstraint("DATA_INCEPUT <= DATA_SFARSIT", name="ck_tutoriat_perioada"),
+        CheckConstraint("ORA_INCEPUT < ORA_SFARSIT", name="ck_tutoriat_ore"),
+        Index("ix_tutoriat_slot", "AN_UNIV", "SEMESTRU", "ZI_SAPTAMANA"),
+    )
+
+    @staticmethod
+    def _lista(text: str | None) -> list[str]:
+        return [x for x in (text or "").split(",") if x]
+
+    @property
+    def coduri(self) -> list[str]:
+        return self._lista(self.specializari)
+
+    @property
+    def ani_alesi(self) -> list[str]:
+        return self._lista(self.ani)
+
+    @property
+    def serii_alese(self) -> list[str]:
+        return self._lista(self.serii)
+
+    @property
+    def interval(self) -> str:
+        return f"{self.ora_inceput.hour}-{self.ora_sfarsit.hour}"
+
+    @property
+    def unde(self) -> str:
+        return self.sala.nume if self.sala is not None else (self.loc or "")
+
+
+class TutoriatTutor(Base):
+    """Un tutor din echipa unui tutoriat; `principal` e cel scris primul (contactul)."""
+
+    __tablename__ = "TUTORIAT_TUTOR"
+
+    tutoriat_id: Mapped[int] = mapped_column(
+        "ID_TUTORIAT", ForeignKey("TUTORIAT.ID", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        "ID_USER", ForeignKey("USER.ID", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    principal: Mapped[bool] = mapped_column(
+        "PRINCIPAL", Boolean, nullable=False, default=False, server_default="0"
+    )
+
+    tutoriat: Mapped[Tutoriat] = relationship(back_populates="echipa")
+    user: Mapped[User] = relationship()
+
+
+class TutoriatAnulare(Base):
+    """O sedinta anume a unui tutoriat care nu se tine."""
+
+    __tablename__ = "TUTORIAT_ANULARE"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True)
+    tutoriat_id: Mapped[int] = mapped_column(
+        "ID_TUTORIAT", ForeignKey("TUTORIAT.ID", ondelete="CASCADE"), nullable=False, index=True
+    )
+    data: Mapped[date] = mapped_column("DATA", Date, nullable=False)
+    motiv: Mapped[str | None] = mapped_column("MOTIV", String(200))
+    de_catre: Mapped[str] = mapped_column("DE_CATRE", String(120), nullable=False)
+
+    tutoriat: Mapped[Tutoriat] = relationship(back_populates="anulari")
+
+    __table_args__ = (UniqueConstraint("ID_TUTORIAT", "DATA", name="uq_anulare"),)
+
+
+# ---------------------------------------------------------------------------
+# Campanii de tutoriate (recrutare + planificare)
+# ---------------------------------------------------------------------------
+
+
+#: Starile unei campanii: ciorna (se construieste), deschisa (se aplica), inchisa (s-au
+#: strans aplicatiile), planificata (s-au propus sesiuni), arhivata (semestru incheiat).
+STARI_CAMPANIE = ("ciorna", "deschisa", "inchisa", "planificata", "arhivata")
+#: Tipurile de intrebari din formularul dinamic. `grila_orar` e grila vizuala de
+#: disponibilitate; raspunsul ei sta in `AplicatieTutor.disponibilitate`.
+TIPURI_INTREBARE = ("text", "radio", "checkbox", "grila_orar")
+#: Starile unei aplicatii de tutor.
+STARI_APLICATIE = ("aplicata", "acceptata", "respinsa", "retrasa")
+#: Starile unei sesiuni propuse de planificator.
+STARI_SESIUNE = ("propusa", "confirmata", "respinsa")
+
+
+class CampanieTutoriate(Base):
+    """Un ciclu de recrutare si planificare a tutoriatelor, pe un semestru.
+
+    Responsabilul o deschide, studentii aplica prin formularul dinamic, se formeaza echipele
+    si planificatorul propune sesiuni. O sesiune confirmata devine un `Tutoriat` (in tabelele
+    existente), ca sa apara pe orar si sa fie ales de studenti.
+    """
+
+    __tablename__ = "CAMPANIE_TUTORIATE"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True)
+    an_univ: Mapped[str] = mapped_column("AN_UNIV", String(9), nullable=False)
+    semestru: Mapped[int] = mapped_column("SEMESTRU", Integer, nullable=False)
+    nume: Mapped[str] = mapped_column("NUME", String(160), nullable=False)
+    #: Fereastra in care studentii pot aplica.
+    data_deschidere: Mapped[date] = mapped_column("DATA_DESCHIDERE", Date, nullable=False)
+    data_inchidere: Mapped[date] = mapped_column("DATA_INCHIDERE", Date, nullable=False)
+    #: Perioada in care se tin sesiunile planificate.
+    data_inceput: Mapped[date] = mapped_column("DATA_INCEPUT", Date, nullable=False)
+    data_sfarsit: Mapped[date] = mapped_column("DATA_SFARSIT", Date, nullable=False)
+    #: Pragul minim de acoperire acceptat de planificator (procente), vezi schedulerul.
+    indulgenta: Mapped[int] = mapped_column(
+        "INDULGENTA", Integer, nullable=False, default=75, server_default="75"
+    )
+    min_tutori_echipa: Mapped[int] = mapped_column(
+        "MIN_TUTORI_ECHIPA", Integer, nullable=False, default=1, server_default="1"
+    )
+    max_tutori_echipa: Mapped[int] = mapped_column(
+        "MAX_TUTORI_ECHIPA", Integer, nullable=False, default=3, server_default="3"
+    )
+    #: Durata unei sesiuni, in ore (2 = doua ceasuri).
+    durata_sesiune: Mapped[int] = mapped_column(
+        "DURATA_SESIUNE", Integer, nullable=False, default=2, server_default="2"
+    )
+    stare: Mapped[str] = mapped_column(
+        "STARE", String(16), nullable=False, default="ciorna", server_default="ciorna"
+    )
+    creat_de: Mapped[str] = mapped_column("CREAT_DE", String(120), nullable=False)
+    creat_la: Mapped[datetime] = mapped_column("CREAT_LA", DateTime, nullable=False)
+
+    formular: Mapped[StructuraFormular | None] = relationship(
+        back_populates="campanie", cascade="all, delete-orphan", uselist=False
+    )
+    posturi: Mapped[list[PosturiDeschise]] = relationship(
+        back_populates="campanie", cascade="all, delete-orphan"
+    )
+    aplicatii: Mapped[list[AplicatieTutor]] = relationship(
+        back_populates="campanie", cascade="all, delete-orphan"
+    )
+    echipe: Mapped[list[EchipaTutoriat]] = relationship(
+        back_populates="campanie", cascade="all, delete-orphan"
+    )
+    sesiuni: Mapped[list[SesiuneTutoriat]] = relationship(
+        back_populates="campanie", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "STARE IN ('ciorna','deschisa','inchisa','planificata','arhivata')",
+            name="ck_campanie_stare",
+        ),
+        CheckConstraint("SEMESTRU IN (1,2)", name="ck_campanie_semestru"),
+        CheckConstraint("DATA_DESCHIDERE <= DATA_INCHIDERE", name="ck_campanie_aplicare"),
+        CheckConstraint("DATA_INCEPUT <= DATA_SFARSIT", name="ck_campanie_perioada"),
+        CheckConstraint("INDULGENTA BETWEEN 0 AND 100", name="ck_campanie_indulgenta"),
+        CheckConstraint("MIN_TUTORI_ECHIPA BETWEEN 1 AND 3", name="ck_campanie_min_tutori"),
+        CheckConstraint("MAX_TUTORI_ECHIPA BETWEEN 1 AND 3", name="ck_campanie_max_tutori"),
+        CheckConstraint("MIN_TUTORI_ECHIPA <= MAX_TUTORI_ECHIPA", name="ck_campanie_tutori"),
+        CheckConstraint("DURATA_SESIUNE BETWEEN 1 AND 6", name="ck_campanie_durata"),
+        Index("ix_campanie_an_sem", "AN_UNIV", "SEMESTRU"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CampanieTutoriate sem{self.semestru} {self.an_univ} {self.nume!r}>"
+
+
+class StructuraFormular(Base):
+    """Intrebarile formularului dinamic al unei campanii, ca lista JSON ordonata.
+
+    Fiecare intrebare: `{"cheie", "tip" ("text"|"radio"|"checkbox"|"grila_orar"),
+    "text", "obligatoriu", "optiuni": [...]}`. `grila_orar` nu are optiuni; raspunsul ei e
+    disponibilitatea pe grila saptamanala (ZILE x 8..20), tinuta in `AplicatieTutor`.
+    """
+
+    __tablename__ = "STRUCTURA_FORMULAR"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True)
+    campanie_id: Mapped[int] = mapped_column(
+        "ID_CAMPANIE",
+        ForeignKey("CAMPANIE_TUTORIATE.ID", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    intrebari: Mapped[str] = mapped_column("INTREBARI", Text, nullable=False, default="[]")
+    creat_de: Mapped[str] = mapped_column("CREAT_DE", String(120), nullable=False)
+    creat_la: Mapped[datetime] = mapped_column("CREAT_LA", DateTime, nullable=False)
+
+    campanie: Mapped[CampanieTutoriate] = relationship(back_populates="formular")
+
+    def __repr__(self) -> str:
+        return f"<StructuraFormular campanie={self.campanie_id}>"
+
+
+class PosturiDeschise(Base):
+    """O materie oferita intr-o campanie, pentru un public (specializari grupate).
+
+    `specializari`/`ani`/`serii` sunt coduri separate prin virgula, ca la `Tutoriat`;
+    potrivirea cu o grupa reutilizeaza `db.tutoriate.pentru_grupa`.
+    """
+
+    __tablename__ = "POSTURI_DESCHISE"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True)
+    campanie_id: Mapped[int] = mapped_column(
+        "ID_CAMPANIE",
+        ForeignKey("CAMPANIE_TUTORIATE.ID", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    materie: Mapped[str] = mapped_column("MATERIE", String(160), nullable=False)
+    descriere: Mapped[str | None] = mapped_column("DESCRIERE", Text)
+    specializari: Mapped[str | None] = mapped_column("SPECIALIZARI", String(200))
+    ani: Mapped[str | None] = mapped_column("ANI", String(40))
+    serii: Mapped[str | None] = mapped_column("SERII", String(300))
+    nr_max_tutori: Mapped[int | None] = mapped_column("NR_MAX_TUTORI", Integer)
+    creat_de: Mapped[str] = mapped_column("CREAT_DE", String(120), nullable=False)
+    creat_la: Mapped[datetime] = mapped_column("CREAT_LA", DateTime, nullable=False)
+
+    campanie: Mapped[CampanieTutoriate] = relationship(back_populates="posturi")
+    echipe: Mapped[list[EchipaTutoriat]] = relationship(back_populates="post")
+    sesiuni: Mapped[list[SesiuneTutoriat]] = relationship(back_populates="post")
+
+    @staticmethod
+    def _lista(text: str | None) -> list[str]:
+        return [x for x in (text or "").split(",") if x]
+
+    @property
+    def coduri(self) -> list[str]:
+        return self._lista(self.specializari)
+
+    @property
+    def ani_alesi(self) -> list[str]:
+        return self._lista(self.ani)
+
+    @property
+    def serii_alese(self) -> list[str]:
+        return self._lista(self.serii)
+
+    def __repr__(self) -> str:
+        return f"<PosturiDeschise {self.materie!r}>"
+
+
+class AplicatieTutor(Base):
+    """Aplicatia unui student la o campanie (una pe campanie).
+
+    `raspunsuri` = raspunsurile la intrebarile formularului (cheie -> valoare);
+    `disponibilitate` = raspunsul la intrebarea `grila_orar` (liste de ore libere);
+    `materii` = lista ORDONATA de posturi dorite (`{"post": id, "motiv": str|null}`),
+    ordinea fiind prioritatea.
+    """
+
+    __tablename__ = "APLICATIE_TUTOR"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True)
+    campanie_id: Mapped[int] = mapped_column(
+        "ID_CAMPANIE",
+        ForeignKey("CAMPANIE_TUTORIATE.ID", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[int] = mapped_column(
+        "ID_USER", ForeignKey("USER.ID", ondelete="CASCADE"), nullable=False, index=True
+    )
+    raspunsuri: Mapped[str | None] = mapped_column("RASPUNSURI", Text)
+    disponibilitate: Mapped[str | None] = mapped_column("DISPONIBILITATE", Text)
+    materii: Mapped[str | None] = mapped_column("MATERII", Text)
+    preferinte_co_tutori: Mapped[str | None] = mapped_column("PREFERINTE_CO_TUTORI", Text)
+    stare: Mapped[str] = mapped_column(
+        "STARE", String(12), nullable=False, default="aplicata", server_default="aplicata"
+    )
+    creat_de: Mapped[str] = mapped_column("CREAT_DE", String(120), nullable=False)
+    creat_la: Mapped[datetime] = mapped_column("CREAT_LA", DateTime, nullable=False)
+
+    campanie: Mapped[CampanieTutoriate] = relationship(back_populates="aplicatii")
+    user: Mapped[User] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("ID_CAMPANIE", "ID_USER", name="uq_aplicatie_campanie_user"),
+        CheckConstraint(
+            "STARE IN ('aplicata','acceptata','respinsa','retrasa')", name="ck_aplicatie_stare"
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AplicatieTutor user={self.user_id} campanie={self.campanie_id}>"
+
+
+class EchipaTutoriat(Base):
+    """O echipa de 1-3 tutori (studenti acceptati), asignata la un post."""
+
+    __tablename__ = "ECHIPA_TUTORIAT"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True)
+    campanie_id: Mapped[int] = mapped_column(
+        "ID_CAMPANIE",
+        ForeignKey("CAMPANIE_TUTORIATE.ID", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    post_id: Mapped[int] = mapped_column(
+        "ID_POST",
+        ForeignKey("POSTURI_DESCHISE.ID", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    nume: Mapped[str | None] = mapped_column("NUME", String(160))
+    stare: Mapped[str] = mapped_column(
+        "STARE", String(12), nullable=False, default="propusa", server_default="propusa"
+    )
+    creat_de: Mapped[str] = mapped_column("CREAT_DE", String(120), nullable=False)
+    creat_la: Mapped[datetime] = mapped_column("CREAT_LA", DateTime, nullable=False)
+
+    campanie: Mapped[CampanieTutoriate] = relationship(back_populates="echipe")
+    post: Mapped[PosturiDeschise] = relationship(back_populates="echipe")
+    membri: Mapped[list[EchipaTutoriatMembru]] = relationship(
+        back_populates="echipa",
+        cascade="all, delete-orphan",
+        order_by="EchipaTutoriatMembru.ordine",
+    )
+    sesiuni: Mapped[list[SesiuneTutoriat]] = relationship(back_populates="echipa")
+
+    __table_args__ = (
+        CheckConstraint("STARE IN ('propusa','confirmata')", name="ck_echipa_stare"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<EchipaTutoriat {self.id} post={self.post_id}>"
+
+
+class EchipaTutoriatMembru(Base):
+    """Un tutor dintr-o echipa; `principal` e contactul, `ordine` tine ordinea afisarii."""
+
+    __tablename__ = "ECHIPA_TUTORIAT_MEMBRU"
+
+    echipa_id: Mapped[int] = mapped_column(
+        "ID_ECHIPA", ForeignKey("ECHIPA_TUTORIAT.ID", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        "ID_USER", ForeignKey("USER.ID", ondelete="CASCADE"), primary_key=True
+    )
+    principal: Mapped[bool] = mapped_column(
+        "PRINCIPAL", Boolean, nullable=False, default=False, server_default="0"
+    )
+    ordine: Mapped[int] = mapped_column(
+        "ORDINE", Integer, nullable=False, default=0, server_default="0"
+    )
+
+    echipa: Mapped[EchipaTutoriat] = relationship(back_populates="membri")
+    user: Mapped[User] = relationship()
+
+    __table_args__ = (Index("ix_echipa_membru_user", "ID_USER"),)
+
+    def __repr__(self) -> str:
+        return f"<EchipaTutoriatMembru echipa={self.echipa_id} user={self.user_id}>"
+
+
+class SesiuneTutoriat(Base):
+    """O sesiune propusa de planificator, pentru o echipa la un post.
+
+    Confirmata, devine un `Tutoriat` (legat prin `tutoriat_id`), care apare pe orar si poate
+    fi ales de studenti. `acoperire` si `explicatie` sunt scrise de planificator.
+    """
+
+    __tablename__ = "SESIUNE_TUTORIAT"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True)
+    campanie_id: Mapped[int] = mapped_column(
+        "ID_CAMPANIE",
+        ForeignKey("CAMPANIE_TUTORIATE.ID", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    post_id: Mapped[int] = mapped_column(
+        "ID_POST",
+        ForeignKey("POSTURI_DESCHISE.ID", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    echipa_id: Mapped[int] = mapped_column(
+        "ID_ECHIPA",
+        ForeignKey("ECHIPA_TUTORIAT.ID", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    zi_saptamana: Mapped[str] = mapped_column("ZI_SAPTAMANA", String(10), nullable=False)
+    ora_inceput: Mapped[time] = mapped_column("ORA_INCEPUT", Time, nullable=False)
+    ora_sfarsit: Mapped[time] = mapped_column("ORA_SFARSIT", Time, nullable=False)
+    sala_id: Mapped[int | None] = mapped_column("SALA", ForeignKey("SALA.ID_SALA", ondelete="SET NULL"))
+    loc: Mapped[str | None] = mapped_column("LOC", String(160))
+    acoperire: Mapped[int | None] = mapped_column("ACOPERIRE", Integer)
+    explicatie: Mapped[str | None] = mapped_column("EXPLICATIE", Text)
+    stare: Mapped[str] = mapped_column(
+        "STARE", String(12), nullable=False, default="propusa", server_default="propusa"
+    )
+    tutoriat_id: Mapped[int | None] = mapped_column(
+        "ID_TUTORIAT", ForeignKey("TUTORIAT.ID", ondelete="SET NULL")
+    )
+    creat_de: Mapped[str] = mapped_column("CREAT_DE", String(120), nullable=False)
+    creat_la: Mapped[datetime] = mapped_column("CREAT_LA", DateTime, nullable=False)
+
+    campanie: Mapped[CampanieTutoriate] = relationship(back_populates="sesiuni")
+    post: Mapped[PosturiDeschise] = relationship(back_populates="sesiuni")
+    echipa: Mapped[EchipaTutoriat] = relationship(back_populates="sesiuni")
+    sala: Mapped[Sala | None] = relationship()
+    tutoriat: Mapped[Tutoriat | None] = relationship()
+
+    __table_args__ = (
+        CheckConstraint("STARE IN ('propusa','confirmata','respinsa')", name="ck_sesiune_stare"),
+        CheckConstraint("ORA_INCEPUT < ORA_SFARSIT", name="ck_sesiune_ore"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<SesiuneTutoriat {self.zi_saptamana} {self.ora_inceput:%H:%M}-{self.ora_sfarsit:%H:%M}>"

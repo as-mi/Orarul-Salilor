@@ -21,6 +21,9 @@ oficial rămâne cel al facultății.
   ce grupă. `/sala` le listează pe toate, cu procentul de ocupare.
 - `/profesor/popescu-stefan` arată orarul unui profesor.
 - `/calendar-asmi` e calendarul public al asociației: evenimente, termene, înscrieri.
+- `/tutoriate` arată tutoriatele semestrului, pe specializări și ani. Bifezi ce te
+  interesează, iar tutoriatele alese apar în orarul grupei, ca o categorie separată de
+  opționale. Le poți alege și din dropdownul „Tutoriate” de pe pagina grupei.
 - Sub orice orar găsești butonul „Raportează o problemă”, dacă vezi ceva greșit.
 - În colțul din dreapta jos e panoul „Orare”: de acolo treci la alt semestru sau la o
   versiune mai veche a orarului.
@@ -35,6 +38,20 @@ oficial rămâne cel al facultății.
   alese se salvează în cont, deci le găsești la fel de pe orice dispozitiv.
 - Dacă ești profesor, ceri rolul din „Contul și grupa mea”. După ce un admin aprobă,
   „Orarul meu” devine orarul tău de profesor.
+- Dacă ești tutor, tutoriatele pe care le ții apar mereu pe orarul tău, marcate „ții tu”.
+  Din „Contul și grupa mea” le schimbi linkurile și descrierea și poți anula o ședință.
+
+**Ca responsabil de tutoriate** (`/tutoriate/panou`; rolul de client
+`responsabil-tutoriate` din SSO)
+
+- Alegi publicul (specializări, ani, serii) și primești intervalele în care e liber cel
+  mai mare procent din el și în care există o sală liberă la toate ședințele.
+- Stabilești tutoriatele: ziua, ora, sala (cu sălile libere săptămânal, de la o dată
+  încolo), publicul și echipa. Ședințele sar peste vacanțe, sesiune și zilele libere.
+- Asignezi tutorii pe materii, câte 6 luni, cumulabil. Un email fără cont devine invitație
+  și se leagă de cont la înregistrare.
+- Adaugi săli din afara orarului („sala 220”), importi foaia tutoriatelor de pe site-ul
+  facultății (CSV) și o exporți în același format. Ai acces și la „Orarul în cifre”.
 
 **Ca admin** (`/admin`)
 
@@ -118,7 +135,8 @@ Conturile intră doar prin SSO-ul ASMI (Keycloak, OpenID Connect cu PKCE). Clien
 | roluri de client pe `orarul-salilor-web` | câte o permisiune (`ROLURI_CLIENT` din `src/orar/web/sso.py`) |
 
 Permisiunile sunt granularitățile în care se grupează funcționalitățile: `incarcare`,
-`review`, `editare`, `sesizari`, `evenimente`, `statistici`, `structura` și `utilizatori`. Ele vin din Keycloak (rol de client sau oficiu), dar un admin le poate
+`review`, `editare`, `sesizari`, `evenimente`, `statistici`, `structura`, `tutoriate` și
+`utilizatori`. Ele vin din Keycloak (rol de client sau oficiu), dar un admin le poate
 ajusta per cont din panou, în coloana „Permisiuni acordate”: tabela `PERMISIUNE` se adaugă
 peste ce vine din SSO. O rută nouă se protejează cu `Depends(cere_permisiune("cheie"))`.
 

@@ -115,7 +115,22 @@ class Grila:
 
     @property
     def are_evenimente(self) -> bool:
-        return any(b.eveniment is not None for zi in self.zile for banda in zi.benzi for b in banda)
+        """Are evenimente ASMI sau alte activitati (tutoriatele au cheia lor in legenda)."""
+        return any(
+            b.eveniment is not None and b.eveniment.fel != "tutoriat"
+            for zi in self.zile
+            for banda in zi.benzi
+            for b in banda
+        )
+
+    @property
+    def are_tutoriate(self) -> bool:
+        return any(
+            b.eveniment is not None and b.eveniment.fel == "tutoriat"
+            for zi in self.zile
+            for banda in zi.benzi
+            for b in banda
+        )
 
     @property
     def total_blocuri(self) -> int:
