@@ -36,6 +36,7 @@
 }
 .personal-lista li button:hover { background: var(--suprafata-2); color: var(--pericol, #c0392b); }
 
+.import-activitati { display: flex; flex-direction: column; gap: .35rem; }
 .import-activitati fieldset { border: 1px solid var(--linie); border-radius: var(--radius); padding: .5rem .7rem; margin: .5rem 0; }
 .import-activitati .bifa .tip-ora { color: var(--text-slab); font-weight: 400; }
 
