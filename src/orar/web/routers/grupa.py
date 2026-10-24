@@ -11,6 +11,12 @@ from sqlalchemy.orm import Session
 
 from orar.db.evenimente import evenimente_in_grila
 from orar.db.models import Grupa, Ora, OraArhivata, User
+from orar.db.personal import (
+    blocuri_personale,
+    evenimentele_contului,
+    formatiuni_import,
+    importatele_contului,
+)
 from orar.db.queries import gaseste_grupa, ids_descendenti, ids_stramosi, ore_pentru_grupa
 from orar.db.tutoriate import oferite_grupei, tutoriate_in_grila
 from orar.db.versiuni import versiuni_pentru_grupa
@@ -177,6 +183,10 @@ def afiseaza_grupa(
         )
     )
     sapt = saptamana_activa(ctx_sapt)
+    # Personalizarea orarului propriu: evenimentele si importurile contului (doar pe el).
+    blocuri_personal = (
+        [] if arhiva or al_meu is None else blocuri_personale(s, al_meu, ctx_sapt["azi"])
+    )
     grila = construieste_grila(
         ore,
         provenienta=provenienta,
@@ -186,7 +196,9 @@ def afiseaza_grupa(
         # evenimentele cu data din saptamana afisata; o versiune veche a orarului nu le are
         evenimente=[]
         if arhiva
-        else evenimente_in_grila(s, ctx_sapt["azi"], grupa=grupa) + blocuri_tutoriate,
+        else evenimente_in_grila(s, ctx_sapt["azi"], grupa=grupa)
+        + blocuri_tutoriate
+        + blocuri_personal,
     )
 
     lant = []
@@ -234,6 +246,9 @@ def afiseaza_grupa(
             "orarul_meu": al_meu is not None,
             "tutoriate": tutoriate,
             "tutoriate_alese": tutoriate_alese,
+            "formatiuni_import": formatiuni_import(s, sel.perioada) if al_meu else [],
+            "evenimente_personale": evenimentele_contului(s, al_meu) if al_meu else [],
+            "importate": importatele_contului(s, al_meu) if al_meu else [],
         },
     )
     if de_salvat != salvata:

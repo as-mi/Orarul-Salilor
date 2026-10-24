@@ -26,6 +26,7 @@ from orar.web.routers import (  # noqa: E402
     evenimente,
     grupa,
     index,
+    personal,
     profesor,
     sala,
     sesizari,
@@ -86,6 +87,7 @@ app.include_router(statistici.router)
 app.include_router(structura.router)
 app.include_router(tutoriate.router)
 app.include_router(tutoriate_campanie.router)
+app.include_router(personal.router)
 
 
 @app.exception_handler(404)

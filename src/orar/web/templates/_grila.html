@@ -35,6 +35,29 @@
               {% if b.eveniment %}
                 {# O activitate cu data (ASMI sau alta), doar in saptamana ei. #}
                 {% set e = b.eveniment %}
+                {% if e.fel in ('personal', 'importat') %}
+                <div class="bloc tip-{{ b.clasa_tip }} personal-bloc"
+                     style="grid-column: {{ b.col_start }} / span {{ b.col_span }}">
+                  <span class="bloc-sus">
+                    <span class="bloc-materie">{{ e.titlu }}</span>
+                    {% if e.tip %}<span class="et et-tip">{{ e.tip }}</span>{% endif %}
+                  </span>
+                  <span class="bloc-mij">
+                    {% if e.frecventa %}<span class="et et-frecv">{{ e.frecventa }}</span>{% endif %}
+                    {% if e.saptamani %}<span class="et et-sapt">{{ e.saptamani }}</span>{% endif %}
+                    <span class="et et-sapt">{{ e.ora_inceput.strftime('%H:%M') }}-{{ e.ora_sfarsit.strftime('%H:%M') }}</span>
+                  </span>
+                  <span class="bloc-jos">
+                    <span class="bloc-prof">{% if e.fel == 'importat' and e.profesor %}{{ e.profesor }}{% endif %}</span>
+                    <span class="bloc-loc">{% if e.fel == 'importat' %}{{ e.loc }}{% if e.loc and e.sursa %} · {% endif %}<em>importat de la {{ e.sursa }}</em>{% else %}{{ e.loc }}{% endif %}</span>
+                  </span>
+                  <form method="post" action="/orarul-meu/{{ 'eveniment' if e.fel == 'personal' else 'import' }}/{{ e.id }}/sterge" class="personal-sterge">
+                    <input type="hidden" name="csrf" value="{{ csrf }}">
+                    <input type="hidden" name="inapoi" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+                    <button type="submit" title="Șterge">✕</button>
+                  </form>
+                </div>
+                {% else %}
                 <a class="bloc tip-{{ b.clasa_tip }}{{ ' ' ~ e.clasa_culoare if e.clasa_culoare }}{{ ' anulat' if e.anulat is defined and e.anulat }}{{ ' al-meu' if e.al_meu is defined and e.al_meu }}"
                    style="grid-column: {{ b.col_start }} / span {{ b.col_span }}; {{ e.stil_culoare }}"
                    href="{% if e.fel == 'tutoriat' %}/tutoriate#tut-{{ e.id }}{% elif poate_edita is defined and poate_edita %}/admin/evenimente/{{ e.id }}{% elif e.fel == 'asmi' %}/calendar-asmi#ev-{{ e.id }}{% elif mod == 'grupa' and e.sala %}/sala/{{ e.sala.slug }}{{ qv }}{% else %}#{% endif %}"
@@ -50,6 +73,7 @@
                     <span class="bloc-loc">{% if mod == 'grupa' %}{{ e.sala.nume if e.sala else (e.loc or '') }}{% endif %}</span>
                   </span>
                 </a>
+                {% endif %}
               {% else %}
               {% set o = b.ora %}
               <a class="bloc tip-{{ b.clasa_tip }} prov-{{ b.provenienta.value }}{{ ' inactiv' if not b.activa }}{{ ' editabil' if mod_editare is defined and mod_editare }}{{ ' manual' if poate_edita is defined and poate_edita and o.corectie_id }}"
@@ -105,6 +129,10 @@
     <span class="cheie tip-eveniment-alta">altă activitate</span>
   {% endif %}
   {% if grila.are_tutoriate %}<span class="cheie tip-eveniment-tutoriat">tutoriat</span>{% endif %}
+  {% if grila.are_personale %}
+    <span class="cheie tip-eveniment-personal">eveniment personal</span>
+    <span class="cheie tip-eveniment-importat">importat</span>
+  {% endif %}
   {% if mod == 'grupa' %}
     <span class="sep"></span>
     <span class="cheie prov-mostenita">moștenită de la serie/an</span>

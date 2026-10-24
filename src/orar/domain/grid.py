@@ -133,6 +133,16 @@ class Grila:
         )
 
     @property
+    def are_personale(self) -> bool:
+        """Are blocuri personale: evenimente custom sau activitati importate."""
+        return any(
+            b.eveniment is not None and b.eveniment.fel in ("personal", "importat")
+            for zi in self.zile
+            for banda in zi.benzi
+            for b in banda
+        )
+
+    @property
     def total_blocuri(self) -> int:
         return sum(len(b) for zi in self.zile for b in zi.benzi)
 

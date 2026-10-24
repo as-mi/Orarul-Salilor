@@ -1,0 +1,40 @@
+{# Importul de activitati din alte grupe/serii, pe orarul propriu. Asteapta
+   `formatiuni_import` (lista de grupe/serii) si `importate` (ce e deja importat). #}
+<details class="optiuni">
+  <summary class="filtru {{ 'activ' if importate }}">
+    Importă activități
+    {% if importate %}<span class="numar">{{ importate|length }}</span>{% endif %}
+  </summary>
+  <div class="panou-optiuni">
+    <p class="nota">Preia pe orarul tău activități din alte grupe sau serii. Alege formațiunea,
+      apoi bifează doar ce vrei — rămân marcate ca importate.</p>
+    <label><span>De la</span>
+      <select name="formatiune_id" id="import-formatiune"
+              hx-get="/orarul-meu/import" hx-trigger="change"
+              hx-target="#import-activitati" hx-swap="innerHTML">
+        <option value="">- alege o grupă sau o serie -</option>
+        {% for f in formatiuni_import %}
+          <option value="{{ f.id }}">{{ f.nume }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div id="import-activitati"></div>
+  </div>
+
+  {% if importate %}
+    <ul class="personal-lista">
+      {% for i in importate %}
+        <li>
+          <span><strong>{{ i.materie }}</strong>{% if i.tip %} · {{ i.tip }}{% endif %}
+            · {{ {'Marti': 'Marți'}.get(i.zi_saptamana, i.zi_saptamana) }} {{ i.ora_inceput.strftime('%H:%M') }}-{{ i.ora_sfarsit.strftime('%H:%M') }}
+            {%- if i.sala %} · {{ i.sala }}{% endif %} · de la {{ i.sursa }}</span>
+          <form method="post" action="/orarul-meu/import/{{ i.id }}/sterge" class="pe-linie">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="inapoi" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+            <button type="submit" title="Șterge">✕</button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</details>

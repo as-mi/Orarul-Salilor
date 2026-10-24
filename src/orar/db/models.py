@@ -1434,3 +1434,80 @@ class SesiuneTutoriat(Base):
 
     def __repr__(self) -> str:
         return f"<SesiuneTutoriat {self.zi_saptamana} {self.ora_inceput:%H:%M}-{self.ora_sfarsit:%H:%M}>"
+
+
+# ---------------------------------------------------------------------------
+# Orarul propriu: evenimente personale si activitati importate
+# ---------------------------------------------------------------------------
+
+
+class EvenimentPersonal(Base):
+    """Un eveniment personal, pus de cineva pe orarul lui. Fie saptamanal (zi + ore), fie cu
+    data fixa; frecventa SI/SP se aplica doar celor saptamanale."""
+
+    __tablename__ = "EVENIMENT_PERSONAL"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        "ID_USER", ForeignKey("USER.ID", ondelete="CASCADE"), nullable=False, index=True
+    )
+    titlu: Mapped[str] = mapped_column("TITLU", String(160), nullable=False)
+    loc: Mapped[str | None] = mapped_column("LOC", String(160))
+    #: Exact una dintre ele: zi_saptamana (saptamanal) sau data (eveniment cu data fixa).
+    zi_saptamana: Mapped[str | None] = mapped_column("ZI_SAPTAMANA", String(10))
+    data: Mapped[date | None] = mapped_column("DATA", Date)
+    ora_inceput: Mapped[time] = mapped_column("ORA_INCEPUT", Time, nullable=False)
+    ora_sfarsit: Mapped[time] = mapped_column("ORA_SFARSIT", Time, nullable=False)
+    #: SI / SP: doar in saptamanile impare / pare. Gol: in fiecare saptamana.
+    frecventa: Mapped[str | None] = mapped_column("FRECVENTA", String(4))
+    creat_la: Mapped[datetime] = mapped_column("CREAT_LA", DateTime, nullable=False)
+
+    user: Mapped[User] = relationship()
+
+    __table_args__ = (
+        CheckConstraint(
+            "(ZI_SAPTAMANA IS NULL) != (DATA IS NULL)", name="ck_eveniment_personal_zi"
+        ),
+        CheckConstraint("ORA_INCEPUT < ORA_SFARSIT", name="ck_eveniment_personal_ore"),
+        CheckConstraint(
+            "FRECVENTA IS NULL OR FRECVENTA IN ('SI','SP')", name="ck_eveniment_personal_frecv"
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return f"<EvenimentPersonal {self.titlu!r}>"
+
+
+class ActivitateImportata(Base):
+    """O activitate din alta grupa/serie, copiata pe orarul propriu al unui cont.
+
+    E copie (snapshot), nu referinta la ORA: orele se reincarca la fiecare orar nou, iar
+    importul trebuie sa ramana exact ce a vazut persoana cand l-a facut."""
+
+    __tablename__ = "ACTIVITATE_IMPORTATA"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        "ID_USER", ForeignKey("USER.ID", ondelete="CASCADE"), nullable=False, index=True
+    )
+    #: Formatiunea de la care a fost importata (ex. "244" sau "Seria 24").
+    sursa: Mapped[str] = mapped_column("SURSA", String(120), nullable=False)
+    materie: Mapped[str] = mapped_column("MATERIE", String(160), nullable=False)
+    tip: Mapped[str | None] = mapped_column("TIP", String(40))
+    profesor: Mapped[str | None] = mapped_column("PROFESOR", String(120))
+    sala: Mapped[str | None] = mapped_column("SALA", String(120))
+    zi_saptamana: Mapped[str] = mapped_column("ZI_SAPTAMANA", String(10), nullable=False)
+    ora_inceput: Mapped[time] = mapped_column("ORA_INCEPUT", Time, nullable=False)
+    ora_sfarsit: Mapped[time] = mapped_column("ORA_SFARSIT", Time, nullable=False)
+    frecventa: Mapped[str | None] = mapped_column("FRECVENTA", String(4))
+    saptamani: Mapped[str | None] = mapped_column("SAPTAMANI", String(120))
+    creat_la: Mapped[datetime] = mapped_column("CREAT_LA", DateTime, nullable=False)
+
+    user: Mapped[User] = relationship()
+
+    __table_args__ = (
+        CheckConstraint("ORA_INCEPUT < ORA_SFARSIT", name="ck_activitate_importata_ore"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ActivitateImportata {self.materie!r} de la {self.sursa!r}>"

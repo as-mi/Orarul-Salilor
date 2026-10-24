@@ -1,10 +1,43 @@
 /* Tutoriatele: blocurile lor din grila, panoul responsabilului si pagina publica. */
 
-:root { --tut: #13856b; --tut-slab: #e3f5ef; }
-@media (prefers-color-scheme: dark) { :root { --tut: #4fd1a9; --tut-slab: #15332b; } }
+:root { --tut: #13856b; --tut-slab: #e3f5ef; --personal: #6366f1; --personal-slab: #eef2ff; --importat: #d97706; --importat-slab: #fff4e6; }
+@media (prefers-color-scheme: dark) { :root { --tut: #4fd1a9; --tut-slab: #15332b; --personal: #8b8ff5; --personal-slab: #20234d; --importat: #f0a13a; --importat-slab: #33250f; } }
 
 /* rolul „tutore" (asignare de tutor valabila azi) */
 .pastila.tut { background: var(--tut-slab); color: var(--tut); }
+
+/* ---------------- orarul propriu: evenimente personale si importuri ---------------- */
+.tip-eveniment-personal { background: var(--personal-slab); border-color: var(--personal); border-style: dashed; }
+.tip-eveniment-importat { background: var(--importat-slab); border-color: var(--importat); border-style: dashed; }
+.cheie.tip-eveniment-personal::before { background: var(--personal-slab); border-color: var(--personal); border-style: dashed; }
+.cheie.tip-eveniment-importat::before { background: var(--importat-slab); border-color: var(--importat); border-style: dashed; }
+
+.personal-bloc { position: relative; }
+.personal-bloc .personal-sterge {
+  position: absolute; top: .15rem; right: .15rem; margin: 0;
+}
+.personal-bloc .personal-sterge button {
+  border: none; background: transparent; color: var(--text-slab); cursor: pointer;
+  font: inherit; font-size: .8rem; line-height: 1; padding: .15rem .3rem; border-radius: 4px;
+}
+.personal-bloc .personal-sterge button:hover { background: var(--suprafata-2); color: var(--pericol, #c0392b); }
+.personal-bloc .bloc-loc em { font-style: normal; color: var(--importat); }
+
+.personal-lista { list-style: none; padding: .4rem 0 0; margin: 0; }
+.personal-lista li {
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  padding: .35rem 0; border-bottom: 1px solid var(--linie); font-size: .84rem;
+}
+.personal-lista li:last-child { border-bottom: none; }
+.personal-lista li form { margin: 0; }
+.personal-lista li button {
+  border: none; background: transparent; color: var(--text-slab); cursor: pointer;
+  font: inherit; line-height: 1; padding: .2rem .4rem; border-radius: 4px;
+}
+.personal-lista li button:hover { background: var(--suprafata-2); color: var(--pericol, #c0392b); }
+
+.import-activitati fieldset { border: 1px solid var(--linie); border-radius: var(--radius); padding: .5rem .7rem; margin: .5rem 0; }
+.import-activitati .bifa .tip-ora { color: var(--text-slab); font-weight: 400; }
 
 /* ---------------- in grila ---------------- */
 .tip-eveniment-tutoriat { background: var(--tut-slab); border-color: var(--tut); border-style: dashed; }
