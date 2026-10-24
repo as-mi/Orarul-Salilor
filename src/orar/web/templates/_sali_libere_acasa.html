@@ -1,0 +1,16 @@
+{# Salile libere din tabul „Fereastra" (continutul containerului #sali-libere-acasa):
+   primele 3 dupa capacitate, ca linkuri catre sala. #}
+{% if eroare %}
+  <p class="nota">{{ eroare }}</p>
+{% elif not libere %}
+  <p class="nota">Nicio sală liberă în acel interval.</p>
+{% else %}
+  <ul class="lista-sali-libere">
+    {% for x in libere %}
+      <li><a href="/sala/{{ x.sala.slug }}">
+        <strong>{{ x.sala.nume }}</strong>
+        <small>{{ (x.sala.nr_locuri ~ ' locuri') if x.sala.nr_locuri else 'locuri necunoscute' }}</small>
+      </a></li>
+    {% endfor %}
+  </ul>
+{% endif %}

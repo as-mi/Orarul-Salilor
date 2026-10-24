@@ -59,6 +59,7 @@
 .alege-taburi button {
   cursor: pointer; font: inherit; font-size: .9rem; font-weight: 600; color: var(--text-slab);
   padding: .6rem 1.1rem; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  flex: 1 1 0; text-align: center;
 }
 .alege-taburi button:hover { color: var(--text); }
 .alege-taburi button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
@@ -73,6 +74,17 @@
   border: 1px solid var(--linie-tare); border-radius: 6px;
   background: var(--fundal); color: var(--text);
 }
+.alege-panou input[type="date"], .alege-panou input[type="time"] {
+  font: inherit; font-size: .92rem; padding: .45rem .6rem; width: 100%;
+  border: 1px solid var(--linie-tare); border-radius: 6px;
+  background: var(--fundal); color: var(--text); color-scheme: light;
+}
+.alege-panou .sali-libere-acasa { flex-basis: 100%; }
+.alege-panou .politica { margin: 0; font-size: .82rem; align-self: flex-end; text-align: center; }
+.lista-sali-libere { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.lista-sali-libere a { display: flex; align-items: center; gap: .5rem; padding: .3rem .6rem; border: 1px solid var(--linie-tare); border-radius: 6px; color: var(--text); text-decoration: none; }
+.lista-sali-libere a:hover { border-color: var(--accent); }
+.lista-sali-libere small { color: var(--text-slab); }
 .alege-panou select:disabled { opacity: .5; }
 .alege-panou select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
 .alege-panou .buton { cursor: pointer; font: inherit; font-size: .9rem; padding: .45rem .9rem; }
@@ -143,6 +155,8 @@ a.an-link:hover { color: var(--accent); }
   .alege-panou select { text-align: center; text-align-last: center; }
   .alege-panou .mai-mult { margin: 0; }
   .alege-panou .buton { justify-content: center; text-align: center; }
+  .alege-panou .politica { align-self: stretch; }
+  .alege-panou .politica br { display: none; }
   .domeniu { display: block; }
   .domeniu h4 { margin-bottom: .5rem; }
   .an-celula + .an-celula { margin-top: .6rem; }

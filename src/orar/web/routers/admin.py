@@ -35,7 +35,19 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from orar.db.coada import grupeaza
-from orar.db.models import PERMISIUNI, ROLURI_LOCALE, Corectie, Ora, Permisiune, Sesizare, SsoSesiune, Tutor, TutoriatTutor, User
+from orar.db.models import (
+    PERMISIUNI,
+    ROLURI_LOCALE,
+    Corectie,
+    Ora,
+    Permisiune,
+    Sala,
+    Sesizare,
+    SsoSesiune,
+    Tutor,
+    TutoriatTutor,
+    User,
+)
 from orar.db.orare import fa_implicita, orare_vii
 from orar.db.queries import profesori_de_ales
 from orar.ingest.capturi import Sesiune
@@ -68,6 +80,9 @@ def panou(
     utilizatori = list(
         s.scalars(select(User).options(joinedload(User.grupa)).order_by(func.lower(User.nume)))
     )
+    sali_fizice = list(
+        s.scalars(select(Sala).where(Sala.tip == "fizica").order_by(Sala.nume))
+    )
     orare = orare_vii(s)
     implicit = orare[0].perioada if orare else None
 
@@ -90,6 +105,7 @@ def panou(
             "permisiuni_acordate": _permisiunile_acordate(s),
             "tutori": _tutorii(s),
             "incarcare": incarcare.stare_curenta(),
+            "sali_fizice": sali_fizice,
             "nr_sesizari": numara(Sesizare, Sesizare.stare == "noua"),
             "nr_corectii": numara(Corectie),
             "nr_neaplicate": numara(Corectie, Corectie.aplicata.is_(False)),
@@ -103,6 +119,24 @@ def panou(
 
 
 # ------------------------------------------------------- incarcarea unui orar
+
+
+@router.post("/sali", response_model=None)
+def salveaza_sali_blocate(
+    request: Request,
+    blocata: list[str] = Form(default=[]),
+    csrf: str = Form(""),
+    s: Session = Depends(get_db),
+    admin: Cont = Depends(cere_admin),
+) -> RedirectResponse:
+    """Bifeaza salile care nu trebuie sa apara ca libere in tabul „Fereastra"."""
+    if not verifica_csrf(request, csrf):
+        return RedirectResponse("/admin", status_code=303)
+    alese = {int(x) for x in blocata if x.isdigit()}
+    for sala in s.scalars(select(Sala).where(Sala.tip == "fizica")):
+        sala.blocata = sala.id in alese
+    s.commit()
+    return RedirectResponse("/admin#sali-blocate", status_code=303)
 
 
 @router.post("/orar", response_class=HTMLResponse, response_model=None)

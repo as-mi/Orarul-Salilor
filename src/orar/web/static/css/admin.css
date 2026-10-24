@@ -159,6 +159,7 @@
 .subsol-coloana { display: flex; flex-direction: column; gap: .3rem; min-width: 10rem; }
 .subsol-coloana strong { color: var(--text); font-size: .8rem; }
 .subsol-mic { font-size: .72rem; }
+.bife-sali { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: .2rem .9rem; }
 .subsol-nota { margin: .5rem 0 0; }
 
 /* ---------------- ecrane mici ---------------- */

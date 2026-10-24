@@ -109,6 +109,11 @@ class Sala(Base):
     #: Numarul de locuri, din tabelul de pe pagina 2 a orarului. NULL cand sala nu apare
     #: acolo (salile externe) sau cand sursa insasi scrie "?" (L.414 Robotica).
     nr_locuri: Mapped[int | None] = mapped_column("NR_LOCURI", Integer)
+    #: Blocata de un admin: nu apare ca libera in tabul "Fereastra" de pe prima pagina
+    #: (protejarea echipamentelor). Nu afecteaza lista adminului de la evenimente.
+    blocata: Mapped[bool] = mapped_column(
+        "BLOCATA", Boolean, nullable=False, default=False, server_default="0"
+    )
     #: O sala din afara orarului FMI ("sala 220", "L-321"), adaugata pentru tutoriate. Nu o
     #: sterge curatenia de dupa incarcarea unui orar, desi n-are nicio ora.
     doar_tutoriate: Mapped[bool] = mapped_column(

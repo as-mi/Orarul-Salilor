@@ -4,19 +4,21 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, time
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from orar.db.evenimente import evenimente_asmi
+from orar.db.evenimente import evenimente_asmi, sali_libere
 from orar.db.models import Grupa, Ora, OraArhivata, OraGrupa, OraGrupaArhivata, Sala
+from orar.db.orare import perioada_implicita
 from orar.db.versiuni import versiuni_generale
 from orar.domain.hierarchy import DENUMIRI_SPECIALIZARE, este_master
 from orar.web.deps import (
     Selectie,
+    calendar,
     context_saptamana,
     context_versiuni,
     get_db,
@@ -27,6 +29,21 @@ from orar.web.deps import (
 router = APIRouter(tags=["index"])
 
 LUNI_SCURTE = ("ian", "feb", "mar", "apr", "mai", "iun", "iul", "aug", "sep", "oct", "noi", "dec")
+
+#: Prioritatea salilor in tabul „Fereastra": amfiteatru, seminar, laborator, apoi restul.
+_PRIORITATE_SALA = {"amf": 0, "s": 1, "l": 2}
+
+
+def _prioritate_sala(nume: str) -> int:
+    """Felul salii din prefixul numelui (Amf / S / L), ca ordin de afisare."""
+    prefix = re.match(r"[^\W\d_]+", nume)
+    return _PRIORITATE_SALA.get((prefix.group().lower() if prefix else ""), 3)
+
+
+def _ore_implicite(acum: datetime) -> tuple[str, str]:
+    """Ora curenta rotunjita (sus peste :30, jos sub :30) si ora urmatoare, ca „HH:MM"."""
+    ora = (acum.hour + (1 if acum.minute > 30 else 0)) % 24
+    return f"{ora:02d}:00", f"{(ora + 1) % 24:02d}:00"
 
 
 @router.get("/acasa", include_in_schema=False)
@@ -221,6 +238,7 @@ def acasa(
     feluri_sali, etaje = _pe_etaje(sali)
     ctx_sapt = context_saptamana(s=s)
     versiuni = versiuni_generale(s, perioada=sel.perioada)
+    ora_inceput_implicita, ora_sfarsit_implicita = _ore_implicite(datetime.now())
 
     return templates.TemplateResponse(
         request=request,
@@ -260,6 +278,8 @@ def acasa(
             "sali": sali,
             "feluri_sali": feluri_sali,
             "etaje": etaje,
+            "ora_inceput_implicita": ora_inceput_implicita,
+            "ora_sfarsit_implicita": ora_sfarsit_implicita,
             "total_ore": arhiva.nr_ore
             if arhiva
             else s.scalar(
@@ -303,4 +323,60 @@ def cauta(
         request=request,
         name="_rezultate.html",
         context={"grupe": grupe, "sali": sali, "termen": termen},
+    )
+
+
+@router.get("/sali-libere", response_class=HTMLResponse)
+def sali_libere_acasa(
+    request: Request,
+    data: str = Query(""),
+    ora_inceput: str = Query(""),
+    ora_sfarsit: str = Query(""),
+    s: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Primele 3 sali libere, dupa capacitate, in ziua si intervalul dat (tabul „Fereastra").
+
+    Public. Salile blocate de un admin nu apar aici (protejarea echipamentelor), dar raman
+    in lista adminului de la evenimente, care nu le filtreaza.
+    """
+
+    def _zi(text: str) -> date | None:
+        try:
+            return date.fromisoformat(text.strip()) if text.strip() else None
+        except ValueError:
+            return None
+
+    def _timp(text: str) -> time | None:
+        try:
+            return time.fromisoformat(text.strip()) if text.strip() else None
+        except ValueError:
+            return None
+
+    zi, inceput, sfarsit = _zi(data), _timp(ora_inceput), _timp(ora_sfarsit)
+    ctx: dict[str, object] = {"libere": None, "eroare": ""}
+    if zi is None or inceput is None or sfarsit is None:
+        ctx["eroare"] = "Alege data și orele, apoi caută sălile libere."
+    elif inceput >= sfarsit:
+        ctx["eroare"] = "Ora de sfârșit trebuie să fie după cea de început."
+    else:
+        orar = perioada_implicita(s)
+        libere = sali_libere(
+            s,
+            zi,
+            inceput,
+            sfarsit,
+            perioada_id=orar.id if orar else None,
+            saptamana=calendar(s).saptamana(zi),
+        )
+        ctx["libere"] = sorted(
+            (x for x in libere if not x.sala.blocata),
+            key=lambda x: (
+                _prioritate_sala(x.sala.nume),
+                x.sala.nr_locuri is None,
+                -(x.sala.nr_locuri or 0),
+                x.sala.nume,
+            ),
+        )[:3]
+    return templates.TemplateResponse(
+        request=request, name="_sali_libere_acasa.html", context=ctx
     )
