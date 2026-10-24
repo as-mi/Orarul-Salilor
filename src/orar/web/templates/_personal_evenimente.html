@@ -1,0 +1,82 @@
+{# Evenimentele personale de pe orarul propriu: adaugi si stergi blocuri recurente sau cu
+   data fixa. Asteapta `evenimente_personale`. #}
+<details class="optiuni">
+  <summary class="filtru {{ 'activ' if evenimente_personale }}">
+    Evenimente personale
+    {% if evenimente_personale %}<span class="numar">{{ evenimente_personale|length }}</span>{% endif %}
+  </summary>
+  <div class="panou-optiuni">
+    <form method="post" action="/orarul-meu/eveniment">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="inapoi" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+      <p class="nota">Un bloc al tău pe orar: recurent, sau doar într-o zi.</p>
+
+      <label><span>Titlu</span><input type="text" name="titlu" required placeholder="de ex. Sală de sport" maxlength="160"></label>
+      <div class="pe-rand">
+        <label><span>Fel</span>
+          <select name="tip" id="personal-tip">
+            <option value="saptamanal">săptămânal</option>
+            <option value="data">într-o zi anume</option>
+          </select></label>
+        <label><span>Loc (opțional)</span><input type="text" name="loc" placeholder="Sala 220" maxlength="160"></label>
+      </div>
+
+      <div class="pe-rand" id="personal-zi">
+        <label><span>Ziua</span>
+          <select name="zi_saptamana">
+            <option value="Luni">Luni</option>
+            <option value="Marti">Marți</option>
+            <option value="Miercuri">Miercuri</option>
+            <option value="Joi">Joi</option>
+            <option value="Vineri">Vineri</option>
+          </select></label>
+        <label><span>Frecvența</span>
+          <select name="frecventa">
+            <option value="">fiecare săptămână</option>
+            <option value="SI">săptămânile impare</option>
+            <option value="SP">săptămânile pare</option>
+          </select></label>
+      </div>
+      <label id="personal-data" hidden><span>Data</span><input type="date" name="data"></label>
+
+      <div class="pe-rand">
+        <label><span>De la</span><input type="time" name="ora_inceput" required value="10:00"></label>
+        <label><span>Până la</span><input type="time" name="ora_sfarsit" required value="12:00"></label>
+      </div>
+      <button type="submit" class="principal">Adaugă</button>
+    </form>
+
+    {% if evenimente_personale %}
+      <ul class="personal-lista">
+        {% for e in evenimente_personale %}
+          <li>
+            <span><strong>{{ e.titlu }}</strong>
+              · {% if e.zi_saptamana %}{{ {'Marti': 'Marți'}.get(e.zi_saptamana, e.zi_saptamana) }}{% else %}{{ e.data.strftime('%d.%m.%Y') }}{% endif %}
+              {{ e.ora_inceput.strftime('%H:%M') }}-{{ e.ora_sfarsit.strftime('%H:%M') }}
+              {%- if e.frecventa %} · {{ e.frecventa }}{% endif %}{% if e.loc %} · {{ e.loc }}{% endif %}</span>
+            <form method="post" action="/orarul-meu/eveniment/{{ e.id }}/sterge" class="pe-linie">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <input type="hidden" name="inapoi" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+              <button type="submit" title="Șterge">✕</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+</details>
+<script>
+(function () {
+  const tip = document.getElementById("personal-tip");
+  if (!tip) return;
+  const zi = document.getElementById("personal-zi");
+  const data = document.getElementById("personal-data");
+  function actualizeaza() {
+    const sapt = tip.value === "saptamanal";
+    zi.hidden = !sapt;
+    data.hidden = sapt;
+  }
+  tip.addEventListener("change", actualizeaza);
+  actualizeaza();
+})();
+</script>

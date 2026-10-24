@@ -8,8 +8,9 @@ from pathlib import Path
 import pytest
 from sqlalchemy import delete, select
 
-from orar.db.models import ROLURI, User
+from orar.db.models import ROLURI, ROLURI_LOCALE, SsoSesiune, User
 from orar.web.auth import hash_parola
+from tests.conftest import intra_sso
 
 ADMIN, PAROLA_ADMIN = "sefu", "parola-adminului-de-test"
 EMAIL, PAROLA = "dan@example.com", "parola-lui-dan-lunga"
@@ -24,6 +25,7 @@ def _mediu(db, monkeypatch):
     monkeypatch.delenv("ORAR_ADMIN_PAROLA_HASH", raising=False)
     yield
     db.rollback()
+    db.execute(delete(SsoSesiune))
     db.execute(delete(User))
     db.commit()
     # stergerea e directa pe tabela; scoatem si obiectele ramase in sesiunea comuna
@@ -39,7 +41,7 @@ def dan(db) -> User:
     return user
 
 
-def _csrf(client, cale: str = "/login") -> str:  # noqa: ANN001
+def _csrf(client, cale: str = "/login?admin=1") -> str:  # noqa: ANN001
     return re.search(r'name="csrf" value="([^"]+)"', client.get(cale).text).group(1)
 
 
@@ -91,7 +93,7 @@ def test_adminul_din_mediu_intra_si_ajunge_in_panou(client, dan):
 
 def test_adminul_din_mediu_cu_parola_gresita(client):
     r = _intra(client, parola="gresita")
-    assert r.status_code == 401 and "Email sau parolă greșită." in r.text
+    assert r.status_code == 401 and "Nume sau parolă greșită." in r.text
     assert client.get("/admin", follow_redirects=False).status_code == 303
 
 
@@ -114,8 +116,8 @@ def test_sesiunea_de_admin_cade_cand_mediul_il_schimba(client, monkeypatch):
     assert client.get("/admin", follow_redirects=False).status_code == 303
 
 
-def test_un_cont_obisnuit_nu_intra_in_panou(client, dan):
-    assert _intra(client, EMAIL, PAROLA).headers["location"] == "/orarul-meu"
+def test_un_cont_obisnuit_nu_intra_in_panou(client, dan, sso_fals):
+    assert intra_sso(client, sso_fals, email=EMAIL).headers["location"] == "/account?nou=1"
     assert client.get("/admin").status_code == 403
     assert client.get("/admin/review").status_code == 403
 
@@ -147,7 +149,7 @@ def _un_profesor(db) -> str:  # noqa: ANN001
     return next(n for n in profesori_de_ales(db) if ore_pentru_profesor(db, n))
 
 
-@pytest.mark.parametrize("rol", ["voluntar", "profesor", "admin", "student"])
+@pytest.mark.parametrize("rol", ["voluntar", "profesor", "student"])
 def test_adminul_seteaza_rolul(client, db, dan, rol):
     assert _rol(db) == "student"
     _intra(client)
@@ -157,12 +159,17 @@ def test_adminul_seteaza_rolul(client, db, dan, rol):
     assert f'<option value="{rol}" selected>' in client.get("/admin").text
 
 
-def test_rolurile_din_panou_sunt_cele_cerute(client, dan):
+def test_rolurile_din_panou_sunt_cele_cerute(client, db, dan):
     assert set(ROLURI) == {"student", "voluntar", "profesor", "admin"}
+    assert set(ROLURI_LOCALE) == {"student", "voluntar", "profesor"}
     _intra(client)
     panou = client.get("/admin").text
-    for rol in ("voluntar", "profesor", "admin"):
+    for rol in ("voluntar", "profesor"):
         assert f'<option value="{rol}"' in panou
+    # adminul nu se mai da din Orar: il da rolul cddd din SSO
+    assert '<option value="admin"' not in panou
+    assert _seteaza(client, dan.id, "admin").status_code == 400
+    assert _rol(db) == "student"
 
 
 def test_rol_necunoscut_si_cont_inexistent(client, db, dan):
@@ -178,26 +185,26 @@ def test_fara_csrf_rolul_nu_se_schimba(client, db, dan):
     assert _rol(db) == "student"
 
 
-def test_un_cont_obisnuit_nu_poate_seta_roluri(client, db, dan):
-    _intra(client, EMAIL, PAROLA)
+def test_un_cont_obisnuit_nu_poate_seta_roluri(client, db, dan, sso_fals):
+    intra_sso(client, sso_fals, email=EMAIL)
     token = _csrf(client, "/")
     assert _seteaza(client, dan.id, "admin", csrf=token).status_code == 403
     assert _rol(db) == "student"
 
 
-def test_contul_ridicat_la_admin_primeste_panoul_fara_sa_reintre(client, db, dan):
-    from fastapi.testclient import TestClient
+def test_contul_care_primeste_cddd_in_sso_primeste_panoul_fara_sa_reintre(
+    client, db, dan, sso_fals
+):
+    from datetime import datetime
 
-    from orar.web.app import app
+    from orar.web import sso
 
-    _intra(client, EMAIL, PAROLA)  # Dan e deja autentificat, ca student
+    intra_sso(client, sso_fals, email=EMAIL)  # Dan e autentificat, ca student
     assert client.get("/admin").status_code == 403
 
-    with TestClient(app) as seful:
-        _intra(seful)
-        _seteaza(seful, dan.id, "admin")
-
-    # rolul se citeste din baza la fiecare cerere
+    sso_fals.identitate["realm"] = ["student", "cddd"]  # i se da rolul in Keycloak
+    db.scalar(select(SsoSesiune)).verificat_la = datetime.now() - sso.REIMPROSPATARE * 2
+    db.commit()
     assert client.get("/admin").status_code == 200
     acasa = client.get("/").text
     assert 'href="/admin"' in acasa and "orarul meu" not in acasa
@@ -235,13 +242,13 @@ def test_rolul_de_profesor_cere_si_profesorul(client, db, dan):
     assert (dan.rol, dan.profesor) == ("voluntar", None)
 
 
-def test_orarul_meu_al_unui_profesor_e_orarul_lui(client, db, dan):
+def test_orarul_meu_al_unui_profesor_e_orarul_lui(client, db, dan, sso_fals):
     from orar.db.queries import gaseste_profesor, ore_pentru_profesor
 
     nume = _un_profesor(db)
     dan.rol, dan.profesor = "profesor", nume
     db.commit()
-    _intra(client, EMAIL, PAROLA)
+    intra_sso(client, sso_fals, email=EMAIL)
     r = client.get("/orarul-meu", follow_redirects=False)
     assert r.headers["location"] == f"/profesor/{gaseste_profesor(db, nume).slug}"
 
@@ -253,9 +260,9 @@ def test_orarul_meu_al_unui_profesor_e_orarul_lui(client, db, dan):
     assert client.get("/profesor/nu-exista").status_code == 404
 
 
-def test_cererea_de_profesor_din_cont_si_aprobarea_ei(client, db, dan):
+def test_cererea_de_profesor_din_cont_si_aprobarea_ei(client, db, dan, sso_fals):
     nume = _un_profesor(db)
-    _intra(client, EMAIL, PAROLA)
+    intra_sso(client, sso_fals, email=EMAIL)
     assert "Cere rolul de profesor" in client.get("/account").text
 
     # un nume care nu e in lista nu devine cerere
@@ -291,7 +298,7 @@ def test_cererea_de_profesor_din_cont_si_aprobarea_ei(client, db, dan):
     assert (dan.rol, dan.profesor, dan.cerere_profesor) == ("profesor", nume, None)
 
 
-def test_cererea_se_poate_respinge_sau_retrage(client, db, dan):
+def test_cererea_se_poate_respinge_sau_retrage(client, db, dan, sso_fals):
     nume = _un_profesor(db)
     dan.cerere_profesor = nume
     db.commit()
@@ -306,7 +313,7 @@ def test_cererea_se_poate_respinge_sau_retrage(client, db, dan):
     dan.cerere_profesor = nume
     db.commit()
     client.post("/logout", data={"csrf": _csrf(client, "/admin")})
-    _intra(client, EMAIL, PAROLA)
+    intra_sso(client, sso_fals, email=EMAIL)
     client.post("/account/profesor", data={"csrf": _csrf(client, "/account"), "renunta": "1"})
     db.expire_all()
     assert dan.cerere_profesor is None

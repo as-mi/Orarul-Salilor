@@ -50,6 +50,20 @@ def ruleaza_o_data(**kwargs) -> None:  # noqa: ANN003
         # O eroare de retea sau o schimbare de layout la Drive nu are voie sa opreasca
         # aplicatia web; ramane in log si se reincearca maine.
         log.exception("sincronizarea a esuat")
+    # Ultimul articol ASMI se aduce separat: nu depinde de sincronizarea orarului.
+    _prospateaza_articole()
+
+
+def _prospateaza_articole() -> None:
+    """Aduce ultimul articol de pe asmi.ro, intr-o sesiune proprie."""
+    from orar.db.articole import prospateaza_articole
+    from orar.db.session import sesiune
+
+    try:
+        with sesiune() as s:
+            prospateaza_articole(s)
+    except Exception:
+        log.exception("aducerea articolului ASMI a esuat")
 
 
 def porneste(**kwargs):  # noqa: ANN003, ANN201

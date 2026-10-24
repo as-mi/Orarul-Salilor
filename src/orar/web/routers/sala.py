@@ -6,13 +6,14 @@ from dataclasses import dataclass
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from orar.db.evenimente import evenimente_in_grila
 from orar.db.models import Ora, Sala
 from orar.db.queries import gaseste_sala, ore_pentru_sala
+from orar.db.tutoriate import tutoriate_in_grila
 from orar.db.versiuni import versiuni_generale, versiuni_pentru_sala
 from orar.domain.grid import ORA_MAX, ORA_MIN, ZILE, construieste_grila
 from orar.domain.weeks import parse_interval_saptamani
@@ -27,6 +28,7 @@ from orar.web.deps import (
     selectie,
     templates,
 )
+from orar.web.export import raspuns_export
 
 router = APIRouter(prefix="/sala", tags=["sala"])
 
@@ -144,7 +146,7 @@ def listeaza_sali(
     )
 
 
-@router.get("/{identificator}", response_class=HTMLResponse)
+@router.get("/{identificator}", response_class=HTMLResponse, response_model=None)
 def afiseaza_sala(
     request: Request,
     identificator: str,
@@ -155,9 +157,10 @@ def afiseaza_sala(
     versiune: int | None = Query(None, description="o versiune anterioara a orarului"),
     perioada: int | None = Query(None, description="alt orar decat cel implicit"),
     editare: bool = Query(False, description="modul de editare, pentru admini"),
+    export: str | None = Query(None, description="descarca grila ca imagine: png sau jpg"),
     s: Session = Depends(get_db),
     cont: Cont | None = Depends(cont_curent),
-) -> HTMLResponse:
+) -> HTMLResponse | Response:
     sala = gaseste_sala(s, identificator)
     if sala is None:
         raise HTTPException(status_code=404, detail=f"Nu există sala {identificator!r}")
@@ -173,8 +176,17 @@ def afiseaza_sala(
         saptamana=sapt,
         doar_saptamana_curenta=doar_saptamana and sapt is not None,
         # rezervarile cu data din saptamana afisata
-        evenimente=[] if arhiva else evenimente_in_grila(s, ctx_sapt["azi"], sala=sala),
+        # evenimentele si tutoriatele din saptamana afisata ocupa si ele sala
+        evenimente=[]
+        if arhiva
+        else evenimente_in_grila(s, ctx_sapt["azi"], sala=sala)
+        + tutoriate_in_grila(s, ctx_sapt["azi"], sala=sala),
     )
+    if export in ("png", "jpg"):
+        return raspuns_export(
+            grila, titlu=sala.nume, slug=sala.slug, mod="sala", format=export, sel=sel,
+            doar_saptamana=doar_saptamana,
+        )
     pe_zi, total_ocupate = _ocupare(ore)
 
     return templates.TemplateResponse(

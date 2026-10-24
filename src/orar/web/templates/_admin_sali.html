@@ -1,0 +1,17 @@
+{# Sălile blocate: adminul bifează sălile care nu trebuie să apară ca libere în tabul
+   „Fereastra" (protejarea echipamentelor). Așteaptă `sali_fizice`. #}
+<section class="sectiune panou" id="sali-blocate" aria-labelledby="t-sali-blocate">
+  <h2 id="t-sali-blocate">Săli blocate</h2>
+  <p class="nota">Sălile bifate nu apar ca libere în tabul „Fereastră" de pe prima pagină,
+    chiar dacă sunt libere (protejarea echipamentelor). Nu afectează căutarea de la evenimente.</p>
+  <form method="post" action="/admin/sali" class="camp-lista">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="bife-sali">
+      {% for sala in sali_fizice %}
+        <label class="bifa"><input type="checkbox" name="blocata" value="{{ sala.id }}" {{ 'checked' if sala.blocata }}>
+          <span>{{ sala.nume }}{% if sala.nr_locuri %} <small>{{ sala.nr_locuri }} locuri</small>{% endif %}</span></label>
+      {% endfor %}
+    </div>
+    <button type="submit" class="principal">Salvează</button>
+  </form>
+</section>

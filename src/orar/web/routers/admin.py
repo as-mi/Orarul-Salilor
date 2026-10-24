@@ -25,6 +25,7 @@ si pe citiri perfecte, deci ar ineca lista in celule bune.
 from __future__ import annotations
 
 import io
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -34,12 +35,24 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from orar.db.coada import grupeaza
-from orar.db.models import ROLURI, Corectie, Ora, Sesizare, User
+from orar.db.models import (
+    PERMISIUNI,
+    ROLURI_LOCALE,
+    Corectie,
+    Ora,
+    Permisiune,
+    Sala,
+    Sesizare,
+    SsoSesiune,
+    Tutor,
+    TutoriatTutor,
+    User,
+)
 from orar.db.orare import fa_implicita, orare_vii
 from orar.db.queries import profesori_de_ales
 from orar.ingest.capturi import Sesiune
 from orar.ingest.crosscheck import profesori_potriviti
-from orar.web.auth import Cont, cere_admin, verifica_csrf
+from orar.web.auth import Cont, cere_admin, cere_permisiune, verifica_csrf
 from orar.web.deps import context_saptamana, get_db, templates
 from orar.web.routers.editare import _liste, materii_din_orar
 from orar.worker import incarcare
@@ -67,6 +80,9 @@ def panou(
     utilizatori = list(
         s.scalars(select(User).options(joinedload(User.grupa)).order_by(func.lower(User.nume)))
     )
+    sali_fizice = list(
+        s.scalars(select(Sala).where(Sala.tip == "fizica").order_by(Sala.nume))
+    )
     orare = orare_vii(s)
     implicit = orare[0].perioada if orare else None
 
@@ -81,9 +97,15 @@ def panou(
             "admin": admin,
             "utilizatori": utilizatori,
             "cereri": [u for u in utilizatori if u.cerere_profesor],
+            # rolurile SSO ale fiecarui cont, din ultima lui sesiune: {user_id: (admin, permisiuni)}
+            "drepturi_sso": _drepturile_sso(s),
             "profesori": profesori_de_ales(s),
-            "roluri": ROLURI,
+            "roluri": ROLURI_LOCALE,
+            "permisiuni": PERMISIUNI,
+            "permisiuni_acordate": _permisiunile_acordate(s),
+            "tutori": _tutorii(s),
             "incarcare": incarcare.stare_curenta(),
+            "sali_fizice": sali_fizice,
             "nr_sesizari": numara(Sesizare, Sesizare.stare == "noua"),
             "nr_corectii": numara(Corectie),
             "nr_neaplicate": numara(Corectie, Corectie.aplicata.is_(False)),
@@ -99,6 +121,24 @@ def panou(
 # ------------------------------------------------------- incarcarea unui orar
 
 
+@router.post("/sali", response_model=None)
+def salveaza_sali_blocate(
+    request: Request,
+    blocata: list[str] = Form(default=[]),
+    csrf: str = Form(""),
+    s: Session = Depends(get_db),
+    admin: Cont = Depends(cere_admin),
+) -> RedirectResponse:
+    """Bifeaza salile care nu trebuie sa apara ca libere in tabul „Fereastra"."""
+    if not verifica_csrf(request, csrf):
+        return RedirectResponse("/admin", status_code=303)
+    alese = {int(x) for x in blocata if x.isdigit()}
+    for sala in s.scalars(select(Sala).where(Sala.tip == "fizica")):
+        sala.blocata = sala.id in alese
+    s.commit()
+    return RedirectResponse("/admin#sali-blocate", status_code=303)
+
+
 @router.post("/orar", response_class=HTMLResponse, response_model=None)
 def incarca_orar(
     request: Request,
@@ -107,7 +147,7 @@ def incarca_orar(
     semestru: str = Form(""),
     an_universitar: str = Form(""),
     csrf: str = Form(""),
-    admin: Cont = Depends(cere_admin),
+    admin: Cont = Depends(cere_permisiune("incarcare")),
 ) -> RedirectResponse:
     """Porneste, in fundal, incarcarea unui orar dintr-un link -- vezi `worker.incarcare`."""
     if not verifica_csrf(request, csrf):
@@ -148,7 +188,7 @@ def alege_implicit(
     perioada: str = Form(""),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("incarcare")),
 ) -> RedirectResponse:
     """Alege orarul pe care il vede toata lumea cand nu alege altul."""
     if not verifica_csrf(request, csrf):
@@ -162,7 +202,7 @@ def alege_implicit(
 
 
 @router.get("/orar/stare", response_class=HTMLResponse)
-def starea_incarcarii(request: Request, _admin: Cont = Depends(cere_admin)) -> HTMLResponse:
+def starea_incarcarii(request: Request, _admin: Cont = Depends(cere_permisiune("incarcare"))) -> HTMLResponse:
     """Doar caseta de stare, pentru reimprospatarea automata din panou."""
     return templates.TemplateResponse(
         request=request,
@@ -179,13 +219,13 @@ def schimba_rolul(
     profesor: str = Form(""),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("utilizatori")),
 ) -> RedirectResponse:
     """Seteaza rolul unui cont: student, voluntar, profesor sau admin. Rolul de profesor
     cere si profesorul: al cui orar devine "orarul meu" al contului."""
     if not verifica_csrf(request, csrf):
         return RedirectResponse("/admin", status_code=303)
-    if rol not in ROLURI:
+    if rol not in ROLURI_LOCALE:
         raise HTTPException(400, f"rol necunoscut: {rol!r}")
     user = s.get(User, user_id)
     if user is None:
@@ -205,6 +245,52 @@ def schimba_rolul(
     return RedirectResponse("/admin?salvat=1#utilizatori", status_code=303)
 
 
+def _drepturile_sso(s: Session) -> dict[int, tuple[bool, frozenset[str], frozenset[str]]]:
+    """Ce spunea Keycloak, la ultima autentificare, despre fiecare cont: e admin (CDDD), ce
+    permisiuni aduce (roluri de client + oficiu) si care e oficiul. Se schimba din Keycloak,
+    nu de aici."""
+    from orar.web import sso
+
+    cfg = sso.configurare()
+    rez: dict[int, tuple[bool, frozenset[str], frozenset[str]]] = {}
+    for x in s.scalars(select(SsoSesiune).order_by(SsoSesiune.verificat_la)):
+        roluri = sso.roluri_sesiunii(x)
+        admin, permisiuni = sso.drepturi(roluri, cfg)
+        rez[x.user_id] = (admin, permisiuni, sso.oficii(roluri))
+    return rez
+
+
+def _permisiunile_acordate(s: Session) -> dict[int, frozenset[str]]:
+    """Permisiunile date de un admin in Orar (tabela PERMISIUNE), pe cont."""
+    rez: dict[int, set[str]] = {}
+    for user_id, cheie in s.execute(select(Permisiune.user_id, Permisiune.cheie)):
+        rez.setdefault(user_id, set()).add(cheie)
+    return {k: frozenset(v) for k, v in rez.items()}
+
+
+def _tutorii(s: Session) -> set[int]:
+    """Id-urile conturilor tutor (rolul „tutore"): asignare valabila in TUTOR sau membru in
+    echipa unui tutoriat (TUTORIAT_TUTOR)."""
+    from datetime import date
+
+    azi = date.today()
+    ids = {
+        user_id
+        for (user_id,) in s.execute(
+            select(Tutor.user_id).where(
+                Tutor.user_id.is_not(None), Tutor.valabil_de_la <= azi, Tutor.valabil_pana_la >= azi
+            )
+        )
+    }
+    ids |= {
+        user_id
+        for (user_id,) in s.execute(
+            select(TutoriatTutor.user_id).where(TutoriatTutor.user_id.is_not(None))
+        )
+    }
+    return ids
+
+
 @router.post("/utilizatori/{user_id}/cerere")
 def trateaza_cererea(
     request: Request,
@@ -212,7 +298,7 @@ def trateaza_cererea(
     actiune: str = Form(""),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("utilizatori")),
 ) -> RedirectResponse:
     """Aproba sau respinge cererea unui cont de a primi rolul de profesor."""
     if not verifica_csrf(request, csrf):
@@ -223,6 +309,33 @@ def trateaza_cererea(
     if actiune == "aproba" and user.cerere_profesor in profesori_de_ales(s):
         user.rol, user.profesor = "profesor", user.cerere_profesor
     user.cerere_profesor = None
+    s.commit()
+    return RedirectResponse("/admin?salvat=1#utilizatori", status_code=303)
+
+
+@router.post("/utilizatori/{user_id}/permisiuni")
+def salveaza_permisiunile(
+    request: Request,
+    user_id: int,
+    chei: list[str] = Form([]),
+    csrf: str = Form(""),
+    s: Session = Depends(get_db),
+    admin: Cont = Depends(cere_permisiune("utilizatori")),
+) -> RedirectResponse:
+    """Seteaza permisiunile acordate unui cont, in Orar. Ce vine din SSO (rol de client,
+    oficiu) ramane neschimbat: aici adminul doar adauga sau retrage peste el."""
+    if not verifica_csrf(request, csrf):
+        return RedirectResponse("/admin", status_code=303)
+    user = s.get(User, user_id)
+    if user is None:
+        raise HTTPException(404, "contul nu exista")
+    valide = {c for c in chei if c in dict(PERMISIUNI)}
+    existente = list(s.scalars(select(Permisiune).where(Permisiune.user_id == user.id)))
+    pentru = {p.cheie: p for p in existente}
+    for cheie in valide - set(pentru):
+        s.add(Permisiune(user=user, cheie=cheie, acordat_de=admin.nume, acordat_la=datetime.now()))
+    for cheie in set(pentru) - valide:
+        s.delete(pentru[cheie])
     s.commit()
     return RedirectResponse("/admin?salvat=1#utilizatori", status_code=303)
 
@@ -239,7 +352,7 @@ def review(
     prag: float = Query(0.75, ge=0.0, le=1.0),
     limita: int = Query(100, ge=1, le=500),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("review")),
 ) -> HTMLResponse:
     """Activitatile de verificat, pe sesiuni de incarcare -- cea mai recenta intai -- si, in
     fiecare, pe paginile din care au fost citite."""
@@ -323,7 +436,7 @@ def _gaseste_captura(sursa: str) -> Path | None:
 
 @router.get("/decupaj/{ora_id}")
 def decupaj(
-    ora_id: int, s: Session = Depends(get_db), _admin: Cont = Depends(cere_admin)
+    ora_id: int, s: Session = Depends(get_db), _admin: Cont = Depends(cere_permisiune("review"))
 ) -> Response:
     """Decupajul celulei din care a fost citita activitatea."""
     ora = s.get(Ora, ora_id)

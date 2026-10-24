@@ -73,6 +73,13 @@
     {% if optiuni %}
       {% include "_optiuni.html" %}
     {% endif %}
+    {% if tutoriate %}
+      {% include "_tutoriate_dropdown.html" %}
+    {% endif %}
+    {% if orarul_meu %}
+      {% include "_personal_evenimente.html" %}
+      {% include "_personal_import.html" %}
+    {% endif %}
 
     {% include "_editare.html" %}
     {% include "_alege_zi.html" %}

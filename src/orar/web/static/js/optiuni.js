@@ -1,10 +1,39 @@
-// Dropdownul "Opționale și facultative" de pe pagina unei grupe (templates/grupa.html).
-// Trei niveluri de bife: "Selectează tot" > materie > activitate. Nivelurile de sus
+// Dropdownurile din randul de filtre: "Opționale și facultative", "Tutoriate",
+// "Evenimente personale" și "Importă activități". Toate se comportă la fel: când se
+// deschide unul, celelalte se închid; panoul se închide la click în afara lui și, lângă
+// marginea dreaptă, se deschide spre stânga ca să rămână pe ecran.
+const dropdownuri = [...document.querySelectorAll("details.optiuni")];
+
+for (const d of dropdownuri) {
+  d.addEventListener("toggle", () => {
+    if (!d.open) return;
+    // Accordion: un singur panou deschis.
+    for (const alt of dropdownuri) {
+      if (alt !== d) alt.open = false;
+    }
+    const panou = d.querySelector(".panou-optiuni");
+    if (panou) {
+      panou.classList.remove("spre-stanga");
+      if (panou.getBoundingClientRect().right > window.innerWidth - 8) {
+        panou.classList.add("spre-stanga");
+      }
+    }
+  });
+  // Panoul se inchide la click in afara lui.
+  document.addEventListener("click", (e) => {
+    if (d.open && !d.contains(e.target)) d.open = false;
+  });
+}
+
+// Doar dropdownul "Opționale și facultative" are cele trei niveluri de bife
+// ("Selectează tot" > materie > activitate), comandate de JS. Nivelurile de sus
 // bifeaza/debifeaza tot ce e sub ele si arata starea partiala (-). Activitatile unei
-// materii se strang, afara de cele alese partial. Panoul se inchide la click in afara
-// lui. Fara JS, bifele activitatilor merg oricum si toate sunt la vedere.
-for (const d of document.querySelectorAll("details.optiuni")) {
+// materii se strang, afara de cele alese partial. Fara JS, bifele activitatilor merg
+// oricum si toate sunt la vedere.
+for (const d of dropdownuri) {
   const toate = d.querySelector("[data-toate]");
+  if (!toate) continue; // celelalte dropdownuri nu au acest mecanism
+
   const bife = [...d.querySelectorAll('input[name="vizibile"]')];
   const materii = [...d.querySelectorAll("[data-materie]")].map((el) => ({
     el,
@@ -34,12 +63,5 @@ for (const d of document.querySelectorAll("details.optiuni")) {
     extinde(m, m.el.dataset.partiala === "1");
   }
   bife.forEach((b) => b.addEventListener("change", sincron));
-  document.addEventListener("click", (e) => { if (d.open && !d.contains(e.target)) d.open = false; });
-  // Langa marginea dreapta, panoul se deschide spre stanga, ca sa ramana pe ecran.
-  d.addEventListener("toggle", () => {
-    const panou = d.querySelector(".panou-optiuni");
-    panou.classList.remove("spre-stanga");
-    if (d.open && panou.getBoundingClientRect().right > window.innerWidth - 8) panou.classList.add("spre-stanga");
-  });
   sincron();
 }

@@ -1,19 +1,39 @@
-{# Subsolul fiecarei pagini: sursa orarelor si avertismentul ca pot contine greseli.
-   Optional `total_ore` si `sursa_orar`. #}
+{# Subsolul: orarul, linkurile ASMI, politicile si, ca fun fact, ultimul articol de pe
+   asmi.ro. Optional `total_ore` si `sursa_orar`; `ultimul_articol` vine global din `auth`. #}
 <footer class="subsol">
-  <div class="subsol-rand">
-    <span><a href="/calendar-asmi">Calendar ASMI</a> · Sursa tuturor orarelor:
-      <a href="https://fmi.unibuc.ro/orar/" rel="noreferrer">fmi.unibuc.ro/orar</a>
-      - orarul public al Facultății de Matematică și Informatică, Universitatea din București.</span>
-    <span>
-      {%- if total_ore is defined %}{{ total_ore }} activități{% endif %}
-      {%- if sursa_orar and sursa_orar.actualizat %} · orar publicat
-        {{ "%02d.%02d.%04d"|format(sursa_orar.actualizat.day, sursa_orar.actualizat.month, sursa_orar.actualizat.year) }}
-        {%- if not sursa_orar.la_zi %} <strong>(mai nou decât ce avem în bază)</strong>{% endif %}
-      {%- endif %}
-    </span>
+  <div class="subsol-coloane">
+    <div class="subsol-coloana">
+      <strong>Orarul</strong>
+      <span><a href="/calendar-asmi">Calendar ASMI</a> · <a href="/tutoriate">Tutoriate</a></span>
+      <span>Sursa tuturor orarelor: <a href="https://fmi.unibuc.ro/orar/" rel="noreferrer">fmi.unibuc.ro/orar</a></span>
+      <span class="subsol-mic">
+        {%- if total_ore is defined %}{{ total_ore }} activități{% endif %}
+        {%- if sursa_orar and sursa_orar.actualizat %} · orar publicat
+          {{ "%02d.%02d.%04d"|format(sursa_orar.actualizat.day, sursa_orar.actualizat.month, sursa_orar.actualizat.year) }}
+          {%- if not sursa_orar.la_zi %} <strong>(mai nou decât ce avem în bază)</strong>{% endif %}
+        {%- endif %}
+      </span>
+    </div>
+    <div class="subsol-coloana">
+      <strong>ASMI</strong>
+      <a href="https://asmi.ro" rel="noreferrer">Site ASMI</a>
+      <a href="https://instagram.com/asmi.ub" rel="noreferrer">Instagram</a>
+      <a href="https://www.linkedin.com/company/asmi-ub/" rel="noreferrer">LinkedIn</a>
+    </div>
+    <div class="subsol-coloana">
+      <strong>Politici</strong>
+      <a href="/confidentialitate">Confidențialitate</a>
+      <a href="/cookies">Cookies</a>
+      <a href="/date-personale">Date personale</a>
+    </div>
+    {% if ultimul_articol %}
+      <div class="subsol-coloana">
+        <strong>Ultimul articol ASMI</strong>
+        <a href="https://asmi.ro/Articole/{{ ultimul_articol.slug }}" rel="noreferrer">{{ ultimul_articol.titlu }}</a>
+      </div>
+    {% endif %}
   </div>
   <p class="subsol-nota">Orarul de aici este citit automat din documentele facultății și
-    <strong>poate cuprinde greșeli</strong>. În caz de dubiu, orarul oficial este cel de pe
-    <a href="https://fmi.unibuc.ro/orar/" rel="noreferrer">fmi.unibuc.ro/orar</a>.</p>
+    <strong>poate cuprinde greșeli</strong>; sălile marcate libere pot avea, în paralel,
+    evenimente care nu apar în orar. Mai multe, în <a href="/confidentialitate">politica de confidențialitate</a>.</p>
 </footer>

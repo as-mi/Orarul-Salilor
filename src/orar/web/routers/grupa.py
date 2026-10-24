@@ -6,12 +6,19 @@ from datetime import date
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from orar.db.evenimente import evenimente_in_grila
 from orar.db.models import Grupa, Ora, OraArhivata, User
+from orar.db.personal import (
+    blocuri_personale,
+    evenimentele_contului,
+    formatiuni_import,
+    importatele_contului,
+)
 from orar.db.queries import gaseste_grupa, ids_descendenti, ids_stramosi, ore_pentru_grupa
+from orar.db.tutoriate import oferite_grupei, tutoriate_in_grila
 from orar.db.versiuni import versiuni_pentru_grupa
 from orar.domain.grid import Provenienta, construieste_grila
 from orar.web.afisare import (
@@ -34,6 +41,8 @@ from orar.web.deps import (
     selectie,
     templates,
 )
+from orar.web.export import raspuns_export
+from orar.web.routers.tutoriate import tutoriate_alese_de
 
 router = APIRouter(prefix="/grupa", tags=["grupa"])
 
@@ -105,9 +114,10 @@ def afiseaza_grupa(
     versiune: int | None = Query(None, description="o versiune anterioara a orarului"),
     perioada: int | None = Query(None, description="alt orar decat cel implicit"),
     editare: bool = Query(False, description="modul de editare, pentru admini"),
+    export: str | None = Query(None, description="descarca grila ca imagine: png sau jpg"),
     s: Session = Depends(get_db),
     cont: Cont | None = Depends(cont_curent),
-) -> HTMLResponse | RedirectResponse:
+) -> HTMLResponse | RedirectResponse | Response:
     # Ce orar se afiseaza: cel implicit, altul ales din panoul de versiuni, sau o versiune
     # anterioara. Baza poate tine mai multe semestre; pagina arata unul singur.
     sel = selectie(s, perioada, versiune)
@@ -158,7 +168,27 @@ def afiseaza_grupa(
 
     provenienta, surse = _clasifica(ore, grupa, stramosi, descendenti)
     ctx_sapt = context_saptamana(zi, s)
+
+    # Tutoriatele: se aleg (opt-in) din dropdownul lor; cele tinute de contul care se uita
+    # apar mereu pe orarul lui. O versiune veche a orarului nu le are.
+    tutoriate = [] if arhiva else oferite_grupei(s, grupa)
+    tutoriate_alese = tutoriate_alese_de(request, cont)
+    blocuri_tutoriate = (
+        []
+        if arhiva
+        else tutoriate_in_grila(
+            s,
+            ctx_sapt["azi"],
+            grupa=grupa,
+            alese=tutoriate_alese,
+            tutor=al_meu,
+        )
+    )
     sapt = saptamana_activa(ctx_sapt)
+    # Personalizarea orarului propriu: evenimentele si importurile contului (doar pe el).
+    blocuri_personal = (
+        [] if arhiva or al_meu is None else blocuri_personale(s, al_meu, ctx_sapt["azi"])
+    )
     grila = construieste_grila(
         ore,
         provenienta=provenienta,
@@ -166,8 +196,24 @@ def afiseaza_grupa(
         saptamana=sapt,
         doar_saptamana_curenta=doar_saptamana and sapt is not None,
         # evenimentele cu data din saptamana afisata; o versiune veche a orarului nu le are
-        evenimente=[] if arhiva else evenimente_in_grila(s, ctx_sapt["azi"], grupa=grupa),
+        evenimente=[]
+        if arhiva
+        else evenimente_in_grila(s, ctx_sapt["azi"], grupa=grupa)
+        + blocuri_tutoriate
+        + blocuri_personal,
     )
+
+    if export in ("png", "jpg"):
+        return raspuns_export(
+            grila,
+            titlu=grupa.nume,
+            slug=grupa.slug,
+            mod="grupa",
+            format=export,
+            sel=sel,
+            semigrupa=semigrupa,
+            doar_saptamana=doar_saptamana,
+        )
 
     lant = []
     cur: Grupa | None = grupa.parinte
@@ -212,6 +258,11 @@ def afiseaza_grupa(
             "toate_semigrupele": TOATE_SEMIGRUPELE,
             **context_editare(request, cont, ore, editare=editare, versiune=arhiva),
             "orarul_meu": al_meu is not None,
+            "tutoriate": tutoriate,
+            "tutoriate_alese": tutoriate_alese,
+            "formatiuni_import": formatiuni_import(s, sel.perioada) if al_meu else [],
+            "evenimente_personale": evenimentele_contului(s, al_meu) if al_meu else [],
+            "importate": importatele_contului(s, al_meu) if al_meu else [],
         },
     )
     if de_salvat != salvata:

@@ -1,0 +1,46 @@
+{# Tutoriatele semestrului, cu starea, echipa si cati le-au ales. #}
+<p class="actiuni-sesizare">
+  <a class="buton plin" href="/tutoriate/panou/tutoriat/nou?perioada={{ orar.id }}">+ Tutoriat nou</a>
+  <a class="buton" href="/tutoriate/panou?tab=planificare&perioada={{ orar.id }}">Caută un interval bun</a>
+</p>
+{% set etichete = {'ciorna': 'ciornă', 'publicat': 'publicat', 'incheiat': 'încheiat'} %}
+<div id="lista-tutoriate">
+{% if not tutoriate %}
+  <p class="nota">Niciun tutoriat în semestrul acesta. Pornește din <a href="/tutoriate/panou?tab=planificare&perioada={{ orar.id }}">Planificare</a>
+    sau <a href="/tutoriate/panou?tab=import&perioada={{ orar.id }}">importă foaia</a> de anul trecut.</p>
+{% else %}
+  <div class="tabel-scroll">
+  <table class="tabel-sali tut-tabel">
+    <thead><tr><th>Materia</th><th>Pentru</th><th>Când</th><th>Unde</th><th>Echipa</th><th>Stare</th><th>Aleși</th><th></th></tr></thead>
+    <tbody>
+    {% for t in tutoriate %}
+      <tr class="tut-{{ t.stare }}">
+        <td><a href="/tutoriate/panou/tutoriat/{{ t.id }}"><strong>{{ t.materie }}</strong></a></td>
+        <td>{{ eticheta_public(t) }}</td>
+        <td>{{ zile_ro[t.zi_saptamana] }} {{ t.interval }}{% if t.frecventa %} · {{ 'impar' if t.frecventa == 'SI' else 'par' }}{% endif %}
+          <br><small>{{ t.data_inceput.strftime('%d.%m') }}-{{ t.data_sfarsit.strftime('%d.%m.%Y') }}</small></td>
+        <td>{{ t.unde }}</td>
+        <td>{% for m in t.echipa %}{{ m.user.nume }}{{ ' ★' if m.principal and t.echipa|length > 1 }}{{ ', ' if not loop.last }}{% else %}<span class="avertisment-mic">fără tutori</span>{% endfor %}</td>
+        <td><span class="pastila {{ '' if t.stare == 'publicat' else 'neutra' }}">{{ etichete[t.stare] }}</span></td>
+        <td>{{ alegeri.get(t.id, 0) }}</td>
+        <td class="tut-actiuni">
+          {% for stare, text in (('publicat', 'Publică'), ('ciorna', 'Retrage'), ('incheiat', 'Încheie')) if stare != t.stare and not (t.stare == 'ciorna' and stare == 'incheiat') %}
+            <form method="post" action="/tutoriate/panou/tutoriat/{{ t.id }}/stare" class="pe-linie">
+              <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="stare" value="{{ stare }}">
+              <button type="submit" class="buton {{ 'plin' if stare == 'publicat' }}">{{ text }}</button>
+            </form>
+          {% endfor %}
+          <form method="post" action="/tutoriate/panou/tutoriat/{{ t.id }}/duplica" class="pe-linie">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <button type="submit" class="buton" title="Încă un tutoriat la aceeași materie, în alt interval">Duplică</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="nota">„Aleși” numără conturile care l-au adăugat în orar; cei fără cont nu se pot număra.
+    <a href="/tutoriate/panou/export.csv?perioada={{ orar.id }}">Descarcă foaia publicată (CSV)</a></p>
+{% endif %}
+</div>

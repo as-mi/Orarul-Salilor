@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block titlu %}{{ t.materie }}{% endblock %}
+
+{% block continut %}
+<section class="formular lat">
+  <nav class="firimituri"><a href="/cont">contul meu</a><span>›</span><strong>{{ t.materie }}</strong></nav>
+  <h1>{{ t.materie }}</h1>
+  <p class="nota">{{ zile_ro[t.zi_saptamana] }} {{ t.interval }} · {{ t.unde }} · {{ eticheta_public(t) }}
+    · {{ t.data_inceput.strftime('%d.%m') }}-{{ t.data_sfarsit.strftime('%d.%m.%Y') }}</p>
+  <p class="nota">Echipa: {% for m in t.echipa %}{{ m.user.nume }}{{ ', ' if not loop.last }}{% endfor %}.
+    Ziua, ora și sala le schimbă responsabilul de tutoriate.</p>
+  {% if request.query_params.get('salvat') %}<p class="reusit" role="status">Salvat.</p>{% endif %}
+  {% if request.query_params.get('eroare') %}<p class="avertisment" role="alert">Linkurile trebuie să înceapă cu https://.</p>{% endif %}
+
+  <form method="post" action="/tutoriate/al-meu/{{ t.id }}" class="camp-lista">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label><span>Link WhatsApp</span><input type="text" name="link_whatsapp" inputmode="url" maxlength="300" value="{{ t.link_whatsapp or '' }}" placeholder="https://chat.whatsapp.com/…"></label>
+    <label><span>Link Teams</span><input type="text" name="link_teams" inputmode="url" maxlength="300" value="{{ t.link_teams or '' }}" placeholder="https://teams.microsoft.com/…"></label>
+    <label><span>Descriere <small>ce faceți, ce să aducă studenții</small></span><textarea name="descriere" rows="4" maxlength="2000">{{ t.descriere or '' }}</textarea></label>
+    <div class="butoane"><button type="submit" class="principal">Salvează</button></div>
+  </form>
+
+  <h2>Ședințele</h2>
+  <p class="nota">Dacă o ședință nu se ține, anuleaz-o: apare tăiată în orarul celor care au ales tutoriatul.</p>
+  {% set inapoi = '/tutoriate/al-meu/' ~ t.id %}
+  {% include "_tut_sedinte.html" %}
+</section>
+{% endblock %}

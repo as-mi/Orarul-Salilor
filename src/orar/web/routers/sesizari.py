@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from orar.db.corectii import descriere
 from orar.db.models import Ora, Sesizare
-from orar.web.auth import Cont, cere_admin, cont_curent, verifica_csrf
+from orar.web.auth import Cont, cere_permisiune, cont_curent, verifica_csrf
 from orar.web.deps import context_saptamana, get_db, templates
 
 router = APIRouter(tags=["sesizari"])
@@ -114,7 +114,7 @@ def coada(
     request: Request,
     arata: str = Query("noi", description="noi | toate"),
     s: Session = Depends(get_db),
-    _admin: Cont = Depends(cere_admin),
+    _admin: Cont = Depends(cere_permisiune("sesizari")),
 ) -> HTMLResponse:
     stmt = select(Sesizare).options(joinedload(Sesizare.user), joinedload(Sesizare.ora))
     if arata != "toate":
@@ -145,7 +145,7 @@ def trateaza(
     arata: str = Form("noi"),
     csrf: str = Form(""),
     s: Session = Depends(get_db),
-    admin: Cont = Depends(cere_admin),
+    admin: Cont = Depends(cere_permisiune("sesizari")),
 ) -> RedirectResponse:
     """Marcheaza o sesizare ca rezolvata sau respinsa (sau o redeschide)."""
     inapoi = f"/admin/sesizari?arata={'toate' if arata == 'toate' else 'noi'}"

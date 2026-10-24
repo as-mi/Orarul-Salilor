@@ -1,0 +1,10 @@
+{# Data de sfarsit a sesiunilor, sugerata din structura anului (htmx partial). #}
+<label id="sfarsit-sugerat">
+  <span>până la <small class="sugestie">(sugerat)</small></span>
+  <input type="date" name="data_sfarsit" required value="{{ sfarsit.isoformat() if sfarsit else azi.isoformat() }}">
+  {% if sfarsit %}
+    <small class="sfarsit-sugestie">Ultima săptămână de facultate a semestrului: {{ sfarsit.strftime('%d.%m.%Y') }}. Poți schimba.</small>
+  {% else %}
+    <small class="sfarsit-sugestie">Structura anului nu e configurată — alege manual data.</small>
+  {% endif %}
+</label>

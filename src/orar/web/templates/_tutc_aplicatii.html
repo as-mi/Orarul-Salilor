@@ -1,0 +1,40 @@
+{# Aplicatiile studentilor: raspunsuri, materii dorite, acceptare/respingere. #}
+{% set etichete = {'aplicata': 'aplicată', 'acceptata': 'acceptată', 'respinsa': 'respinsă', 'retrasa': 'retrasă'} %}
+{% if not aplicatii %}
+  <p class="nota">Nicio aplicație încă. Deschide campania și trimite studenții la pagina de aplicare.</p>
+{% else %}
+  <div class="tabel-scroll">
+    <table class="tabel-sali tut-tabel">
+      <thead><tr><th>Student</th><th>Materiile dorite (în ordine)</th><th>Co-tutori</th><th>Stare</th><th></th></tr></thead>
+      <tbody>
+      {% for a in aplicatii %}
+        <tr>
+          <td><strong>{{ a.user.nume }}</strong>{% if a.user.email %}<br><small>{{ a.user.email }}</small>{% endif %}</td>
+          <td>
+            {% set materii = a.materii|json_parse([]) %}
+            {% if materii %}
+              <ol class="lista-materii">
+                {% for m in materii %}
+                  <li>{{ posturi_dict.get(m.post).materie if posturi_dict.get(m.post) else ('#' ~ m.post) }}</li>
+                {% endfor %}
+              </ol>
+            {% else %}<span class="nota">—</span>{% endif %}
+          </td>
+          <td>{{ a.preferinte_co_tutori or '—' }}</td>
+          <td><span class="pastila {{ 'neutra' if a.stare != 'acceptata' }}">{{ etichete[a.stare] }}</span></td>
+          <td class="tut-actiuni">
+            {% for stare, text, cls in (('acceptata', 'Acceptă', 'plin'), ('respinsa', 'Respinge', ''), ('aplicata', 'Reia', '')) %}
+              {% if a.stare != stare %}
+                <form method="post" action="/tutoriate/campanii/{{ campanie.id }}/aplicatii/{{ a.id }}/stare" class="pe-linie">
+                  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="stare" value="{{ stare }}">
+                  <button type="submit" class="buton {{ cls }}">{{ text }}</button>
+                </form>
+              {% endif %}
+            {% endfor %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}

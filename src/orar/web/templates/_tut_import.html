@@ -1,0 +1,28 @@
+{# Importul foii tutoriatelor (formatul de pe site-ul FMI) si exportul ei. #}
+<form method="post" action="/tutoriate/panou/import" enctype="multipart/form-data" class="camp-lista tut-formular">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="perioada" value="{{ orar.id }}">
+  <h2>Importă foaia</h2>
+  <p class="nota">CSV cu coloanele <strong>Materia, Nume, Adresa, Interval, Sala, Link WhatsApp, Link Teams</strong>, ca foaia
+    publicată pe site-ul facultății (din Google Sheets: Fișier › Descarcă › CSV). Rândurile de titlu („Informatică an I”)
+    stabilesc publicul. Tutoriatele intră ca <strong>ciorne</strong>, deci nu apar nicăieri până nu le publici;
+    tutorii se asignează după email.</p>
+  <label><span>Fișierul</span><input type="file" name="fisier" accept=".csv,text/csv"></label>
+  <details class="mai-multe"><summary>…sau lipește textul</summary>
+    <textarea name="text" rows="6" placeholder="Materia,Nume,Adresa,Interval,Sala,Link WhatsApp,Link Teams"></textarea></details>
+  <div class="pe-rand">
+    <label><span>De la</span><input type="date" name="de_la" value="{{ de_la.isoformat() }}"></label>
+    <label><span>Până la</span><input type="date" name="pana_la" value="{{ pana_la.isoformat() }}"></label>
+  </div>
+  <div class="butoane"><button type="submit" class="principal">Importă</button></div>
+</form>
+
+{% if raport is defined %}
+  <h2>Ce s-a importat</h2>
+  <pre class="tut-raport">{{ raport|join('\n') or 'Nimic: foaia nu are rânduri de tutoriat.' }}</pre>
+  <p><a class="buton plin" href="/tutoriate/panou?tab=tutoriate&perioada={{ orar.id }}">Vezi tutoriatele</a></p>
+{% endif %}
+
+<h2>Exportă</h2>
+<p class="nota">Tutoriatele publicate, în același format, de pus pe site-ul facultății.</p>
+<p><a class="buton" href="/tutoriate/panou/export.csv?perioada={{ orar.id }}">Descarcă CSV</a></p>

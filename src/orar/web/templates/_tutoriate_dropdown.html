@@ -1,0 +1,30 @@
+{# Dropdownul "Tutoriate" de pe pagina unei grupe: tutoriatele publicate pentru publicul ei,
+   fiecare cu bifa. Implicit nu e nimic ales. Alegerea se tine in cont sau in cookie.
+   Asteapta `tutoriate` si `tutoriate_alese`. #}
+{% set nr_alese = tutoriate|selectattr('id', 'in', tutoriate_alese)|list|length %}
+<details class="optiuni">
+  <summary class="filtru {{ 'activ' if nr_alese }}">
+    Tutoriate
+    <span class="numar">{{ nr_alese }}/{{ tutoriate|length }}</span>
+  </summary>
+  <form method="post" action="/tutoriate/alegere" class="panou-optiuni">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="inapoi" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+    <p class="nota">Ședințe săptămânale ținute de studenți din anii mai mari. Bifează-le pe cele care te interesează.</p>
+    <fieldset>
+      <legend>Tutoriate</legend>
+      {% for t in tutoriate %}
+        <input type="hidden" name="oferite" value="{{ t.id }}">
+        <label class="bifa">
+          <input type="checkbox" name="alese" value="{{ t.id }}" {{ 'checked' if t.id in tutoriate_alese }}>
+          <span>{{ t.materie }}
+            <small>{{ {'Marti': 'Marți'}.get(t.zi_saptamana, t.zi_saptamana) }} {{ t.interval }} · {{ t.unde }}{% if t.echipa %} · cu {% for m in t.echipa %}{{ m.user.nume }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}</small></span>
+        </label>
+      {% endfor %}
+    </fieldset>
+    <div class="actiuni">
+      <button type="submit" class="principal">Aplică</button>
+      <small>{% if cont %}se ține minte în contul tău{% else %}se ține minte în acest browser{% endif %} · <a href="/tutoriate">toate tutoriatele</a></small>
+    </div>
+  </form>
+</details>

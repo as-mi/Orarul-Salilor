@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block titlu %}Campanie nouă{% endblock %}
+
+{% block continut %}
+<section class="antet">
+  <nav class="firimituri"><a href="/tutoriate/campanii">campanii</a><span>›</span><strong>nouă</strong></nav>
+  <h1>Campanie nouă de tutoriate</h1>
+
+  <form method="post" action="/tutoriate/campanii/noua" class="formular-strans">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+
+    <label><span>Nume</span><input type="text" name="nume" required placeholder="Tutoriate semestrul II"></label>
+    <div class="doua-coloane">
+      <label><span>An universitar</span>
+        <input type="text" name="an_univ" required value="{{ orar.an_univ if orar else '' }}"
+               hx-get="/tutoriate/campanii/noua/sfarsit" hx-trigger="change"
+               hx-include="[name=semestru]" hx-target="#sfarsit-sugerat" hx-swap="outerHTML"></label>
+      <label><span>Semestru</span>
+        <select name="semestru"
+                hx-get="/tutoriate/campanii/noua/sfarsit" hx-trigger="change"
+                hx-include="[name=an_univ]" hx-target="#sfarsit-sugerat" hx-swap="outerHTML">
+          <option value="1" {{ 'selected' if orar and orar.semestru == 1 }}>Semestrul 1</option>
+          <option value="2" {{ 'selected' if not orar or orar.semestru == 2 }}>Semestrul 2</option>
+        </select></label>
+    </div>
+
+    <div class="doua-coloane">
+      <label><span>Se pot depune aplicații de la</span><input type="date" name="data_deschidere" required value="{{ azi.isoformat() }}"></label>
+      <label><span>până la</span><input type="date" name="data_inchidere" required value="{{ azi.isoformat() }}"></label>
+    </div>
+    <div class="doua-coloane">
+      <label><span>Sesiunile se țin de la</span><input type="date" name="data_inceput" required value="{{ azi.isoformat() }}"></label>
+      {% include "_tutc_sfarsit_sugerat.html" %}
+    </div>
+
+    <h2>Setările planificatorului</h2>
+    <div class="doua-coloane">
+      <label><span>Indulgență (%)</span><input type="number" name="indulgenta" min="0" max="100" value="75"></label>
+      <label><span>Durata unei sesiuni (ore)</span><input type="number" name="durata_sesiune" min="1" max="6" value="2"></label>
+    </div>
+    <div class="doua-coloane">
+      <label><span>Minim tutori / echipă</span><input type="number" name="min_tutori_echipa" min="1" max="3" value="1"></label>
+      <label><span>Maxim tutori / echipă</span><input type="number" name="max_tutori_echipa" min="1" max="3" value="3"></label>
+    </div>
+
+    <p class="actiuni-sesizare">
+      <button type="submit" class="buton plin">Creează campania</button>
+      <a class="buton" href="/tutoriate/campanii">Anulează</a>
+    </p>
+  </form>
+</section>
+{% endblock %}

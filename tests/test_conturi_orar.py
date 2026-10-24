@@ -18,7 +18,7 @@ from orar.db.conturi import (
 )
 from orar.db.models import Base, Grupa, Ora, Perioada, PerioadaStructura, Setare, SursaOrar, User
 from orar.web.auth import hash_parola
-from tests.conftest import _engine_memorie
+from tests.conftest import _engine_memorie, intra_sso
 
 EMAIL, PAROLA = "ana@example.com", "parola-anei-lunga"
 VECHI, NOU = "2025-2026", "2026-2027"
@@ -54,7 +54,7 @@ def s():
 
 
 @pytest.fixture
-def client(s):
+def client(s, sso_fals):
     from fastapi.testclient import TestClient
 
     from orar.web import deps
@@ -62,7 +62,7 @@ def client(s):
 
     app.dependency_overrides[deps.get_db] = lambda: s
     with TestClient(app) as c:
-        c.post("/login", data={"csrf": _csrf(c, "/login"), "email": EMAIL, "parola": PAROLA})
+        intra_sso(c, sso_fals, email=EMAIL)
         yield c
     app.dependency_overrides.clear()
 

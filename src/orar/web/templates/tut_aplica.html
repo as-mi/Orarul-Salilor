@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block titlu %}Aplică — {{ campanie.nume }}{% endblock %}
+
+{% block continut %}
+<section class="antet">
+  <nav class="firimituri"><a href="/tutoriate">tutoriate</a><span>›</span><strong>{{ campanie.nume }}</strong></nav>
+  <h1>{{ campanie.nume }}</h1>
+  <p class="nota">Cauți tutori pentru materiile semestrului. Completează formularul, marchează-ți
+    disponibilitatea și alege materiile pe care ai vrea să le predai, în ordinea preferințelor.</p>
+
+  {% if not deschisa %}
+    <p class="avertisment">Campania nu mai acceptă aplicații (stare: {{ campanie.stare }}).</p>
+  {% elif cont is none or cont.user is none %}
+    <p class="avertisment">Trebuie să fii autentificat ca să aplici.
+      <a href="/login?inapoi=/tutoriate/campanii/{{ campanie.id }}/aplica">Intră în cont</a>.</p>
+  {% else %}
+    {% if existenta %}
+      <p class="reusit">Ai aplicat deja. Poți edita și retrimite formularul de mai jos.</p>
+    {% endif %}
+
+    <form method="post" action="/tutoriate/campanii/{{ campanie.id }}/aplica" id="formular-aplicare">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="raspunsuri" value="{}">
+      <input type="hidden" name="disponibilitate" value="{}">
+      <input type="hidden" name="materii" value="[]">
+
+      {% set rasp = existenta.raspunsuri|json_parse({}) if existenta else {} %}
+      {% for q in intrebari if q.tip != 'grila_orar' %}
+        <fieldset class="tut-intrebare">
+          <legend>{{ q.text }}{% if q.obligatoriu %} <span class="obligatoriu" title="obligatoriu">*</span>{% endif %}</legend>
+          {% if q.tip == 'text' %}
+            <input type="text" name="rasp" data-cheie="{{ q.cheie }}" value="{{ rasp.get(q.cheie, '') }}"
+                   placeholder="Răspunsul tău" {{ 'required' if q.obligatoriu }}>
+          {% elif q.tip == 'radio' %}
+            {% for o in q.optiuni %}
+              <label class="tut-optiune-rasp"><input type="radio" name="rasp" data-cheie="{{ q.cheie }}" value="{{ o }}"
+                   {{ 'checked' if rasp.get(q.cheie) == o }} {{ 'required' if q.obligatoriu }}><span>{{ o }}</span></label>
+            {% endfor %}
+          {% elif q.tip == 'checkbox' %}
+            {% for o in q.optiuni %}
+              <label class="tut-optiune-rasp"><input type="checkbox" name="rasp" data-cheie="{{ q.cheie }}" value="{{ o }}"
+                   {{ 'checked' if o in (rasp.get(q.cheie) or []) }}><span>{{ o }}</span></label>
+            {% endfor %}
+          {% endif %}
+        </fieldset>
+      {% endfor %}
+
+      <fieldset class="tut-intrebare">
+        <legend>Disponibilitatea ta (bifează ceasurile libere) <span class="obligatoriu">*</span></legend>
+        {% set disp = existenta.disponibilitate|json_parse({}) if existenta else {} %}
+        <div class="tut-grila-disponibilitate">
+          <table class="tut-grila">
+            <thead><tr><th></th>{% for h in ore %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+            <tbody>
+            {% for zi in zile %}
+              <tr>
+                <th>{{ zile_ro[zi] }}</th>
+                {% for h in ore %}
+                  <td><input type="checkbox" class="disp" data-zi="{{ zi }}" data-ora="{{ h }}"
+                       {{ 'checked' if h in (disp.get(zi) or []) }}></td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </fieldset>
+
+      <fieldset class="tut-intrebare">
+        <legend>Materiile dorite, în ordinea preferințelor</legend>
+        {% set alese = {} %}
+        {% for m in (existenta.materii|json_parse([]) if existenta else []) %}
+          {% set _ = alese.update({m.post: loop.index}) %}
+        {% endfor %}
+        {% for p in posturi %}
+          <label class="tut-materie"><span>{{ p.materie }}</span>
+            <select class="materie" data-post="{{ p.id }}">
+              <option value="0">nu mă interesează</option>
+              {% for i in range(1, posturi|length + 1) %}
+                <option value="{{ i }}" {{ 'selected' if alese.get(p.id) == i }}>{{ i }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        {% endfor %}
+      </fieldset>
+
+      <label class="tut-co-tutori"><span>Cu cine ai vrea să fii în echipă? (nume, opțional)</span>
+        <input type="text" name="preferinte_co_tutori" value="{{ existenta.preferinte_co_tutori or '' if existenta else '' }}">
+      </label>
+
+      <p class="actiuni-sesizare">
+        <button type="submit" class="buton plin">Trimite aplicația</button>
+      </p>
+    </form>
+  {% endif %}
+</section>
+
+<script>
+(function () {
+  const form = document.getElementById("formular-aplicare");
+  if (!form) return;
+
+  form.addEventListener("submit", () => {
+    // raspunsurile dinamice
+    const raspunsuri = {};
+    const valoriText = new Map();
+    form.querySelectorAll("input[name=rasp], select[name=rasp]").forEach((el) => {
+      const cheie = el.dataset.cheie;
+      if (!el.checked && (el.type === "radio" || el.type === "checkbox")) return;
+      if (el.type === "checkbox") {
+        (raspunsuri[cheie] = raspunsuri[cheie] || []).push(el.value);
+      } else {
+        raspunsuri[cheie] = el.value;
+      }
+    });
+    form.querySelector('input[name=raspunsuri]').value = JSON.stringify(raspunsuri);
+
+    // disponibilitatea
+    const disp = {};
+    form.querySelectorAll("input.disp:checked").forEach((el) => {
+      (disp[el.dataset.zi] = disp[el.dataset.zi] || []).push(parseInt(el.dataset.ora, 10));
+    });
+    form.querySelector('input[name=disponibilitate]').value = JSON.stringify(disp);
+
+    // materiile, ordonate dupa prioritate
+    const materii = [];
+    form.querySelectorAll("select.materie").forEach((el) => {
+      const rank = parseInt(el.value, 10);
+      if (rank > 0) materii.push({ post: parseInt(el.dataset.post, 10), motiv: null, rank });
+    });
+    materii.sort((a, b) => a.rank - b.rank);
+    form.querySelector('input[name=materii]').value = JSON.stringify(
+      materii.map(({ post, motiv }) => ({ post, motiv }))
+    );
+  });
+})();
+</script>
+{% endblock %}

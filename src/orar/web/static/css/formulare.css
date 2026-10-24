@@ -137,3 +137,19 @@
   font: inherit; font-size: .84rem; padding: .2rem .4rem; width: 13rem;
   border: 1px solid var(--linie-tare); border-radius: 6px; background: var(--fundal); color: var(--text);
 }
+
+/* permisiunile acordate de admin, pe coloana din tabelul de utilizatori */
+.bife-permisiuni { min-width: 15rem; }
+.permisiuni-form { display: flex; flex-direction: column; gap: .45rem; }
+.bife-permisiuni-lista { display: flex; flex-wrap: wrap; gap: .25rem .5rem; }
+.bife-permisiuni-lista label {
+  display: inline-flex; align-items: center; gap: .28rem;
+  font-size: .78rem; color: var(--text-slab); cursor: pointer;
+}
+.bife-permisiuni-lista input { margin: 0; cursor: pointer; }
+.bife-permisiuni-lista label:has(input:checked) { color: var(--text); font-weight: 600; }
+.permisiuni-form .buton { cursor: pointer; font: inherit; font-size: .8rem; align-self: flex-start; }
+
+/* intrarea prin SSO-ul ASMI */
+.intrare-asmi { display: inline-flex; align-items: center; gap: .5rem; }
+.intrare-asmi img { border-radius: 4px; background: #fff; }

@@ -1,0 +1,32 @@
+{# Salile libere saptamanal pentru un tutoriat: intai cele libere la toate sedintele, apoi
+   cele libere la cele mai multe, cu datele in care sunt ocupate. Se incarca prin htmx. #}
+<div id="sali-libere" class="sali-libere">
+  {% if eroare_sali %}
+    <p class="nota">{{ eroare_sali }}</p>
+  {% elif sali is none %}
+    <p class="nota">Alege ziua, orele și perioada, apoi apasă „Caută săli libere”.</p>
+  {% elif not sali %}
+    <p class="avertisment" role="status">Nicio sală liberă în acest interval. Încearcă alt interval.</p>
+  {% else %}
+    {% set mereu = sali|selectattr('mereu')|list %}
+    <p class="nota" role="status"><strong>{{ zile_sedinte|length }}</strong> ședințe;
+      <strong>{{ mereu|length }}</strong> săli libere la toate, de la cea mai încăpătoare.</p>
+    <div class="sali-optiuni" role="radiogroup" aria-label="Sala">
+      <label class="sala-optiune">
+        <input type="radio" name="sala" value="" {{ 'checked' if not sala_aleasa }}>
+        <span><strong>fără sală din listă</strong><small>scrii locul mai jos</small></span>
+      </label>
+      {% for x in sali %}
+        <label class="sala-optiune {{ '' if x.mereu else 'partial' }}">
+          <input type="radio" name="sala" value="{{ x.sala.slug }}" {{ 'checked' if sala_aleasa == x.sala.slug }} {{ '' if x.mereu else 'disabled' }}>
+          <span>
+            <strong>{{ x.sala.nume }}</strong>
+            <small>{{ (x.sala.nr_locuri ~ ' locuri') if x.sala.nr_locuri else 'locuri necunoscute' }}
+              {%- if x.sala.doar_tutoriate %} · sală pentru tutoriate{% endif %}
+              {%- if not x.mereu %} · ocupată {% for d in x.ocupata_in[:5] %}{{ d.strftime('%d.%m') }}{{ ', ' if not loop.last }}{% endfor %}{{ '…' if x.ocupata_in|length > 5 }}{% endif %}</small>
+          </span>
+        </label>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>

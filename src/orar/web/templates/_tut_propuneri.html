@@ -1,0 +1,29 @@
+{# Propunerile planificatorului pentru o echipa: top-K seturi de sesiuni. #}
+<div class="tut-propuneri">
+  {% if not seturi %}
+    <p class="avertisment">Niciun interval în care toți tutorii sunt liberi (din disponibilitate și fără ore proprii).</p>
+  {% else %}
+    <p class="nota">Publicul acestei materii are <strong>{{ populatie }}</strong> studenți.
+      {% if seturi[0].meets_indulgenta %}Prima soluție atinge indulgența ({{ campanie.indulgenta }}%).{% else %}Nicio soluție nu atinge indulgența; e afișată cea mai bună.{% endif %}</p>
+
+    {% for set in seturi %}
+      <div class="tut-set {{ 'tut-set-recomandat' if loop.first }}">
+        <p class="tut-set-titlu">
+          {% if loop.first %}<strong>Recomandat</strong> —{% else %}Alternativa {{ loop.index0 }} —{% endif %}
+          acoperă ~{{ set.acoperire }}% din public{% if set.nr_insule %} · {{ set.nr_insule }} „insulă"{% else %} · fără insule{% endif %}
+        </p>
+        <form method="post" action="/tutoriate/campanii/{{ campanie.id }}/sesiuni" class="pe-linie">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <input type="hidden" name="echipa_id" value="{{ echipa.id }}">
+          <ul class="tut-sloturi">
+            {% for p in set.propuneri %}
+              <input type="hidden" name="sloturi" value="{{ p.zi }}:{{ p.h }}">
+              <li>{{ p.explicatie }}</li>
+            {% endfor %}
+          </ul>
+          <button type="submit" class="buton {{ 'plin' if loop.first }}">Salvează aceste sesiuni</button>
+        </form>
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>

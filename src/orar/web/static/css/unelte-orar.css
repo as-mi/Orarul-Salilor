@@ -79,6 +79,31 @@
 }
 .panou-optiuni .actiuni small { color: var(--text-slab); font-size: .72rem; }
 
+/* Formularele din panourile dropdown (evenimente personale, import): aceleasi campuri ca
+   formularele obisnuite, doar mai mici, ca sa incapa in panoul ingust. */
+.panou-optiuni > form { display: flex; flex-direction: column; gap: .5rem; }
+.panou-optiuni label:not(.bifa) { display: flex; flex-direction: column; gap: .2rem; }
+.panou-optiuni label:not(.bifa) > span { font-size: .78rem; font-weight: 600; }
+.panou-optiuni input[type="text"],
+.panou-optiuni input[type="time"],
+.panou-optiuni input[type="date"],
+.panou-optiuni select {
+  font: inherit; font-size: .86rem; padding: .35rem .5rem; width: 100%;
+  border: 1px solid var(--linie-tare); border-radius: 6px;
+  background: var(--fundal); color: var(--text); color-scheme: light;
+}
+.panou-optiuni input[type="text"]:focus-visible,
+.panou-optiuni input[type="time"]:focus-visible,
+.panou-optiuni input[type="date"]:focus-visible,
+.panou-optiuni select:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent);
+}
+.panou-optiuni .pe-rand { display: flex; gap: .5rem; flex-wrap: wrap; }
+.panou-optiuni .pe-rand > label { flex: 1 1 8rem; min-width: 0; }
+@media (prefers-color-scheme: dark) {
+  .panou-optiuni input[type="date"], .panou-optiuni input[type="time"] { color-scheme: dark; }
+}
+
 /* ---------------- versiunile orarului ---------------- */
 
 .banner-versiune {

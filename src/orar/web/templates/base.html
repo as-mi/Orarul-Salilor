@@ -6,12 +6,12 @@
   <title>{% block titlu_complet %}{% block titlu %}Orarul Sălilor{% endblock %} - FMI{% endblock %}</title>
   {# CSS scris de mana, fara build: cate un fisier pe zona a sitului. Ordinea conteaza --
      `baza.css` defineste culorile, iar fisierele de mai jos le pot rafina pe cele de mai sus. #}
-  {% for foaie in ('baza', 'grila', 'acasa', 'formulare', 'verificare', 'unelte-orar', 'admin', 'evenimente', 'statistici', 'structura') %}
+  {% for foaie in ('baza', 'grila', 'acasa', 'formulare', 'verificare', 'unelte-orar', 'admin', 'evenimente', 'statistici', 'structura', 'tutoriate', 'print') %}
     <link rel="stylesheet" href="{{ static_versionat(request, 'css/' ~ foaie ~ '.css') }}">
   {% endfor %}
   <script src="{{ static_versionat(request, 'htmx.min.js') }}" defer></script>
   <script src="{{ static_versionat(request, 'js/sit.js') }}" defer></script>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>🗓️</text></svg>">
+  <link rel="icon" href="{{ static_versionat(request, 'asmi.png') }}">
 </head>
 <body>
 {% include "_bara.html" %}

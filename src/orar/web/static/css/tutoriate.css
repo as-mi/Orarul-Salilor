@@ -1,0 +1,354 @@
+/* Tutoriatele: blocurile lor din grila, panoul responsabilului si pagina publica. */
+
+:root { --tut: #13856b; --tut-slab: #e3f5ef; --personal: #6366f1; --personal-slab: #eef2ff; --importat: #d97706; --importat-slab: #fff4e6; }
+@media (prefers-color-scheme: dark) { :root { --tut: #4fd1a9; --tut-slab: #15332b; --personal: #8b8ff5; --personal-slab: #20234d; --importat: #f0a13a; --importat-slab: #33250f; } }
+
+/* rolul „tutore" (asignare de tutor valabila azi) */
+.pastila.tut { background: var(--tut-slab); color: var(--tut); }
+
+/* ---------------- orarul propriu: evenimente personale si importuri ---------------- */
+.tip-eveniment-personal { background: var(--personal-slab); border-color: var(--personal); border-style: dashed; }
+.tip-eveniment-importat { background: var(--importat-slab); border-color: var(--importat); border-style: dashed; }
+.cheie.tip-eveniment-personal::before { background: var(--personal-slab); border-color: var(--personal); border-style: dashed; }
+.cheie.tip-eveniment-importat::before { background: var(--importat-slab); border-color: var(--importat); border-style: dashed; }
+
+.personal-bloc { position: relative; }
+.personal-bloc .personal-sterge {
+  position: absolute; top: .15rem; right: .15rem; margin: 0;
+}
+.personal-bloc .personal-sterge button {
+  border: none; background: transparent; color: var(--text-slab); cursor: pointer;
+  font: inherit; font-size: .8rem; line-height: 1; padding: .15rem .3rem; border-radius: 4px;
+}
+.personal-bloc .personal-sterge button:hover { background: var(--suprafata-2); color: var(--pericol, #c0392b); }
+.personal-bloc .bloc-loc em { font-style: normal; color: var(--importat); }
+
+.personal-lista { list-style: none; padding: .4rem 0 0; margin: 0; }
+.personal-lista li {
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  padding: .35rem 0; border-bottom: 1px solid var(--linie); font-size: .84rem;
+}
+.personal-lista li:last-child { border-bottom: none; }
+.personal-lista li form { margin: 0; }
+.personal-lista li button {
+  border: none; background: transparent; color: var(--text-slab); cursor: pointer;
+  font: inherit; line-height: 1; padding: .2rem .4rem; border-radius: 4px;
+}
+.personal-lista li button:hover { background: var(--suprafata-2); color: var(--pericol, #c0392b); }
+
+.import-activitati { display: flex; flex-direction: column; gap: .35rem; }
+.import-activitati fieldset { border: 1px solid var(--linie); border-radius: var(--radius); padding: .5rem .7rem; margin: .5rem 0; }
+.import-activitati .bifa .tip-ora { color: var(--text-slab); font-weight: 400; }
+
+/* ---------------- in grila ---------------- */
+.tip-eveniment-tutoriat { background: var(--tut-slab); border-color: var(--tut); border-style: dashed; }
+.cheie.tip-eveniment-tutoriat::before { background: var(--tut-slab); border-color: var(--tut); border-style: dashed; }
+.bloc.al-meu { border-style: solid; border-width: 2px; }
+.bloc.anulat { opacity: .55; }
+.bloc.anulat .bloc-materie { text-decoration: line-through; }
+
+/* ---------------- panoul ---------------- */
+.tut-orar { margin: .4rem 0 .8rem; }
+.tut-orar label { display: inline-flex; gap: .5rem; align-items: center; font-size: .86rem; }
+.tut-orar select { font: inherit; padding: .3rem .5rem; border: 1px solid var(--linie-tare); border-radius: 6px; background: var(--fundal); color: var(--text); }
+.tut-taburi { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--linie); margin: .6rem 0 1rem; }
+.tut-taburi a {
+  padding: .5rem .9rem; color: var(--text-slab); text-decoration: none; font-weight: 600; font-size: .9rem;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tut-taburi a:hover { color: var(--text); }
+.tut-taburi a[aria-current="page"] { color: var(--accent); border-bottom-color: var(--accent); }
+.tut-formular { max-width: 46rem; margin-bottom: 1.4rem; }
+.tut-panou h2 small, .tut-tabel small { color: var(--text-slab); font-weight: 400; }
+.tut-tabel td { vertical-align: top; }
+.tut-tabel tr.tut-ciorna td:first-child { border-left: 3px solid var(--linie-tare); }
+.tut-tabel tr.tut-publicat td:first-child { border-left: 3px solid var(--tut); }
+.tut-tabel tr.tut-incheiat { opacity: .6; }
+.tut-tabel tr.tut-expira td { background: var(--accent-slab); }
+.tut-actiuni { white-space: nowrap; }
+.tut-actiuni form + form { margin-left: .25rem; }
+.avertisment-mic { color: #b4541a; font-size: .78rem; }
+
+.tut-propuse { list-style: none; padding: 0; display: flex; flex-direction: column; gap: .6rem; }
+.tut-propuse li { border: 1px solid var(--linie); border-radius: var(--radius); padding: .6rem .8rem; background: var(--suprafata); }
+.tut-propus-cap { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; margin-bottom: .45rem; }
+.tut-procent {
+  font-size: .8rem; font-weight: 600; padding: .1rem .5rem; border-radius: 999px;
+  background: linear-gradient(90deg, var(--tut-slab) var(--p), transparent var(--p)); border: 1px solid var(--tut);
+}
+.tut-propus-cap small { color: var(--text-slab); }
+.tut-propus-sali { display: flex; flex-wrap: wrap; gap: .35rem; }
+.tut-propus-sali small { color: var(--text-slab); font-weight: 400; margin-left: .3rem; }
+
+.sala-optiune.partial { opacity: .55; cursor: not-allowed; }
+.tut-echipa { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: .35rem .8rem; }
+.tut-membru { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .2rem .4rem; border-radius: 6px; }
+.tut-membru.la-materie { background: var(--tut-slab); }
+.tut-principal { font-size: .76rem; color: var(--text-slab); white-space: nowrap; cursor: pointer; }
+
+.tut-sali { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.tut-sali li { display: flex; align-items: center; gap: .4rem; border: 1px solid var(--linie); border-radius: 6px; padding: .25rem .3rem .25rem .6rem; }
+.tut-sali small { color: var(--text-slab); }
+.tut-raport { white-space: pre-wrap; font-size: .82rem; background: var(--suprafata-2); padding: .7rem .9rem; border-radius: var(--radius); max-height: 24rem; overflow: auto; }
+
+.tut-sedinte { list-style: none; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+.tut-sedinte li { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .3rem 0; border-bottom: 1px solid var(--linie); }
+.tut-sedinte time { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 6rem; }
+.tut-sedinte li.anulata time { text-decoration: line-through; color: var(--text-slab); }
+.tut-sedinte form { display: flex; gap: .35rem; align-items: center; margin-left: auto; }
+.tut-sedinte input[type="text"] { font: inherit; font-size: .84rem; padding: .3rem .5rem; border: 1px solid var(--linie-tare); border-radius: 6px; background: var(--fundal); color: var(--text); }
+
+/* ---------------- pagina publica ---------------- */
+.tut-carduri { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: .7rem; margin-bottom: 1.2rem; }
+.tut-card { border: 1px solid var(--linie); border-left: 4px solid var(--tut); border-radius: var(--radius); padding: .6rem .8rem; background: var(--suprafata); }
+.tut-card.ales { background: var(--tut-slab); }
+.tut-card header .bifa { cursor: pointer; }
+.tut-card p { margin: .3rem 0; font-size: .88rem; }
+.tut-descriere { white-space: pre-line; }
+.tut-linkuri { display: flex; gap: .8rem; }
+.tut-salveaza { position: sticky; bottom: .8rem; justify-content: center; }
+
+@media (max-width: 640px) {
+  .tut-taburi { flex-wrap: nowrap; overflow-x: auto; }
+  .tut-taburi a { white-space: nowrap; padding: .5rem .6rem; }
+  .tut-sedinte form { margin-left: 0; width: 100%; }
+  .tut-sedinte input[type="text"] { flex: 1; min-width: 0; }
+}
+
+/* ---------------- campanii de tutoriate ---------------- */
+.tut-intrebare { border: 1px solid var(--linie); border-radius: var(--radius); padding: .7rem .9rem; margin: .6rem 0; background: var(--suprafata); }
+.tut-intrebare legend { font-weight: 600; padding: 0 .3rem; }
+.tut-intrebare .obligatoriu { color: var(--pericol, #c0392b); font-weight: 700; }
+.tut-intrebare label { display: block; margin: .3rem 0; }
+.tut-intrebare input[type="text"], .tut-intrebare textarea { width: 100%; font: inherit; padding: .35rem .5rem; border: 1px solid var(--linie-tare); border-radius: 6px; background: var(--fundal); color: var(--text); }
+.tut-intrebare input[type="text"]::placeholder { color: var(--text-slab); }
+.tut-optiune-rasp {
+  display: flex; align-items: center; gap: .65rem; padding: .5rem .7rem; border-radius: 8px;
+  cursor: pointer; border: 1px solid transparent;
+}
+.tut-optiune-rasp:hover { background: var(--suprafata-2); }
+.tut-optiune-rasp input[type="radio"], .tut-optiune-rasp input[type="checkbox"] {
+  accent-color: var(--tut); width: 1.1rem; height: 1.1rem; flex: none; margin: 0;
+}
+/* ---------------- constructorul de formular (Google Forms-like) ---------------- */
+.tut-builder { max-width: 46rem; margin: 0 auto; }
+.tut-meniu { display: flex; flex-direction: column; gap: .8rem; }
+.tut-q-card {
+  border: 1px solid var(--linie); border-radius: var(--radius);
+  background: var(--suprafata); padding: 1rem 1.15rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+}
+
+.tut-q-antet { display: flex; justify-content: space-between; align-items: center; margin-bottom: .4rem; }
+.tut-q-tip {
+  font: inherit; font-size: .86rem; font-weight: 600; color: var(--text);
+  background: var(--suprafata-2); border: 1px solid var(--linie-tare); border-radius: 6px;
+  padding: .3rem .55rem; cursor: pointer; max-width: 100%;
+}
+.tut-q-titlu {
+  width: 100%; font: inherit; font-size: 1.08rem; font-weight: 600;
+  border: none; border-bottom: 2px solid transparent; background: transparent; color: var(--text);
+  padding: .35rem 0 .45rem; margin-bottom: .6rem;
+}
+.tut-q-titlu::placeholder { color: var(--text-slab); font-weight: 400; }
+.tut-q-titlu:focus { outline: none; border-bottom-color: var(--tut); }
+
+.tut-q-preview { padding: .1rem 0; }
+.tut-prev-et { display: block; font-size: .74rem; color: var(--text-slab); margin-bottom: .15rem; }
+.tut-prev input[type="text"] {
+  width: 60%; font: inherit; padding: .4rem .5rem; border: none; border-bottom: 1px solid var(--linie-tare);
+  background: transparent; color: var(--text-slab); cursor: not-allowed;
+}
+.tut-prev-optiuni { display: flex; flex-direction: column; gap: .5rem; }
+.tut-optiune { display: flex; align-items: center; gap: .7rem; }
+.tut-optiune input[type="radio"], .tut-optiune input[type="checkbox"] {
+  accent-color: var(--tut); width: 1.15rem; height: 1.15rem; flex: none; margin: 0;
+}
+.tut-optiune-text {
+  flex: 1; min-width: 0; font: inherit; padding: .3rem 0; border: none; border-bottom: 1px solid var(--linie);
+  background: transparent; color: var(--text);
+}
+.tut-optiune-text:focus { outline: none; border-bottom-color: var(--tut); }
+.tut-optiune-sterg {
+  border: none; background: transparent; color: var(--text-slab); cursor: pointer;
+  font-size: .95rem; line-height: 1; padding: .25rem .4rem; border-radius: 50%;
+}
+.tut-optiune-sterg:hover { background: var(--suprafata-2); color: var(--pericol, #c0392b); }
+.tut-adauga-optiune {
+  align-self: flex-start; border: none; background: transparent; color: var(--tut);
+  font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; padding: .2rem 0;
+}
+.tut-adauga-optiune:hover { text-decoration: underline; }
+
+.tut-prev-grila { overflow-x: auto; }
+.tut-prev-grila-tabel { border-collapse: collapse; font-size: .76rem; }
+.tut-prev-grila-tabel th, .tut-prev-grila-tabel td {
+  border: 1px solid var(--linie); padding: .1rem .3rem; text-align: center; min-width: 1.5rem;
+}
+.tut-prev-grila-tabel th { background: var(--suprafata-2); font-weight: 600; }
+.tut-prev-grila-tabel td { height: 1.05rem; }
+.tut-prev-hint { font-size: .78rem; color: var(--text-slab); margin: .45rem 0 0; }
+
+.tut-q-subsol {
+  display: flex; align-items: center; justify-content: space-between; gap: .8rem; flex-wrap: wrap;
+  margin-top: .85rem; padding-top: .75rem; border-top: 1px solid var(--linie);
+}
+.tut-q-edit-actiuni { display: flex; gap: .5rem; }
+
+.tut-obligatoriu {
+  display: inline-flex; align-items: center; gap: .5rem; cursor: pointer; user-select: none;
+  font-size: .88rem; font-weight: 600; color: var(--text-slab);
+}
+.tut-obligatoriu input[type="checkbox"] { accent-color: var(--tut); width: 1.1rem; height: 1.1rem; margin: 0; }
+.tut-obligatoriu:has(input:checked) { color: var(--text); }
+
+.tut-q-meta { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; margin-bottom: .3rem; }
+.tut-q-badge {
+  font-size: .74rem; font-weight: 600; color: var(--tut); background: var(--tut-slab);
+  padding: .12rem .55rem; border-radius: 999px;
+}
+.tut-q-badge-obligatoriu {
+  font-size: .74rem; font-weight: 600; color: var(--pericol, #c0392b);
+  background: rgba(192, 57, 43, .13); padding: .12rem .55rem; border-radius: 999px;
+}
+.tut-q-text { font-weight: 600; margin-bottom: .35rem; }
+.tut-q-prev-mini { font-size: .87rem; color: var(--text-slab); margin-bottom: .5rem; }
+.tut-q-prev-mini input[type="text"] { width: 45%; }
+.tut-q-actiuni { display: flex; gap: .5rem; justify-content: flex-end; }
+
+.tut-toast {
+  position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%);
+  background: var(--tut); color: #fff; padding: .55rem 1.05rem; border-radius: 999px;
+  font-size: .88rem; font-weight: 600; box-shadow: 0 4px 14px rgba(0, 0, 0, .22); z-index: 40;
+}
+.tut-toast.eroare { background: var(--pericol, #c0392b); }
+
+/* data de sfarsit sugerata in formularul de campanie noua */
+.sugestie { font-weight: 400; color: var(--text-slab); }
+.sfarsit-sugestie { font-size: .76rem; color: var(--tut); font-weight: 400; margin-top: .2rem; }
+
+.tut-grila-disponibilitate { overflow-x: auto; }
+.tut-grila { border-collapse: collapse; font-size: .82rem; }
+.tut-grila th, .tut-grila td { padding: .15rem .3rem; text-align: center; border: 1px solid var(--linie); }
+.tut-grila th { background: var(--suprafata-2); font-weight: 600; }
+.tut-grila td input[type="checkbox"] { width: 1rem; height: 1rem; }
+
+.tut-materie { display: flex; align-items: center; justify-content: space-between; gap: .8rem; border-bottom: 1px solid var(--linie); padding: .4rem 0; }
+.tut-materie span { font-weight: 600; }
+.tut-co-tutori { display: block; margin: .8rem 0; }
+.tut-co-tutori input[type="text"] { width: 100%; font: inherit; padding: .35rem .5rem; border: 1px solid var(--linie-tare); border-radius: 6px; background: var(--fundal); color: var(--text); }
+.lista-materii { margin: 0; padding-left: 1.2rem; }
+
+.tut-echipa-plan { border: 1px solid var(--linie); border-radius: var(--radius); padding: .6rem .8rem; margin: .6rem 0; }
+.tut-propuneri .nota { margin: .3rem 0 .6rem; }
+.tut-set { border: 1px solid var(--linie); border-left: 4px solid var(--text-slab); border-radius: var(--radius); padding: .6rem .8rem; margin: .6rem 0; background: var(--suprafata); }
+.tut-set-recomandat { border-left-color: var(--tut); background: var(--tut-slab); }
+.tut-set-titlu { font-size: .9rem; margin: 0 0 .4rem; }
+.tut-sloturi { list-style: none; padding: 0; margin: 0 0 .5rem; }
+.tut-sloturi li { padding: .2rem 0; }
+
+/* ---------------- formularele campaniilor ---------------- */
+/* `formular-strans` si `doua-coloane` sunt folosite de formularele de campanie (noua,
+   posturi, echipe); pana acum nu aveau stiluri, asa ca se intindeau pe tot latul paginii. */
+.formular-strans {
+  max-width: 56rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+}
+.formular-strans > label,
+.doua-coloane > label {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  min-width: 0;
+}
+.formular-strans > label > span,
+.doua-coloane > label > span {
+  font-size: .84rem;
+  font-weight: 600;
+}
+.formular-strans input[type="text"],
+.formular-strans input[type="number"],
+.formular-strans input[type="date"],
+.formular-strans select,
+.formular-strans textarea,
+.doua-coloane input[type="text"],
+.doua-coloane input[type="number"],
+.doua-coloane input[type="date"],
+.doua-coloane select {
+  font: inherit;
+  font-size: .92rem;
+  padding: .45rem .6rem;
+  width: 100%;
+  border: 1px solid var(--linie-tare);
+  border-radius: 6px;
+  background: var(--fundal);
+  color: var(--text);
+}
+.formular-strans input:focus-visible,
+.formular-strans select:focus-visible,
+.formular-strans textarea:focus-visible,
+.doua-coloane input:focus-visible,
+.doua-coloane select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.doua-coloane {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .85rem;
+}
+
+/* Bifele de public (specializari/ani/serii): fiecare grup e o caseta cu suprafata, ca
+   tabelele/casetele de grupe, iar bifele se aseaza pe o grila responsive. */
+.tut-bife {
+  background: var(--suprafata);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+  padding: .7rem .9rem;
+}
+.tut-bife + .tut-bife { margin-top: .6rem; }
+.tut-bife .bife-titlu { display: block; margin-bottom: .5rem; }
+.tut-bife > summary.bife-titlu { display: list-item; }
+.tut-bife .bife-rand {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: .2rem .9rem;
+}
+.tut-bife .bifa {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .28rem .4rem;
+  border-radius: 6px;
+  font-size: .88rem;
+}
+.tut-bife .bifa:hover { background: var(--suprafata-2); }
+.tut-bife .bifa input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  margin: 0;
+}
+.tut-bife .bifa.toate {
+  grid-column: 1 / -1;
+  border-bottom: 1px solid var(--linie);
+  border-radius: 0;
+  margin-bottom: .15rem;
+  padding-bottom: .35rem;
+  font-weight: 600;
+}
+
+/* pe ecrane mici: o singura coloana pentru perechile de campuri si pentru bife */
+@media (max-width: 720px) {
+  .doua-coloane { grid-template-columns: 1fr; }
+  .tut-bife .bife-rand { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 460px) {
+  .tut-bife .bife-rand { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block titlu %}Date personale{% endblock %}
+
+{% block continut %}
+<section class="formular lat">
+  <h1>Date personale</h1>
+  <p>Site-ul procesează doar datele necesare funcționării:</p>
+  <ul>
+    <li>autentificarea prin SSO-ul ASMI (identificatorul contului, numele și adresa de email);</li>
+    <li>grupa pe care ți-o alegi și preferințele tale de afișare (semigrupă, opționale), ca
+      „orarul meu" să ți se deschidă la fel de pe orice dispozitiv.</li>
+  </ul>
+  <p>Datele rămân pe serverul acestui site și nu sunt transmise către terți. Profilul tău
+    (nume, email, parolă) îl administrezi în <a href="https://asmi.ro" rel="noreferrer">contul ASMI</a>.</p>
+</section>
+{% endblock %}

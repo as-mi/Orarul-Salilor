@@ -5,6 +5,7 @@
   <div class="alege-taburi" role="tablist" aria-label="Ce orar cauți">
     <button type="button" role="tab" id="tab-grupe" aria-controls="panou-grupe" aria-selected="true">Grupe</button>
     <button type="button" role="tab" id="tab-sali" aria-controls="panou-sali" aria-selected="false" tabindex="-1">Săli</button>
+    <button type="button" role="tab" id="tab-fereastra" aria-controls="panou-fereastra" aria-selected="false" tabindex="-1">Fereastră</button>
   </div>
 
   <form class="alege-panou" id="panou-grupe" role="tabpanel" aria-labelledby="tab-grupe">
@@ -27,5 +28,17 @@
       </select></label>
     <button type="submit" class="buton plin" disabled>Vezi orarul sălii</button>
     <a class="mai-mult" href="/sala{{ qv }}">toate sălile, cu gradul de ocupare →</a>
+  </form>
+
+  <form class="alege-panou" id="panou-fereastra" role="tabpanel" aria-labelledby="tab-fereastra" hidden>
+    <label><span>Data</span><input type="date" name="data" value="{{ azi.isoformat() }}"></label>
+    <label><span>De la</span><input type="time" name="ora_inceput" value="{{ ora_inceput_implicita }}"></label>
+    <label><span>Până la</span><input type="time" name="ora_sfarsit" value="{{ ora_sfarsit_implicita }}"></label>
+    <button type="button" class="buton plin"
+            hx-get="/sali-libere"
+            hx-include="[name='data'], [name='ora_inceput'], [name='ora_sfarsit']"
+            hx-target="#sali-libere-acasa" hx-swap="innerHTML">Caută săli libere</button>
+    <p class="politica"><a href="/confidentialitate"><strong>Citește politica de<br>confidențialitate</strong></a></p>
+    <div id="sali-libere-acasa" class="sali-libere-acasa"></div>
   </form>
 </section>

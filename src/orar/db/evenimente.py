@@ -115,6 +115,7 @@ def sali_libere(
     perioada_id: int | None,
     saptamana: Saptamana | None,
     fara_eveniment: int | None = None,
+    fara_tutoriat: int | None = None,
 ) -> list[SalaLibera]:
     """Salile facultatii libere in `zi` intre `inceput` si `sfarsit`, de la cea mai
     incapatoare la cea mai mica (cele cu numar de locuri necunoscut, la sfarsit).
@@ -126,6 +127,7 @@ def sali_libere(
     duminica orarul saptamanal n-are nimic, deci conteaza doar evenimentele.
 
     `fara_eveniment`: evenimentul care se editeaza -- sala lui nu e "ocupata" de el insusi.
+    La fel `fara_tutoriat`. Sedintele tutoriatelor ocupa si ele salile (`db/tutoriate.py`).
     """
     nume_zi = ZILE_SAPTAMANA[zi.weekday()]
     ocupate: set[int] = set()
@@ -153,6 +155,9 @@ def sali_libere(
         if e.ora_inceput is None or _se_suprapun(e.ora_inceput, e.ora_sfarsit, inceput, sfarsit):
             ocupate.add(e.sala_id)
 
+    from orar.db.tutoriate import ocupa_sala
+
+    ocupate |= ocupa_sala(s, zi, inceput, sfarsit, fara=fara_tutoriat)
     sali = s.scalars(select(Sala).where(Sala.tip == "fizica", Sala.id.not_in(ocupate or {-1})))
     return [
         SalaLibera(x, in_zi.get(x.id, 0))
