@@ -29,7 +29,7 @@ def _context_sesiune(request) -> dict[str, object]:  # noqa: ANN001
     inlocuiesc baza vad acelasi lucru ca rutele.
     """
     if "session" not in request.scope:
-        return {"cont": None, "csrf": "", "alerta_an": None}
+        return {"cont": None, "csrf": "", "alerta_an": None, "ultimul_articol": None}
     from orar.web.auth import token_csrf
 
     return {
@@ -37,6 +37,7 @@ def _context_sesiune(request) -> dict[str, object]:  # noqa: ANN001
         "csrf": token_csrf(request),
         # (an, ce lipseste) din structura anului curent -- doar pentru admini, vezi auth
         "alerta_an": getattr(request.state, "alerta_an", None),
+        "ultimul_articol": getattr(request.state, "ultimul_articol", None),
     }
 
 

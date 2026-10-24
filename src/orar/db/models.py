@@ -471,6 +471,24 @@ class SursaOrar(Base):
         return f"<SursaOrar sem{self.semestru} {self.fel!r}>"
 
 
+class ArticolAsmi(Base):
+    """Ultimul articol publicat pe asmi.ro, pentru „fun fact”-ul din subsol.
+
+    O singura linie, adusa periodic de worker (`db/articole.py`), nu de la utilizator.
+    Linkul articolului e `https://asmi.ro/Articole/{slug}`.
+    """
+
+    __tablename__ = "ARTICOL_ASMI"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column("SLUG", String(200), nullable=False, unique=True)
+    titlu: Mapped[str] = mapped_column("TITLU", String(300), nullable=False)
+    actualizat_la: Mapped[datetime] = mapped_column("ACTUALIZAT_LA", DateTime, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<ArticolAsmi {self.slug!r}>"
+
+
 # ---------------------------------------------------------------------------
 # Corectii manuale si sesizari
 # ---------------------------------------------------------------------------

@@ -155,6 +155,10 @@
   border-top: 1px solid var(--linie); font-size: .78rem; color: var(--text-slab);
 }
 .subsol-rand { display: flex; justify-content: space-between; gap: .4rem 1rem; flex-wrap: wrap; }
+.subsol-coloane { display: flex; gap: 1.5rem 2.5rem; flex-wrap: wrap; margin-bottom: .6rem; }
+.subsol-coloana { display: flex; flex-direction: column; gap: .3rem; min-width: 10rem; }
+.subsol-coloana strong { color: var(--text); font-size: .8rem; }
+.subsol-mic { font-size: .72rem; }
 .subsol-nota { margin: .5rem 0 0; }
 
 /* ---------------- ecrane mici ---------------- */

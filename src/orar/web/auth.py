@@ -240,6 +240,11 @@ def cont_curent(request: Request, s: Session = Depends(get_db)) -> Cont | None:
     ca utilizatorul sa iasa si sa intre din nou.
     """
     request.state.cont = None
+    # Ultimul articol ASMI (fun fact-ul din subsol): o singura linie in baza, citita pe
+    # fiecare cerere, ca subsolul sa-l poata arata fara sa care singur o sesiune.
+    from orar.db.articole import ultimul_articol
+
+    request.state.ultimul_articol = ultimul_articol(s)
     if "session" not in request.scope:
         return None
 
