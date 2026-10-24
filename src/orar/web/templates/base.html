@@ -11,7 +11,7 @@
   {% endfor %}
   <script src="{{ static_versionat(request, 'htmx.min.js') }}" defer></script>
   <script src="{{ static_versionat(request, 'js/sit.js') }}" defer></script>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>🗓️</text></svg>">
+  <link rel="icon" href="{{ static_versionat(request, 'asmi.png') }}">
 </head>
 <body>
 {% include "_bara.html" %}
