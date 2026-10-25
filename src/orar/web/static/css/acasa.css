@@ -67,7 +67,7 @@
 .alege-panou { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .7rem; padding: .9rem 1rem 1rem; }
 .alege-panou[hidden] { display: none; }
 .alege-panou label { display: flex; flex-direction: column; gap: .25rem; flex: 1 1 9rem; min-width: 0; }
-.alege-panou label.lat { flex: 0 1 18rem; }
+.alege-panou label.lat { flex: 1 1 18rem; }
 .alege-panou label > span { font-size: .74rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-slab); }
 .alege-panou select {
   font: inherit; font-size: .92rem; padding: .45rem .6rem; width: 100%;
@@ -75,11 +75,14 @@
   background: var(--fundal); color: var(--text);
 }
 .alege-panou input[type="date"], .alege-panou input[type="time"] {
-  font: inherit; font-size: .92rem; padding: .45rem .6rem; width: 100%;
+  font: inherit; font-size: .92rem; padding: .45rem .6rem; width: 100%; height: 2.4rem;
   border: 1px solid var(--linie-tare); border-radius: 6px;
   background: var(--fundal); color: var(--text); color-scheme: light;
 }
 .alege-panou .sali-libere-acasa { flex-basis: 100%; }
+/* gol (inainte de cautare) nu trebuie sa tina un rand intreg: altfel tabul Fereastra
+   ramane mai inalt decat Grupe/Sali. Rezultatele il umplu si atunci revine pe randul lui. */
+.alege-panou .sali-libere-acasa:empty { display: none; }
 .alege-panou .politica { margin: 0; font-size: .82rem; align-self: flex-end; text-align: center; }
 .lista-sali-libere { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
 .lista-sali-libere a { display: flex; align-items: center; gap: .5rem; padding: .3rem .6rem; border: 1px solid var(--linie-tare); border-radius: 6px; color: var(--text); text-decoration: none; }

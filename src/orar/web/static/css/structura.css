@@ -9,6 +9,10 @@
 .perioada-licenta   { --perioada: #9a63d6; }
 .perioada-liber     { --perioada: #c9a20a; }
 .perioada-semn { display: inline-block; width: .65rem; height: .65rem; border-radius: 50%; margin-right: .45rem; background: var(--perioada, var(--linie-tare)); }
+.perioada-actiuni { display: flex; align-items: center; gap: .4rem; white-space: nowrap; }
+.perioada-actiuni form { display: inline-flex; }
+.perioada-actiuni .buton { padding: .4rem .55rem; }
+.perioada-actiuni .buton svg { display: block; }
 
 /* alerta de pe fiecare pagina, pentru admini */
 .alerta-an {
@@ -24,11 +28,13 @@
 .an-cap { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 .an-cap h1 { margin: 0; }
 .lipsuri { margin: .3rem 0 0; padding-left: 1.2rem; color: #e05252; font-weight: 600; }
-.formular-perioada { max-width: 46rem; }
-.formular-perioada input[type="number"] {
-  font: inherit; font-size: .92rem; padding: .45rem .6rem; width: 100%;
+.formular-perioada input[type="number"],
+.formular-perioada input[type="date"] {
+  font: inherit; font-size: .92rem; padding: .45rem .6rem; width: 100%; min-width: 0;
   border: 1px solid var(--linie-tare); border-radius: 6px; background: var(--fundal); color: var(--text);
 }
+/* campurile din rand se pot ingusta pe ecrane mici, ca data sa nu dea pe afara */
+.formular-perioada .pe-rand > label { min-width: 0; }
 .saptamani-sem { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem 2rem; }
 .saptamani-sem h3 { margin: 0 0 .4rem; }
 .saptamani-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; font-size: .86rem; }

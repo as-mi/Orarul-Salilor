@@ -40,15 +40,19 @@ from orar.web.routers import (  # noqa: E402
 
 @asynccontextmanager
 async def ciclu_de_viata(_app: FastAPI) -> AsyncIterator[None]:
-    """Porneste verificarea zilnica, daca e activata cu `ORAR_SCHEDULER=1`."""
-    from orar.worker.scheduler import porneste
+    """Porneste verificarea zilnica a orarului (cu `ORAR_SCHEDULER=1`) si aducerea orara a
+    articolului ASMI (pornita implicit, independent)."""
+    from orar.worker.scheduler import porneste, porneste_articole
 
     planificator = porneste()
+    articole = porneste_articole()
     try:
         yield
     finally:
         if planificator is not None:
             planificator.shutdown(wait=False)
+        if articole is not None:
+            articole.shutdown(wait=False)
 
 
 app = FastAPI(

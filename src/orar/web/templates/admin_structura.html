@@ -16,7 +16,7 @@
 </section>
 
 {# Ce se cere ca anul sa fie "configurat"; pana atunci adminii vad o alerta pe fiecare pagina. #}
-<section class="sectiune panou">
+<section class="sectiune panou" id="sumar-an">
   <h2>{{ 'Anul e configurat' if not lipsuri else 'Mai lipsesc' }}</h2>
   {% if request.query_params.get('resetate') is not none %}
     <p class="reusit" role="status">Anul e complet: {{ request.query_params.get('resetate') }} conturi care urmează
@@ -48,11 +48,25 @@
               <td>{{ publicuri[p.pentru] }}</td>
               <td>{{ zi(p.data_inceput) }}.{{ p.data_inceput.year }}</td>
               <td>{{ zi(p.data_sfarsit) }}.{{ p.data_sfarsit.year }}</td>
-              <td>
+              <td class="perioada-actiuni">
+                <a class="buton" href="?an={{ an }}&editeaza={{ p.id }}#perioade" title="Editează" aria-label="Editează">
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                  </svg>
+                </a>
                 <form method="post" action="/admin/an-universitar/perioada/{{ p.id }}/sterge"
                       onsubmit="return confirm('Ștergi perioada?')">
                   <input type="hidden" name="csrf" value="{{ csrf }}">
-                  <button type="submit" class="buton pericol">Șterge</button>
+                  <button type="submit" class="buton pericol" title="Șterge" aria-label="Șterge">
+                    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                      <line x1="10" y1="11" x2="10" y2="17"/>
+                      <line x1="14" y1="11" x2="14" y2="17"/>
+                    </svg>
+                  </button>
                 </form>
               </td>
             </tr>
@@ -64,11 +78,14 @@
     <div class="panou-gol"><p>Nicio perioadă încă. Adaugă-le cu formularul de mai jos.</p></div>
   {% endif %}
 
-  <h3 class="titlu-sectiune">Adaugă o perioadă</h3>
+  <h3 class="titlu-sectiune">{{ 'Editează perioada' if v.id else 'Adaugă o perioadă' }}</h3>
   {% if eroare %}<p class="avertisment" role="alert">{{ eroare }}</p>{% endif %}
-  <form method="post" action="/admin/an-universitar/perioada" class="camp-lista formular-perioada">
+  <form method="post" action="/admin/an-universitar/perioada" class="camp-lista formular-perioada"
+        hx-post="/admin/an-universitar/perioada" hx-target="#perioade" hx-select="#perioade"
+        hx-select-oob="#sumar-an" hx-swap="outerHTML" hx-disabled-elt="find button[type=submit]">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <input type="hidden" name="an" value="{{ an }}">
+    <input type="hidden" name="id" value="{{ v.id or '' }}">
     <div class="pe-rand">
       <label><span>Felul</span>
         <select name="fel">
@@ -106,7 +123,8 @@
         la fel pentru toți rămâne „toți anii”.</li>
       <li>„Se numără ca săptămâna” e doar pentru excepțiile pe care regulile de mai sus nu le prind.</li>
     </ul>
-    <button type="submit" class="principal">Adaugă perioada</button>
+    <button type="submit" class="principal">{{ 'Salvează perioada' if v.id else 'Adaugă perioada' }}</button>
+    {% if v.id %}<a class="buton" href="?an={{ an }}#perioade">Renunță</a>{% endif %}
   </form>
 </section>
 

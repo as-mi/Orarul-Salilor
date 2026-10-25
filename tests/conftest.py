@@ -8,6 +8,7 @@ JSON -> loader -> consolidare -> interogari.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,10 @@ from sqlalchemy.pool import StaticPool
 from orar.db.models import Base
 from orar.ingest.consolidate import consolideaza
 from orar.ingest.load import incarca_pagini
+
+# Testele nu pornesc aducerea orara a articolului ASMI: ar atinge asmi.ro si ar scrie in
+# baza reala (planificatorul foloseste `orar.db.session`, nu sesiunea de test).
+os.environ["ORAR_ARTICOLE"] = "0"
 
 RADACINA = Path(__file__).resolve().parent
 GOLDEN = RADACINA / "golden" / "date.json"

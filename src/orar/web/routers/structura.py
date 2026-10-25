@@ -94,10 +94,29 @@ def _saptamani(perioade: list[PerioadaStructura]) -> dict[int, list[tuple[int, s
 
 
 def _pagina(
-    request: Request, s: Session, an: str, *, eroare: str = "", stare: int = 200, v=None
-) -> HTMLResponse:  # noqa: ANN001
+    request: Request,
+    s: Session,
+    an: str,
+    *,
+    eroare: str = "",
+    stare: int = 200,
+    v=None,  # noqa: ANN001
+    de_editeaza: PerioadaStructura | None = None,
+) -> HTMLResponse:
     perioade = perioade_anului(s, an)
     inceput = int(an.split("-")[0])
+    # la editare, formularul pleaca incarcat cu valorile perioadei alese
+    if de_editeaza is not None:
+        v = {
+            "id": de_editeaza.id,
+            "fel": de_editeaza.fel,
+            "semestru": str(de_editeaza.semestru) if de_editeaza.semestru else "",
+            "nume": de_editeaza.nume or "",
+            "de_la": de_editeaza.data_inceput.isoformat(),
+            "pana_la": de_editeaza.data_sfarsit.isoformat(),
+            "saptamana": str(de_editeaza.saptamana) if de_editeaza.saptamana else "",
+            "pentru": de_editeaza.pentru,
+        }
     return templates.TemplateResponse(
         request=request,
         name="admin_structura.html",
@@ -116,9 +135,10 @@ def _pagina(
             "maxim": interval_an(an)[1].isoformat(),
             "zi": _zi,
             "eroare": eroare,
-            # valorile formularului, pastrate dupa o eroare
+            # valorile formularului, pastrate dupa o eroare; "id" gol = adaugare
             "v": v
             or {
+                "id": "",
                 "fel": "didactica",
                 "semestru": "1",
                 "nume": "",
@@ -136,16 +156,24 @@ def _pagina(
 def structura(
     request: Request,
     an: str = Query(""),
+    editeaza: int = Query(0),
     s: Session = Depends(get_db),
     _admin: Cont = Depends(cere_permisiune("structura")),
 ) -> HTMLResponse:
-    return _pagina(request, s, _an_valid(an))
+    an = _an_valid(an)
+    de_editeaza = None
+    if editeaza:
+        p = s.get(PerioadaStructura, editeaza)
+        if p is not None and p.an_univ == an:
+            de_editeaza = p
+    return _pagina(request, s, an, de_editeaza=de_editeaza)
 
 
 @router.post("/perioada", response_model=None)
 def adauga_perioada(
     request: Request,
     an: str = Form(""),
+    id: str = Form(""),
     fel: str = Form(""),
     semestru: str = Form(""),
     nume: str = Form(""),
@@ -159,6 +187,7 @@ def adauga_perioada(
 ) -> HTMLResponse | RedirectResponse:
     an = _an_valid(an)
     v = {
+        "id": id,
         "fel": fel,
         "semestru": semestru,
         "nume": nume,
@@ -169,7 +198,10 @@ def adauga_perioada(
     }
 
     def eroare(text: str) -> HTMLResponse:
-        return _pagina(request, s, an, eroare=text, stare=400, v=v)
+        # HTMX nu schimba continutul la raspunsuri 4xx; pentru el trimitem 200, ca sa
+        # inlocuiasca doar sectiunea perioadelor, fara sa reincarce pagina.
+        stare = 200 if request.headers.get("HX-Request") else 400
+        return _pagina(request, s, an, eroare=text, stare=stare, v=v)
 
     if not verifica_csrf(request, csrf):
         return eroare("Formularul a expirat. Încearcă din nou.")
@@ -210,18 +242,25 @@ def adauga_perioada(
             return eroare("Săptămâna e un număr între 1 și 20.")
         numar = int(saptamana)
 
-    s.add(
-        PerioadaStructura(
-            an_univ=an,
-            fel=fel,
-            semestru=int(semestru) if semestru else None,
-            nume=" ".join(nume.split())[:80] or None,
-            data_inceput=inceput,
-            data_sfarsit=sfarsit,
-            saptamana=numar,
-            pentru=pentru,
-        )
-    )
+    valori = {
+        "an_univ": an,
+        "fel": fel,
+        "semestru": int(semestru) if semestru else None,
+        "nume": " ".join(nume.split())[:80] or None,
+        "data_inceput": inceput,
+        "data_sfarsit": sfarsit,
+        "saptamana": numar,
+        "pentru": pentru,
+    }
+    # un `id` trimis din formular inseamna editare, nu adaugare
+    if id.strip():
+        p = s.get(PerioadaStructura, int(id)) if id.strip().isdigit() else None
+        if p is None:
+            return eroare("Perioada nu mai există; reîncarcă pagina.")
+        for cheie, valoare in valori.items():
+            setattr(p, cheie, valoare)
+    else:
+        s.add(PerioadaStructura(**valori))
     s.commit()
     # anul curent tocmai s-a completat: conturile care urmeaza orarul implicit isi aleg din nou grupa
     resetate = reseteaza_grupele_daca_e_cazul(s)

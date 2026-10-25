@@ -121,6 +121,7 @@ cp .env.example .env
 | `ORAR_HTTPS=1` | Pune-o când situl rulează în spatele HTTPS, ca sesiunea să meargă doar pe conexiuni sigure. |
 | `ORAR_SCHEDULER=1` | Pornește verificarea zilnică a orarului în procesul web (vezi mai jos). |
 | `ORAR_ORA_VERIFICARE` | Ora la care rulează verificarea zilnică. Implicit 4 dimineața. |
+| `ORAR_ARTICOLE` | Aducerea orară a ultimului articol ASMI. Pornește implicit; `ORAR_ARTICOLE=0` o oprește. |
 | `ORAR_DB` | Alt loc pentru baza de date. |
 
 ### Conturile și rolurile, prin SSO-ul ASMI

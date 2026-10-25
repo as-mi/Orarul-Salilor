@@ -297,3 +297,67 @@ def test_un_an_scris_din_doua_cifre_e_explicat(client, s):
               "semestru": "1", "de_la": "0027-01-11", "pana_la": "2027-02-14"},
     )  # fmt: skip
     assert r.status_code == 400 and "11.01.0027 are anul greșit" in r.text
+
+
+def test_adminul_editeaza_o_perioada(client, s):
+    _intra(client)
+    _pune(s, SEMESTRUL_1)
+    p = s.scalar(
+        select(PerioadaStructura).where(
+            PerioadaStructura.an_univ == AN, PerioadaStructura.fel == "vacanta"
+        )
+    )
+
+    # butonul de editare trimite la formularul incarcat cu valorile perioadei
+    pagina = client.get(f"/admin/an-universitar?an={AN}&editeaza={p.id}").text
+    assert f"editeaza={p.id}" in pagina and 'aria-label="Editează"' in pagina
+    assert "Editează perioada" in pagina
+    assert f'name="id" value="{p.id}"' in pagina
+    assert 'value="Vacanța de iarnă"' in pagina
+
+    # salvarea actualizeaza perioada existenta, nu adauga alta
+    r = client.post(
+        "/admin/an-universitar/perioada",
+        data={
+            "csrf": _csrf(client, f"/admin/an-universitar?an={AN}"),
+            "an": AN,
+            "id": str(p.id),
+            "fel": "vacanta",
+            "semestru": "",
+            "nume": "Vacanța de Paște",
+            "de_la": "2026-12-24",
+            "pana_la": "2027-01-10",
+            "pentru": "toti",
+        },
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    s.refresh(p)
+    assert p.nume == "Vacanța de Paște"
+    # aceeasi perioada, nu una in plus
+    assert len(s.scalars(select(PerioadaStructura).where(PerioadaStructura.an_univ == AN)).all()) == len(
+        SEMESTRUL_1
+    )
+
+
+def test_adauga_perioada_asincron_fara_refresh(client, s):
+    _intra(client)
+    csrf = _csrf(client, f"/admin/an-universitar?an={AN}")
+    date_formular = {
+        "csrf": csrf,
+        "an": AN,
+        "fel": "didactica",
+        "semestru": "",  # gresit: didactica cere un semestru
+        "de_la": "2026-10-01",
+        "pana_la": "2026-12-18",
+    }
+    # cererea HTMX primeste 200 (nu 400), ca formularul sa se inlocuiasca fara refresh
+    r = client.post(
+        "/admin/an-universitar/perioada",
+        data=date_formular,
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "ține de un semestru" in r.text
+    # fara antetul HTMX, comportamentul clasic ramane 400
+    assert client.post("/admin/an-universitar/perioada", data=date_formular).status_code == 400
