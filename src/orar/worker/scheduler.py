@@ -22,12 +22,16 @@ from datetime import datetime
 
 log = logging.getLogger(__name__)
 
-__all__ = ["porneste", "ruleaza_o_data", "ACTIV", "ORA_VERIFICARE"]
+__all__ = ["porneste", "porneste_articole", "ruleaza_o_data", "ACTIV", "ORA_VERIFICARE"]
 
 #: Ora la care verificam (local). Noaptea, ca un eventual ingest sa nu prinda varful de trafic.
 ORA_VERIFICARE = int(os.getenv("ORAR_ORA_VERIFICARE", "4"))
 #: Planificatorul porneste doar daca variabila e setata (vezi docstring).
 ACTIV = os.getenv("ORAR_SCHEDULER", "").strip().lower() in ("1", "true", "da", "yes")
+#: Aducerea orara a articolului ASMI porneste implicit, independenta de sincronizarea
+#: orarului. `ORAR_ARTICOLE=0` o opreste (testele o opresc, ca sa nu atinga asmi.ro si
+#: baza reala).
+ARTICOLE_ACTIV = os.getenv("ORAR_ARTICOLE", "1").strip().lower() not in ("0", "false", "no", "off")
 
 
 def ruleaza_o_data(**kwargs) -> None:  # noqa: ANN003
@@ -92,4 +96,37 @@ def porneste(**kwargs):  # noqa: ANN003, ANN201
     )
     planificator.start()
     log.info("planificator pornit: verificare zilnica la ora %d", ORA_VERIFICARE)
+    return planificator
+
+
+def porneste_articole():
+    """Porneste (implicit, mereu) aducerea ultimului articol ASMI: o data la pornire, apoi orar.
+
+    Spre deosebire de sincronizarea orarului -- scumpa si cu stare pe proces -- aducerea
+    articolului e o cerere HTTP ieftina si idempotenta: suprascrie aceeasi linie din baza.
+    Deci poate rula in fiecare worker, in paralel, fara griji. E independenta de
+    `ORAR_SCHEDULER`; se opreste doar cu `ORAR_ARTICOLE=0` (in teste).
+    """
+    if not ARTICOLE_ACTIV:
+        log.debug("aducerea articolului ASMI e oprita (ORAR_ARTICOLE=0)")
+        return None
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from apscheduler.triggers.interval import IntervalTrigger
+    except ImportError:
+        log.warning("apscheduler nu e instalat; ultimul articol ASMI nu se improspateaza orar")
+        return None
+
+    planificator = BackgroundScheduler(timezone="Europe/Bucharest")
+    planificator.add_job(
+        _prospateaza_articole,
+        IntervalTrigger(hours=1),
+        id="articol-asmi",
+        coalesce=True,
+        max_instances=1,
+    )
+    # si o data imediat, ca subsolul sa aiba articolul cat mai repede dupa pornire
+    planificator.add_job(_prospateaza_articole)
+    planificator.start()
+    log.info("articolul ASMI se improspateaza la pornire si apoi orar")
     return planificator
