@@ -23,10 +23,11 @@ data/planuri/
 data/processed_ss/
 data/raw/
 data/cache/
-data/*.db
-data/*.db-journal
-data/*.db-wal
-data/*.db-shm
+# si in subdirectoare (data/backup/): acolo sunt copii ale bazei reale, cu conturi si sesizari
+data/**/*.db
+data/**/*.db-journal
+data/**/*.db-wal
+data/**/*.db-shm
 
 # --- stare locala ---
 state.json
