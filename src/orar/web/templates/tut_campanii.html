@@ -5,36 +5,7 @@
 <section class="antet">
   <nav class="firimituri"><a href="/tutoriate">tutoriate</a><span>›</span><strong>campanii</strong></nav>
   <h1>Campanii de tutoriate</h1>
-  <p class="nota">Recrutezi tutori și planifici sesiunile pe semestru, înainte să le publici ca tutoriate.</p>
-
-  <p class="actiuni-sesizare">
-    <a class="buton plin" href="/tutoriate/campanii/noua">+ Campanie nouă</a>
-  </p>
-
-  {% set etichete = {'ciorna': 'ciornă', 'deschisa': 'deschisă', 'inchisa': 'închisă', 'planificata': 'planificată', 'arhivata': 'arhivată'} %}
-  {% if not campanii %}
-    <p class="nota">Nicio campanie încă. Creează una pentru semestrul curent.</p>
-  {% else %}
-    <div class="tabel-scroll">
-      <table class="tabel-sali tut-tabel">
-        <thead><tr><th>Nume</th><th>Semestrul</th><th>An</th><th>Fereastra de aplicare</th><th>Stare</th><th></th></tr></thead>
-        <tbody>
-        {% for c in campanii %}
-          <tr>
-            <td><a href="/tutoriate/campanii/{{ c.id }}"><strong>{{ c.nume }}</strong></a></td>
-            <td>{{ c.semestru }}</td>
-            <td>{{ c.an_univ }}</td>
-            <td>{{ c.data_deschidere.strftime('%d.%m') }} – {{ c.data_inchidere.strftime('%d.%m.%Y') }}</td>
-            <td><span class="pastila {{ 'neutra' if c.stare != 'deschisa' }}">{{ etichete[c.stare] }}</span></td>
-            <td class="tut-actiuni">
-              <a class="buton" href="/tutoriate/campanii/{{ c.id }}">Deschide</a>
-              <a class="buton" href="/tutoriate/campanii/{{ c.id }}/aplica">Vezi aplicarea</a>
-            </td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% endif %}
 </section>
+
+{% include "_tutoriate_panou.html" %}
 {% endblock %}

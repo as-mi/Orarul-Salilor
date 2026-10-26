@@ -325,7 +325,9 @@ def test_panoul_e_doar_al_responsabilului(client, s, sso_fals):
         assert client.get(f"/tutoriate/panou?tab={tab}").status_code == 200, tab
     # statisticile sunt o permisiune aparte: rolul de client al tutoriatelor nu le aduce
     assert client.get("/admin/statistici").status_code == 403
-    assert client.get("/admin").status_code in (401, 403)
+    # tutoriate e o sectiune a panoului, ca toate permisiunile functionale
+    assert client.get("/admin").status_code == 200
+    assert "Tutoriate" in client.get("/admin").text
 
 
 def test_adminul_vede_responsabilii_din_sso(client, s, sso_fals):

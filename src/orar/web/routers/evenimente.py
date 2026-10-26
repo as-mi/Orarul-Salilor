@@ -346,6 +346,12 @@ def _formular(
     )
 
 
+def _stare_htmx(request: Request) -> int:
+    """Raspunsul la o eroare de formular: htmx nu schimba continutul la 4xx, deci pentru el
+    trimitem 200 ca sa inlocuiasca fragmentul (in panoul de admin); altfel 400."""
+    return 200 if request.headers.get("HX-Request") else 400
+
+
 @router.get("/admin/evenimente/nou", response_class=HTMLResponse)
 def formular_nou(
     request: Request,
@@ -479,10 +485,10 @@ def adauga(
     admin: Cont = Depends(cere_permisiune("evenimente")),
 ) -> HTMLResponse | RedirectResponse:
     if not verifica_csrf(request, csrf):
-        return _formular(request, s, e=None, v=v, stare=400, eroare="Formularul a expirat.")
+        return _formular(request, s, e=None, v=v, stare=_stare_htmx(request), eroare="Formularul a expirat.")
     e = Eveniment(creat_de=admin.nume, creat_la=datetime.now())
     if eroare := _aplica(s, e, v):
-        return _formular(request, s, e=None, v=v, eroare=eroare, stare=400)
+        return _formular(request, s, e=None, v=v, eroare=eroare, stare=_stare_htmx(request))
     s.add(e)
     s.commit()
     return RedirectResponse("/admin/evenimente?salvat=1", status_code=303)
@@ -499,10 +505,10 @@ def modifica(
 ) -> HTMLResponse | RedirectResponse:
     e = _eveniment(s, eveniment_id)
     if not verifica_csrf(request, csrf):
-        return _formular(request, s, e=e, v=v, stare=400, eroare="Formularul a expirat.")
+        return _formular(request, s, e=e, v=v, stare=_stare_htmx(request), eroare="Formularul a expirat.")
     if eroare := _aplica(s, e, v):
         s.rollback()
-        return _formular(request, s, e=_eveniment(s, eveniment_id), v=v, eroare=eroare, stare=400)
+        return _formular(request, s, e=_eveniment(s, eveniment_id), v=v, eroare=eroare, stare=_stare_htmx(request))
     s.commit()
     return RedirectResponse("/admin/evenimente?salvat=1", status_code=303)
 

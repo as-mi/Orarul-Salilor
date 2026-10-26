@@ -65,6 +65,7 @@ class TipPagina(StrEnum):
     FACULTATIV = "facultativ"
     LIMBI = "limbi"
     SPECIAL = "special"
+    TUTORIAT = "tutoriat"
     NECUNOSCUT = "necunoscut"
 
 
@@ -363,6 +364,13 @@ _RE_ROBOTICA = re.compile(
     r"studenti\s+Fizica/Robotica,\s*an\s*(?P<an>\d+),\s*grupa\s*(?P<grupa>\w+)", re.IGNORECASE
 )
 
+# "Tutoriat (MATE seria 10)", "Tutoriat (INFO serile 13, 14, 15)"
+_RE_TUTORIAT = re.compile(
+    r"^Tutoriat\s*\(\s*(?P<spec>[A-Za-z][A-Za-z\s&.\-]*?)\s+seri\w*\s+"
+    r"(?P<serii>\d+(?:\s*,\s*\d+)*)\s*\)\s*$",
+    re.IGNORECASE,
+)
+
 
 # Confuziile pe care recunoasterea le face constant la fontul asteia: `I` majuscul si `l`
 # mic sunt aproape identice in Arial, la fel `0` si `O`. Le reparam *inainte* de parsare,
@@ -425,6 +433,18 @@ def parse_titlu(titlu: str) -> TitluOrar:
             an=an,
             serii_tinta=serii,
             eticheta=m.group("rest").strip(),
+            slug=_slugify(raw),
+        )
+
+    if m := _RE_TUTORIAT.match(raw):
+        serii = tuple(s.strip() for s in m.group("serii").split(",") if s.strip())
+        return TitluOrar(
+            raw=raw,
+            tip=TipPagina.TUTORIAT,
+            specializare=normalizeaza_specializare(m.group("spec")),
+            an=int(serii[0][0]) if serii and serii[0][:1].isdigit() else None,
+            serii_tinta=serii,
+            eticheta=raw,
             slug=_slugify(raw),
         )
 

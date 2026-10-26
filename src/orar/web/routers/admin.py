@@ -1,9 +1,10 @@
 """Panoul de administrare, pe /admin, si coada de verificare.
 
-Tot ce e aici cere un cont cu rol de admin (`auth.cere_admin`): adminul principal, din
-mediu, sau un cont din USER ridicat la admin. Aici nu se face autentificare -- exista un
-singur formular, `/login`; cine vine neautentificat e trimis acolo. Panoul listeaza conturile si le poate seta
-rolul: student, voluntar, profesor sau admin.
+Panoul e pentru orice cont cu vreo permisiune (`auth.cere_panou`), nu doar pentru admin:
+bara din stanga arata doar sectiunile la care contul are acces. Aici nu se face autentificare
+-- exista un singur formular, `/login`; cine vine neautentificat e trimis acolo. Panoul listeaza
+conturile (celor cu permisiunea `utilizatori`) si le poate seta rolul: student, voluntar,
+profesor sau admin.
 
 Coada de verificare: activitatile pe care extragerea nu le-a putut confirma
 ---------------------------------------------------------------------------
@@ -34,6 +35,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
+from orar.db import corectii
 from orar.db.coada import grupeaza
 from orar.db.models import (
     PERMISIUNI,
@@ -52,9 +54,16 @@ from orar.db.orare import fa_implicita, orare_vii
 from orar.db.queries import profesori_de_ales
 from orar.ingest.capturi import Sesiune
 from orar.ingest.crosscheck import profesori_potriviti
-from orar.web.auth import Cont, cere_admin, cere_permisiune, verifica_csrf
+from orar.web.auth import Cont, cere_admin, cere_panou, cere_permisiune, verifica_csrf
 from orar.web.deps import context_saptamana, get_db, templates
-from orar.web.routers.editare import _liste, materii_din_orar
+from orar.web.routers.editare import (
+    _liste,
+    _uneste_profesori,
+    _valideaza,
+    _valori_ora,
+    materii_din_orar,
+)
+from orar.web.routers.index import _profesori_pentru_selector
 from orar.worker import incarcare
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -74,47 +83,67 @@ DIRECTOR_CAPTURI = Path("data/screenshots")
 def panou(
     request: Request,
     s: Session = Depends(get_db),
-    admin: Cont = Depends(cere_admin),
+    admin: Cont = Depends(cere_panou),
 ) -> HTMLResponse:
-    """Utilizatorii si rolurile lor."""
-    utilizatori = list(
-        s.scalars(select(User).options(joinedload(User.grupa)).order_by(func.lower(User.nume)))
-    )
-    sali_fizice = list(
-        s.scalars(select(Sala).where(Sala.tip == "fizica").order_by(Sala.nume))
-    )
-    orare = orare_vii(s)
-    implicit = orare[0].perioada if orare else None
+    """Panoul de administrare: pentru toate rolurile care au primit vreo permisiune.
 
+    Bara din stanga arata doar sectiunile la care contul are acces; panourile grele
+    (statisticile, coada de verificare, structura anului) se incarca la prima deschidere,
+    prin htmx, de pe adresele lor."""
     def numara(model, *conditii) -> int:  # noqa: ANN001, ANN002
         return s.scalar(select(func.count()).select_from(model).where(*conditii)) or 0
+
+    context: dict[str, object] = {
+        **context_saptamana(),
+        "admin": admin,
+        # numaratorile din panoul de intampinare, mereu prezente (ieftine)
+        "nr_sesizari": numara(Sesizare, Sesizare.stare == "noua"),
+        "nr_corectii": numara(Corectie),
+        "nr_neaplicate": numara(Corectie, Corectie.aplicata.is_(False)),
+        "nr_nesigure": numara(Ora, Ora.campuri_nesigure.is_not(None)),
+    }
+
+    if admin.poate("utilizatori"):
+        utilizatori = list(
+            s.scalars(select(User).options(joinedload(User.grupa)).order_by(func.lower(User.nume)))
+        )
+        context.update(
+            {
+                "utilizatori": utilizatori,
+                "cereri": [u for u in utilizatori if u.cerere_profesor],
+                "drepturi_sso": _drepturile_sso(s),
+                "profesori": profesori_de_ales(s),
+                "roluri": ROLURI_LOCALE,
+                "permisiuni": PERMISIUNI,
+                "permisiuni_acordate": _permisiunile_acordate(s),
+                "tutori": _tutorii(s),
+            }
+        )
+
+    if admin.poate("orar_profesori"):
+        context["profesori_orar"] = _profesori_pentru_selector(s)
+
+    if admin.e_admin:
+        context["sali_fizice"] = list(
+            s.scalars(select(Sala).where(Sala.tip == "fizica").order_by(Sala.nume))
+        )
+
+    if admin.poate("incarcare"):
+        orare = orare_vii(s)
+        implicit = orare[0].perioada if orare else None
+        context.update(
+            {
+                "incarcare": incarcare.stare_curenta(),
+                "orare": orare,
+                "semestru_curent": implicit.semestru if implicit else 2,
+                "an_curent": implicit.an_univ if implicit else AN_IMPLICIT,
+            }
+        )
 
     return templates.TemplateResponse(
         request=request,
         name="admin.html",
-        context={
-            **context_saptamana(),
-            "admin": admin,
-            "utilizatori": utilizatori,
-            "cereri": [u for u in utilizatori if u.cerere_profesor],
-            # rolurile SSO ale fiecarui cont, din ultima lui sesiune: {user_id: (admin, permisiuni)}
-            "drepturi_sso": _drepturile_sso(s),
-            "profesori": profesori_de_ales(s),
-            "roluri": ROLURI_LOCALE,
-            "permisiuni": PERMISIUNI,
-            "permisiuni_acordate": _permisiunile_acordate(s),
-            "tutori": _tutorii(s),
-            "incarcare": incarcare.stare_curenta(),
-            "sali_fizice": sali_fizice,
-            "nr_sesizari": numara(Sesizare, Sesizare.stare == "noua"),
-            "nr_corectii": numara(Corectie),
-            "nr_neaplicate": numara(Corectie, Corectie.aplicata.is_(False)),
-            "nr_nesigure": numara(Ora, Ora.campuri_nesigure.is_not(None)),
-            "orare": orare,
-            # valorile propuse in formular: semestrul si anul orarului implicit
-            "semestru_curent": implicit.semestru if implicit else 2,
-            "an_curent": implicit.an_univ if implicit else AN_IMPLICIT,
-        },
+        context=context,
     )
 
 
@@ -144,6 +173,7 @@ def incarca_orar(
     request: Request,
     url_grupe: str = Form(""),
     url_profesori: str = Form(""),
+    url_tutoriate: str = Form(""),
     semestru: str = Form(""),
     an_universitar: str = Form(""),
     csrf: str = Form(""),
@@ -153,7 +183,11 @@ def incarca_orar(
     if not verifica_csrf(request, csrf):
         return RedirectResponse("/admin", status_code=303)
 
-    url_grupe, url_profesori = url_grupe.strip(), url_profesori.strip()
+    url_grupe, url_profesori, url_tutoriate = (
+        url_grupe.strip(),
+        url_profesori.strip(),
+        url_tutoriate.strip(),
+    )
     eroare = (
         incarcare.valideaza_link(url_grupe)
         # orarul profesorilor e obligatoriu: fara el nu se face verificarea incrucisata
@@ -162,6 +196,8 @@ def incarca_orar(
             if url_profesori
             else "Lipsește linkul orarului profesorilor."
         )
+        # orarul tutoriatelor e optional, dar daca e dat, trebuie sa fie un link valid
+        or (incarcare.valideaza_link(url_tutoriate) if url_tutoriate else None)
         or (None if semestru in ("1", "2") else "Semestrul e 1 sau 2.")
         or incarcare.valideaza_an(an_universitar)
     )
@@ -170,6 +206,7 @@ def incarca_orar(
             incarcare.Cerere(
                 url_grupe=url_grupe,
                 url_profesori=url_profesori,
+                url_tutoriate=url_tutoriate,
                 semestru=int(semestru),
                 an_universitar=an_universitar.strip(),
                 de_catre=admin.nume,
@@ -398,6 +435,7 @@ def review(
             },
             "nr_dosare": len(dosare),
             "prag": prag,
+            "limita": limita,
             # propunerile din campuri si adresa la care ne intoarcem dupa o rezolvare
             **_liste(s),
             # materiile propuse fiecarei activitati: doar ale orarului ei
@@ -416,6 +454,74 @@ def review(
             "director_lipsa": not DIRECTOR_CAPTURI.is_dir(),
         },
     )
+
+
+@router.post("/review/toate")
+def confirma_toate(
+    request: Request,
+    sesiune: str = Form(""),
+    prag: float = Form(0.75),
+    limita: int = Form(100),
+    csrf: str = Form(""),
+    s: Session = Depends(get_db),
+    admin: Cont = Depends(cere_permisiune("editare")),
+) -> RedirectResponse:
+    """Confirma deodata tot ce e in coada, cu valorile propuse de citirile sigure.
+
+    Doar dosarele care au o propunere completa (materia nu e goala) se confirma; cele care
+    cer o mana de om raman in coada. Ca la confirmarea pe rand, ce se confirma ramane si
+    dupa incarcarea unui orar nou."""
+    inapoi = f"/admin/review?sesiune={sesiune}&prag={prag}&limita={limita}"
+    if not verifica_csrf(request, csrf):
+        return RedirectResponse(f"{inapoi}&eroare={quote('Formularul a expirat. Încearcă din nou.')}", status_code=303)
+
+    # Aceeasi coada pe care o afiseaza pagina: sesiunea aleasa, pragul si limita curente.
+    toate = list(
+        s.scalars(
+            select(Ora)
+            .where(Ora.sursa_bbox.is_not(None))
+            .where((Ora.campuri_nesigure.is_not(None)) | (Ora.confidence < prag))
+        )
+    )
+    pe_sesiuni: dict[str, list[Ora]] = {}
+    for o in toate:
+        pe_sesiuni.setdefault(Sesiune.din_sursa(o.sursa_pagina or "").director, []).append(o)
+    sesiuni = sorted(
+        (Sesiune.din_sursa(f"{d}/x") if d else Sesiune(director="") for d in pe_sesiuni),
+        key=lambda x: (x.moment is None, -(x.moment.timestamp() if x.moment else 0), x.director),
+    )
+    aleasa = next((x for x in sesiuni if x.director == sesiune), sesiuni[0] if sesiuni else None)
+    candidate = sorted(
+        pe_sesiuni.get(aleasa.director, []) if aleasa else [],
+        key=lambda o: (o.sursa_pagina or "", o.campuri_nesigure is None, o.confidence or 0),
+    )[:limita]
+
+    confirmate = 0
+    ramase = 0
+    for d in grupeaza(s, candidate):
+        p = d.propunere()
+        if not p["materie"].strip():
+            ramase += len(d.membri)
+            continue
+        profesori = _uneste_profesori([p["profesor"]])
+        for o in d.membri:
+            valori = {
+                **_valori_ora(o),
+                "materie": p["materie"],
+                "profesor": profesori,
+                "sala": p["sala"],
+                "saptamani": p["saptamani"],
+            }
+            v, _mesaj = _valideaza(s, valori)
+            if v is None:
+                ramase += 1
+                continue
+            corectii.modifica(s, o, v, de_catre=admin.nume)
+            corectii.confirma(s, o, de_catre=admin.nume)
+            confirmate += 1
+    s.commit()
+    mesaj = "" if ramase == 0 else f"&ramase={ramase}"
+    return RedirectResponse(f"{inapoi}&toate={confirmate}{mesaj}", status_code=303)
 
 
 def _gaseste_captura(sursa: str) -> Path | None:

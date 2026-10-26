@@ -237,6 +237,22 @@ def test_dropdownul_apare_pe_grupe_nu_si_pe_sali(client):
     assert 'class="optiuni"' not in client.get("/sala/Amf.501").text
 
 
+def test_optionalele_si_facultativele_au_dropdownuri_separate(client):
+    """Fiecare categorie are dropdownul ei, nu unul comun "Opționale și facultative"."""
+    pagina = client.get("/grupa/331").text
+    assert pagina.count('class="optiuni"') == 2
+    assert "Opționale și facultative" not in pagina
+    ramuri = re.findall(
+        r'<summary class="filtru[^"]*">\s*(Opționale|Facultative|Limbi străine)\s*'
+        r'<span class="numar">(\d+)/(\d+)</span>',
+        pagina,
+    )
+    assert [r[0] for r in ramuri] == ["Opționale", "Facultative"]
+    # Fiecare isi numara doar activitatile lui: la inceput, toate vizibile.
+    assert all(vizibile == total for _, vizibile, total in ramuri)
+    assert [int(r[2]) for r in ramuri] == [75, 3]
+
+
 def test_ascunderea_se_tine_in_cookie_si_filtreaza_orarul(client):
     pagina = client.get("/grupa/331").text
     oferite = _oferite(pagina)

@@ -1,5 +1,10 @@
 // Alegerea profesorilor in formularele de editare: vezi templates/_profesori.html.
 (() => {
+  // Fragmentul cozii de verificare poate fi incarcat de mai multe ori prin htmx; ascultatorii
+  // se inregistreaza o singura data, indiferent de cate ori ruleaza scriptul.
+  if (window.__profesoriJs) return;
+  window.__profesoriJs = true;
+
   const ALT = document.currentScript.dataset.alt;
   const sablon = document.getElementById("optiuni-profesori");
 

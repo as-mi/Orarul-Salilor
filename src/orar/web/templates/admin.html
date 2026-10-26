@@ -1,20 +1,77 @@
 {% extends "base.html" %}
 {% block titlu %}Administrare{% endblock %}
+{% block clasa_body %} class="pagina-admin"{% endblock %}
+{% block clasa_main %} class="cu-bara"{% endblock %}
 
 {% block continut %}
-<section class="antet">
-  <h1>Administrare</h1>
-  <p class="nota">Autentificat ca <strong>{{ admin.nume }}</strong>
-    {%- if not admin.user %} - adminul principal, din configurare{% endif %}.</p>
-</section>
+{# Bara din stanga ramane pe toata inaltimea ecranului si alege ce panou se vede in
+   dreapta. Pe telefon se strange dupa butonul cu trei linii; fara JavaScript ramane
+   deschisa, ca toate sectiunile sa fie la indemana. Fiecare cont vede doar sectiunile la
+   care are acces. #}
+<div class="admin-cadru">
+  <nav class="admin-bara" id="admin-bara" aria-label="Secțiunile administrării">
+    <button type="button" class="buton admin-bara-inchide" aria-label="Închide secțiunile">✕</button>
+    <a href="#panou" data-panou="panou" class="activ" aria-current="page">Panou</a>
+    {% if admin.poate('utilizatori') %}<a href="#utilizatori" data-panou="utilizatori">Utilizatori</a>{% endif %}
+    {% if admin.poate('incarcare') %}<a href="#orar" data-panou="orar">Încărcări de orar</a>{% endif %}
+    {% if admin.poate('statistici') %}<a href="#statistici" data-panou="statistici">Orarul în cifre</a>{% endif %}
+    {% if admin.poate('orar_profesori') %}<a href="#profesori" data-panou="profesori">Orarul profesorilor</a>{% endif %}
+    {% if admin.poate('evenimente') %}<a href="#evenimente" data-panou="evenimente">Adaugă o activitate în calendar</a>{% endif %}
+    {% if admin.poate('review') %}<a href="#review" data-panou="review">Activități de verificat
+      {%- if nr_nesigure %}<span class="numar">{{ nr_nesigure }}</span>{% endif %}</a>{% endif %}
+    {% if admin.poate('sesizari') %}<a href="#sesizari" data-panou="sesizari">Sesizări de tratat
+      {%- if nr_sesizari %}<span class="numar">{{ nr_sesizari }}</span>{% endif %}</a>{% endif %}
+    {% if admin.poate('structura') %}<a href="#an-universitar" data-panou="an-universitar">Anul universitar</a>{% endif %}
+    {% if admin.poate('tutoriate') %}<a href="#tutoriate" data-panou="tutoriate">Tutoriate</a>{% endif %}
+    {% if admin.e_admin %}<a href="#sali-blocate" data-panou="sali-blocate">Blocarea sălilor</a>{% endif %}
+  </nav>
 
-{% include "_admin_sumar.html" %}
+  <div class="admin-zona">
+    <button type="button" class="buton admin-bara-buton" id="admin-bara-buton"
+            aria-label="Deschide secțiunile" aria-controls="admin-bara" aria-expanded="false">
+      <span class="admin-bara-linii" aria-hidden="true"><span></span><span></span><span></span></span>
+    </button>
 
-{% include "_admin_orare.html" %}
+    <section class="antet">
+      <h1>Administrare</h1>
+      <p class="nota">Autentificat ca <strong>{{ admin.nume }}</strong>
+        {%- if not admin.user %} - adminul principal, din configurare{% endif %}.</p>
+    </section>
 
-{% include "_admin_incarcare.html" %}
+    <div class="admin-panou" id="panou" data-sectiune="panou">{% include "_admin_sumar.html" %}</div>
+    {% if admin.poate('utilizatori') %}<div class="admin-panou" data-sectiune="utilizatori">{% include "_admin_utilizatori.html" %}</div>{% endif %}
+    {% if admin.poate('incarcare') %}
+      <div class="admin-panou" data-sectiune="orar">
+        {% include "_admin_orare.html" %}
+        {% include "_admin_incarcare.html" %}
+      </div>
+    {% endif %}
+    {% if admin.poate('statistici') %}
+      <div class="admin-panou" data-sectiune="statistici" data-incarca="/admin/statistici" data-select="#statistici-panou"></div>
+    {% endif %}
+    {% if admin.poate('orar_profesori') %}<div class="admin-panou" data-sectiune="profesori">{% include "_admin_profesori.html" %}</div>{% endif %}
+    {% if admin.poate('evenimente') %}
+      <div class="admin-panou" data-sectiune="evenimente" data-incarca="/admin/evenimente" data-select="#evenimente-panou"></div>
+    {% endif %}
+    {% if admin.poate('review') %}
+      <div class="admin-panou" data-sectiune="review" data-incarca="/admin/review" data-select="#review-panou"></div>
+    {% endif %}
+    {% if admin.poate('sesizari') %}
+      <div class="admin-panou" data-sectiune="sesizari" data-incarca="/admin/sesizari" data-select="#sesizari-panou"></div>
+    {% endif %}
+    {% if admin.poate('structura') %}
+      <div class="admin-panou" data-sectiune="an-universitar" data-incarca="/admin/an-universitar" data-select="#structura-panou"></div>
+    {% endif %}
+    {% if admin.poate('tutoriate') %}
+      <div class="admin-panou" data-sectiune="tutoriate" data-incarca="/tutoriate/campanii" data-select="#tutoriate-panou"></div>
+    {% endif %}
+    {% if admin.e_admin %}<div class="admin-panou" data-sectiune="sali-blocate">{% include "_admin_sali.html" %}</div>{% endif %}
+  </div>
+</div>
 
-{% include "_admin_utilizatori.html" %}
+<div class="admin-fundal" id="admin-fundal" hidden></div>
 
-{% include "_admin_sali.html" %}
+<script src="{{ static_versionat(request, 'js/admin.js') }}" defer></script>
+{% if admin.poate('statistici') %}<script src="{{ static_versionat(request, 'js/statistici.js') }}" defer></script>{% endif %}
+{% if admin.poate('evenimente') %}<script src="{{ static_versionat(request, 'js/eveniment.js') }}" defer></script>{% endif %}
 {% endblock %}

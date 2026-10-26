@@ -413,6 +413,69 @@ def _ingesteaza(
     )
 
 
+def _ingesteaza_tutoriate(
+    s: Session,
+    sursa: watcher.SursaOrar,
+    *,
+    an_universitar: str,
+    director: Path,
+    rap: RaportSincronizare,
+    progres: Callable[[str], None] = _nimic,
+) -> None:
+    """Captureaza si citeste orarul tutoriatelor, apoi creeaza tutoriatele ca ciorna.
+
+    Nu atinge orele (`ORA`), nu arhiveaza si nu face verificare incrucisata -- tutoriatele
+    sunt o tabela separata, iar corectarea lor o face responsabilul din panou."""
+    from orar.ingest.capture import EroareCaptura, OptiuniCaptura, captureaza_orar
+    from orar.ingest.capturi import muta_capturile_vechi, nume_sesiune
+    from orar.ingest.lexicon import Lexicon
+    from orar.ingest.ocr import RapidOCR, citeste_fisier
+    from orar.ingest.segment import EroareSegmentare
+    from orar.ingest.tutoriate import incarca_tutoriate
+
+    muta_capturile_vechi(s, director)
+    tinta = director / nume_sesiune(an_universitar, sursa.semestru, sursa.fel, datetime.now())
+    progres("capturez paginile orarului de tutoriate din Drive")
+    try:
+        rez = captureaza_orar(sursa.url, OptiuniCaptura(director=tinta))
+    except EroareCaptura as e:
+        rap.avertismente.append(f"captura pentru {sursa.fel} sem {sursa.semestru}: {e}")
+        return
+    rap.avertismente += rez.avertismente
+
+    lexicon = Lexicon.din_baza(s)
+    motor = RapidOCR()
+    pagini: list[dict] = []
+    for i, pagina in enumerate(rez.pagini, 1):
+        if i == 1 or i % 10 == 0:
+            progres(f"citesc paginile de tutoriate: {i} din {len(rez.pagini)}")
+        try:
+            citita = citeste_fisier(pagina.cale, motor, lexicon)
+        except EroareSegmentare:
+            continue
+        pagini.append(
+            {
+                "titlu": citita.titlu,
+                "activitati": [
+                    {"zi": a.zi, "ore": a.ore, "sala": a.sala, "brut": a.brut}
+                    for a in citita.activitati
+                ],
+            }
+        )
+
+    raport = incarca_tutoriate(
+        s, pagini, an_universitar=an_universitar, semestru=sursa.semestru
+    )
+    rap.ingestate.append(
+        f"sem {sursa.semestru} / {sursa.fel}: {raport.pagini} pagini, {raport.tutoriate} tutoriate"
+    )
+    rap.avertismente += raport.avertismente
+
+    rand = _upsert_sursa(s, sursa, an_universitar)
+    rand.ingestat_la = sursa.actualizat
+    s.flush()
+
+
 #: In cate pagini de la inceputul documentului cautam tabelul salilor. E pe pagina 2; lasam
 #: loc pentru o coperta sau o pagina de anunturi in plus.
 PAGINI_INTRODUCERE = 5

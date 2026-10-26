@@ -1,21 +1,22 @@
-// Formularul unui eveniment (templates/admin_eveniment.html).
-
-// Alegerea unei culori proprii o si bifeaza, iar mostra ia culoarea aleasa.
+// Formularul unui eveniment (templates/_eveniment_formular_panou.html / admin_eveniment.html).
 (() => {
-  const optiune = document.getElementById("culoare-proprie");
-  const culoare = optiune.querySelector('input[type="color"]');
-  const aplica = () => {
+  // Formularul poate fi incarcat prin htmx (in panoul de admin) de mai multe ori; ascultatorii
+  // sunt delegati la document, deci raman valabili dupa inlocuirea formularului.
+  if (window.__evenimentJs) return;
+  window.__evenimentJs = true;
+
+  const culoare_proprie = (e) => {
+    const culoare = e.target;
+    if (!culoare.matches('input[type="color"]')) return;
+    const optiune = culoare.closest("#culoare-proprie");
     optiune.style.setProperty("--ev", culoare.value);
     optiune.querySelector('input[type="radio"]').checked = true;
   };
-  culoare.addEventListener("input", aplica);
-  culoare.addEventListener("click", aplica);
-})();
+  document.addEventListener("input", culoare_proprie);
+  document.addEventListener("click", culoare_proprie);
 
-// Ce tine de o alegere (salile, locul, specializarile) se vede doar cand e aleasa.
-(() => {
-  const formular = document.getElementById("formular-eveniment");
-  const sincron = () => {
+  const sincron = (formular) => {
+    // Ce tine de o alegere (salile, locul, specializarile) se vede doar cand e aleasa.
     for (const sub of formular.querySelectorAll(".sub-alegere")) {
       const grup = sub.closest("fieldset");
       const ales = grup.querySelector('input[type="radio"]:checked');
@@ -23,23 +24,37 @@
       sub.hidden = !activ;
       for (const camp of sub.querySelectorAll("input")) camp.disabled = !activ;
     }
+    // "toate ..." tine pasul cu bifele grupului.
+    for (const grup of formular.querySelectorAll(".bife-grup")) {
+      const toate = grup.querySelector("[data-toate]");
+      if (!toate) continue;
+      const bifele = [...grup.querySelectorAll('input[type="checkbox"]:not([data-toate])')];
+      const bifate = bifele.filter((b) => b.checked).length;
+      toate.checked = bifate > 0 && bifate === bifele.length;
+      toate.indeterminate = bifate > 0 && !toate.checked;
+    }
   };
-  // "toate ..." bifeaza sau debifeaza tot grupul si tine pasul cu bifele lui
-  const bifele = (grup) => [...grup.querySelectorAll('input[type="checkbox"]:not([data-toate])')];
-  const tine_pasul = (grup) => {
-    const toate = grup.querySelector("[data-toate]");
-    const bifate = bifele(grup).filter((b) => b.checked).length;
-    toate.checked = bifate > 0 && bifate === bifele(grup).length;
-    toate.indeterminate = bifate > 0 && !toate.checked;
+
+  document.addEventListener("change", (e) => {
+    const formular = e.target.closest("#formular-eveniment");
+    if (!formular) return;
+    if (e.target.matches("[data-toate]")) {
+      const grup = e.target.closest(".bife-grup");
+      for (const b of grup.querySelectorAll('input[type="checkbox"]:not([data-toate])')) {
+        b.checked = e.target.checked;
+      }
+    }
+    sincron(formular);
+  });
+
+  document.addEventListener("htmx:afterSwap", () => {
+    const formular = document.getElementById("formular-eveniment");
+    if (formular) sincron(formular);
+  });
+  const gata = () => {
+    const formular = document.getElementById("formular-eveniment");
+    if (formular) sincron(formular);
   };
-  for (const grup of formular.querySelectorAll(".bife-grup")) {
-    tine_pasul(grup);
-    grup.addEventListener("change", (e) => {
-      if (e.target.matches("[data-toate]")) bifele(grup).forEach((b) => { b.checked = e.target.checked; });
-      tine_pasul(grup);
-    });
-  }
-  formular.addEventListener("change", sincron);
-  document.body.addEventListener("htmx:afterSwap", sincron);
-  sincron();
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", gata);
+  else gata();
 })();

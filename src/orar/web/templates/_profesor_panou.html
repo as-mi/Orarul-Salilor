@@ -1,0 +1,29 @@
+{# Orarul unui profesor, incarcat in panoul de admin (fragment, fara `base.html`).
+   Asteapta aceleasi valori ca `profesor.html`: `profesor`, `grila`, `total`,
+   `ore_pe_saptamana`, `sali`, `filtru_saptamana` si `in_semestru`. #}
+<section class="sectiune panou profesor-orar-panou" id="orar-profesor" aria-labelledby="t-orar-profesor">
+  <h2 id="t-orar-profesor">{{ profesor.nume }}</h2>
+
+  <div class="sumar">
+    <span class="fapt"><strong>{{ total }}</strong> {{ 'activitate' if total == 1 else 'activități' }}</span>
+    <span class="fapt"><strong>{{ ore_pe_saptamana }}</strong> ore pe săptămână</span>
+    {% if sali %}<span class="fapt">în {{ sali|join(', ') }}</span>{% endif %}
+  </div>
+
+  {% if in_semestru %}
+    <div class="filtre">
+      <a class="filtru {{ 'activ' if filtru_saptamana }}"
+         href="/profesor/{{ profesor.slug }}{% if not filtru_saptamana %}?saptamana=true{% endif %}"
+         hx-get="/profesor/{{ profesor.slug }}?fragment=1{% if not filtru_saptamana %}&saptamana=true{% endif %}"
+         hx-target="#orar-profesor" hx-swap="outerHTML">
+        {% if filtru_saptamana %}✓ {% endif %}doar săptămâna curentă
+      </a>
+    </div>
+  {% endif %}
+
+  {% if total %}
+    {% with mod = 'profesor' %}{% include "_grila.html" %}{% endwith %}
+  {% else %}
+    <div class="panou-gol"><p>Nicio activitate în orarul afișat.</p></div>
+  {% endif %}
+</section>

@@ -252,9 +252,6 @@ def afiseaza_grupa(
             "Provenienta": Provenienta,
             **context_versiuni(s, sel, versiuni),
             "optiuni": optiuni,
-            # numarate pe activitati: o materie poate fi aleasa doar pe jumatate
-            "nr_optiuni": sum(len(m.activitati) for g in optiuni for m in g.materii),
-            "nr_optiuni_vizibile": sum(m.vizibile for g in optiuni for m in g.materii),
             "toate_semigrupele": TOATE_SEMIGRUPELE,
             **context_editare(request, cont, ore, editare=editare, versiune=arhiva),
             "orarul_meu": al_meu is not None,

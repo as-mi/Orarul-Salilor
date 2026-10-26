@@ -1,0 +1,58 @@
+{# Orarul in cifre, fara `base.html`: apare si pe pagina intreaga (`admin_statistici.html`)
+   si, incarcat prin htmx, in panoul de admin. Asteapta acelasi context ca `admin_statistici.html`. #}
+<div id="statistici-panou">
+{% if not orar %}
+  <div class="panou-gol"><p>Niciun orar încărcat încă.</p></div>
+{% else %}
+
+{% include "_statistici_salvate.html" %}
+
+{% include "_statistici_filtre.html" %}
+
+<section class="sectiune" aria-labelledby="t-grila">
+  <div class="sumar">
+    <span class="fapt">public: <strong>{{ st.populatie }}</strong> de oameni în <strong>{{ st.nr_grupe }}</strong> {{ 'grupă' if st.nr_grupe == 1 else 'grupe' }}</span>
+    <span class="fapt"><strong>{{ st.nr_activitati }}</strong> activități trec de filtre</span>
+    <span class="fapt"><strong>{{ st.nr_sali }}</strong> din {{ nr_sali_total }} săli folosite</span>
+  </div>
+  <h2 id="t-grila">{% for cheie, nume in metrici if cheie == metrica %}{{ nume }}{% endfor %}
+    <small class="nota">{% if f.saptamana == '' %}vârful dintre săptămânile semestrului{% elif f.saptamana in ('SI', 'SP') %}vârful dintre săptămânile {{ 'impare' if f.saptamana == 'SI' else 'pare' }}{% else %}în săptămâna {{ f.saptamana }}{% endif %}</small></h2>
+
+  <div class="metrici">
+    {% for cheie, nume in metrici %}
+      <a class="filtru {{ 'activ' if cheie == metrica }}" href="/admin/statistici?{{ q_fara_metrica }}{{ '&' if q_fara_metrica }}metrica={{ cheie }}">{{ nume }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="grila-scroll">
+    <table class="stat-grila">
+      <thead>
+        <tr><th></th>{% for h in st.ore %}<th scope="col">{{ h }}<small>-{{ h + 1 }}</small></th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for z in st.zile %}
+          <tr>
+            <th scope="row">{{ z }}</th>
+            {% for h in st.ore %}
+              {% set c = st.celule[(z, h)] %}
+              {% set v = st.valoare(c, metrica) %}
+              <td class="{{ 'deschisa' if deschisa and deschisa.zi == z and deschisa.ora == h }}"
+                  style="--grad: {{ (100 * v / maxim)|round|int if maxim else 0 }}%">
+                <a href="/admin/statistici?{{ q }}{{ '&' if q }}celula={{ z }}-{{ h }}#celula"
+                   title="{{ z }} {{ h }}-{{ h + 1 }}: {{ c.persoane }} cu ore ({{ st.valoare(c, 'procent') }}%), {{ st.valoare(c, 'libere') }} liberi, {{ c.activitati }} activități, {{ c.sali }} săli, {{ c.pline }} pline">
+                  <strong>{{ v }}{{ '%' if metrica == 'procent' }}</strong>
+                  <small>{% if metrica in ('persoane', 'libere') %}{{ st.valoare(c, 'procent') if metrica == 'persoane' else 100 - st.valoare(c, 'procent') }}%{% elif metrica == 'procent' %}{{ c.persoane }}{% elif metrica == 'pline' %}din {{ c.sali }}{% else %}{{ c.persoane }} oam.{% endif %}</small>
+                </a>
+              </td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="nota">Cu cât celula e mai închisă, cu atât valoarea e mai mare. Apasă pe o celulă ca să vezi activitățile din ea.</p>
+</section>
+
+{% include "_statistici_celula.html" %}
+{% endif %}
+</div>

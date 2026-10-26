@@ -10,6 +10,7 @@ from sqlalchemy import select
 from orar.db.models import Profesor, Sala
 from orar.domain.grid import construieste_grila
 from orar.web.export import bytes_imagine, imagine_grila
+from tests.conftest import intra_sso
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 JPEG_MAGIC = b"\xff\xd8\xff"
@@ -38,7 +39,9 @@ def test_export_sala_png(client, db):
     assert r.content.startswith(PNG_MAGIC)
 
 
-def test_export_profesor_png(client, db):
+def test_export_profesor_png(client, db, sso_fals):
+    # orarul profesorilor cere acum autentificare; adminul are acces implicit
+    intra_sso(client, sso_fals, email="sef@example.com", realm=("cddd",))
     prof = db.scalar(select(Profesor).limit(1))
     assert prof is not None
     r = client.get(f"/profesor/{prof.slug}?export=png")

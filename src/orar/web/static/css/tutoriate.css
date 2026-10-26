@@ -41,7 +41,9 @@
 .import-activitati .bifa .tip-ora { color: var(--text-slab); font-weight: 400; }
 
 /* ---------------- in grila ---------------- */
-.tip-eveniment-tutoriat { background: var(--tut-slab); border-color: var(--tut); border-style: dashed; }
+/* Doar blocul din grila primeste chenarul; cheia din legenda ramane text simplu, cu
+   patratelul de culoare din regula de mai jos. */
+.bloc.tip-eveniment-tutoriat { background: var(--tut-slab); border-color: var(--tut); border-style: dashed; }
 .cheie.tip-eveniment-tutoriat::before { background: var(--tut-slab); border-color: var(--tut); border-style: dashed; }
 .bloc.al-meu { border-style: solid; border-width: 2px; }
 .bloc.anulat { opacity: .55; }

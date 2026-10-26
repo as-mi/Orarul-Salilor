@@ -13,11 +13,11 @@
   <script src="{{ static_versionat(request, 'js/sit.js') }}" defer></script>
   <link rel="icon" href="{{ static_versionat(request, 'asmi.png') }}">
 </head>
-<body>
+<body{% block clasa_body %}{% endblock %}>
 {% include "_bara.html" %}
 {% include "_alerta_an.html" %}
 
-<main>
+<main{% block clasa_main %}{% endblock %}>
   {% block continut %}{% endblock %}
 </main>
 

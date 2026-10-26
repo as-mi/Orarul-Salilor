@@ -1,7 +1,7 @@
-// Dropdownurile din randul de filtre: "Opționale și facultative", "Tutoriate",
-// "Evenimente personale" și "Importă activități". Toate se comportă la fel: când se
-// deschide unul, celelalte se închid; panoul se închide la click în afara lui și, lângă
-// marginea dreaptă, se deschide spre stânga ca să rămână pe ecran.
+// Dropdownurile din randul de filtre: "Opționale", "Facultative", "Limbi străine",
+// "Tutoriate", "Evenimente personale" și "Importă activități". Toate se comportă la fel:
+// când se deschide unul, celelalte se închid; panoul se închide la click în afara lui și,
+// lângă marginea dreaptă, se deschide spre stânga ca să rămână pe ecran.
 const dropdownuri = [...document.querySelectorAll("details.optiuni")];
 
 for (const d of dropdownuri) {
@@ -25,7 +25,7 @@ for (const d of dropdownuri) {
   });
 }
 
-// Doar dropdownul "Opționale și facultative" are cele trei niveluri de bife
+// Dropdownurile de opționale, facultative și limbi au cele trei niveluri de bife
 // ("Selectează tot" > materie > activitate), comandate de JS. Nivelurile de sus
 // bifeaza/debifeaza tot ce e sub ele si arata starea partiala (-). Activitatile unei
 // materii se strang, afara de cele alese partial. Fara JS, bifele activitatilor merg

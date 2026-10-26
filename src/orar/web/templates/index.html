@@ -23,12 +23,26 @@
 
 {% include "_acasa_sali.html" %}
 
+{% if profesori %}
+{# Fara JavaScript, selectorul de sus nu se deschide: lista duce in aceleasi locuri. #}
 <section class="sectiune acasa">
-  <h2>Opționale, facultative, limbi străine</h2>
+  <h2>Profesori</h2>
   <div class="pastile">
-    {% for p in pachete %}<a class="pastila-link mic" href="/grupa/{{ p.slug }}{{ qv }}">{{ p.nume }}</a>{% endfor %}
+    {% for p in profesori %}<a class="pastila-link" href="/profesor/{{ p.slug }}{{ qv }}">{{ p.nume }}</a>{% endfor %}
   </div>
 </section>
+{% endif %}
+
+{% for cheie, eticheta in (("optional", "Opționale"), ("facultativ", "Facultative"), ("limbi", "Limbi străine")) %}
+  {% if pachete_pe_categorii[cheie] %}
+  <section class="sectiune acasa">
+    <h2>{{ eticheta }}</h2>
+    <div class="pastile">
+      {% for p in pachete_pe_categorii[cheie] %}<a class="pastila-link mic" href="/grupa/{{ p.slug }}{{ qv }}">{{ p.nume }}</a>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+{% endfor %}
 
 {# Versiunile orarului: alegi una, iar grupele si salile de mai sus se deschid in ea. #}
 {% include "_versiuni.html" %}
