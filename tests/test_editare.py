@@ -707,6 +707,27 @@ def test_din_coada_se_poate_si_corecta(client, s):
     assert not corectii.e_confirmare(s.get(Corectie, o.corectie_id))
 
 
+def test_confirmarea_tuturor_din_coada(client, s):
+    a = _nesigura(s)
+    b = ore_pentru_grupa(s, gaseste_grupa(s, "244").id, include_optionale=False)[1]
+    b.campuri_nesigure, b.confidence = "profesor", 0.4
+    b.sursa_bbox, b.sursa_pagina = "1,2,30,40", "pag_002.png"
+    s.commit()
+    _intra(client)
+
+    assert "✓ Confirmă toate" in client.get("/admin/review").text
+
+    r = client.post(
+        "/admin/review/toate",
+        data={"csrf": _csrf(client, "/admin/review")},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303 and "toate=2" in r.headers["location"]
+    s.expire_all()
+    assert a.campuri_nesigure is None and a.confidence == 1.0
+    assert b.campuri_nesigure is None and b.confidence == 1.0
+
+
 def test_coada_se_rezolva_doar_de_admin_si_cu_csrf(client, s):
     o = _nesigura(s)
     r = client.post(f"/admin/review/{o.id}", data={"materie": "X"}, follow_redirects=False)

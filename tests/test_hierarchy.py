@@ -82,6 +82,21 @@ def test_robotica():
     assert t.an == 2
 
 
+def test_tutoriat_o_serie():
+    t = parse_titlu("Tutoriat (MATE seria 10)")
+    assert t.tip is TipPagina.TUTORIAT
+    assert t.specializare == "MATE"
+    assert t.serii_tinta == ("10",)
+    assert t.an == 1
+
+
+def test_tutoriat_mai_multe_serii():
+    t = parse_titlu("Tutoriat (INFO serile 13, 14, 15)")
+    assert t.tip is TipPagina.TUTORIAT
+    assert t.specializare == "INFO"
+    assert t.serii_tinta == ("13", "14", "15")
+
+
 def test_titlu_nerecunoscut_nu_arunca_si_e_marcat():
     t = parse_titlu("Conferinte si Seminarii")
     assert t.tip is TipPagina.NECUNOSCUT

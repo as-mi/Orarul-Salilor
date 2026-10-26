@@ -1,0 +1,28 @@
+{# Panoul de admin: orarul fiecarui profesor. Orarele profesorilor nu sunt publice, dar
+   adminul are permisiunea `orar_profesori` implicit. Lista se filtreaza dupa nume, ca cea
+   de utilizatori. Asteapta `profesori_orar`. #}
+<section class="sectiune panou" id="profesori" aria-labelledby="t-profesori">
+  <h2 id="t-profesori">Orarul profesorilor</h2>
+  <p class="nota">Orarele profesorilor nu sunt publice. Alege un profesor ca să-i vezi orarul;
+    permisiunea <code>orar_profesori</code> o poți da și altor conturi din
+    <a href="#utilizatori" data-panou="utilizatori">Utilizatori</a>.</p>
+  {% if profesori_orar %}
+    <label class="cauta-utilizator">
+      <span class="sr-only">Caută un profesor</span>
+      <input type="search" id="cauta-profesor" placeholder="Caută după nume" autocomplete="off">
+    </label>
+    <ul class="profesori-lista" id="lista-profesori-admin">
+      {% for p in profesori_orar %}
+        <li data-cauta="{{ p.nume|lower }}">
+          <a href="/profesor/{{ p.slug }}"
+             hx-get="/profesor/{{ p.slug }}?fragment=1" hx-target="#orar-profesor" hx-swap="outerHTML">
+            {{ p.nume }}
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+    <div id="orar-profesor" aria-live="polite"></div>
+  {% else %}
+    <div class="panou-gol"><p>Niciun profesor încă. Profesorii apar după primul orar încărcat.</p></div>
+  {% endif %}
+</section>

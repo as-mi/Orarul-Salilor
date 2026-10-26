@@ -91,6 +91,32 @@ def test_adminul_din_mediu_intra_si_ajunge_in_panou(client, dan):
     assert client.get("/orarul-meu", follow_redirects=False).headers["location"] == "/admin"
 
 
+def test_panoul_are_bara_cu_sectiunile_cerute(client):
+    """Bara din stanga: panourile care se deschid in pagina si legaturile spre paginile lor."""
+    _intra(client)
+    pagina = client.get("/admin").text
+
+    for cheie in ("panou", "utilizatori", "orar", "profesori", "sali-blocate"):
+        assert f'data-sectiune="{cheie}"' in pagina
+    for eticheta in (
+        "Utilizatori",
+        "Încărcări de orar",
+        "Orarul în cifre",
+        "Orarul profesorilor",
+        "Adaugă o activitate în calendar",
+        "Activități de verificat",
+        "Sesizări de tratat",
+        "Anul universitar",
+        "Blocarea sălilor",
+    ):
+        assert eticheta in pagina
+    assert "js/admin.js" in pagina
+    # pe telefon, butonul cu trei linii deschide bara; pleaca inchis
+    assert 'id="admin-bara"' in pagina and 'aria-controls="admin-bara"' in pagina
+    assert 'id="admin-bara-buton"' in pagina and 'aria-expanded="false"' in pagina
+    assert 'id="admin-fundal"' in pagina
+
+
 def test_adminul_din_mediu_cu_parola_gresita(client):
     r = _intra(client, parola="gresita")
     assert r.status_code == 401 and "Nume sau parolă greșită." in r.text
@@ -120,6 +146,31 @@ def test_un_cont_obisnuit_nu_intra_in_panou(client, dan, sso_fals):
     assert intra_sso(client, sso_fals, email=EMAIL).headers["location"] == "/account?nou=1"
     assert client.get("/admin").status_code == 403
     assert client.get("/admin/review").status_code == 403
+
+
+def test_cont_cu_permisiune_intra_in_panou_si_vede_doar_sectiunile_lui(client, db, dan, sso_fals):
+    """Panoul e pentru toate rolurile: cine are o permisiune il deschide si, in bara, vede
+    doar sectiunile la care are acces -- nu pe cele ale altora."""
+    from datetime import datetime
+
+    from orar.db.models import Permisiune
+
+    intra_sso(client, sso_fals, email=EMAIL)  # Dan, student, fara permisiuni
+    assert client.get("/admin").status_code == 403
+
+    db.add(Permisiune(user=dan, cheie="review", acordat_de="test", acordat_la=datetime.now()))
+    db.commit()
+
+    pagina = client.get("/admin")
+    assert pagina.status_code == 200
+    assert "Activități de verificat" in pagina.text  # sectiunea lui
+    assert "Utilizatori" not in pagina.text  # doar cine are `utilizatori`
+    assert "Încărcări de orar" not in pagina.text  # doar cine are `incarcare`
+    # panoul pentru coada de verificare se incarca la prima deschidere, din htmx
+    assert 'data-sectiune="review"' in pagina.text and 'data-incarca="/admin/review"' in pagina.text
+
+    # top bar il trimite la panou, nu il lasa doar cu "orarul meu"
+    assert 'href="/admin"' in client.get("/").text
 
 
 @pytest.mark.parametrize("rau", ["https://evil.example/", "//evil.example", "/\\evil.example"])

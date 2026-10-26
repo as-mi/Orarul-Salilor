@@ -12,10 +12,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from orar.db.evenimente import evenimente_asmi, sali_libere
-from orar.db.models import Grupa, Ora, OraArhivata, OraGrupa, OraGrupaArhivata, Sala
+from orar.db.models import Grupa, Ora, OraArhivata, OraGrupa, OraGrupaArhivata, Profesor, Sala
 from orar.db.orare import perioada_implicita
 from orar.db.versiuni import versiuni_generale
-from orar.domain.hierarchy import DENUMIRI_SPECIALIZARE, este_master
+from orar.domain.hierarchy import DENUMIRI_SPECIALIZARE, categorie_pachet, este_master
 from orar.web.deps import (
     Selectie,
     calendar,
@@ -44,6 +44,17 @@ def _ore_implicite(acum: datetime) -> tuple[str, str]:
     """Ora curenta rotunjita (sus peste :30, jos sub :30) si ora urmatoare, ca „HH:MM"."""
     ora = (acum.hour + (1 if acum.minute > 30 else 0)) % 24
     return f"{ora:02d}:00", f"{(ora + 1) % 24:02d}:00"
+
+
+def _profesori_pentru_selector(s: Session) -> list[Profesor]:
+    """Profesorii din orarul profesorilor, cu numele intregi. Daca acesta nu s-a citit inca,
+    toti cei din baza -- inclusiv prescurtarile din orarul grupelor, care au tot pagina lor."""
+    profesori = list(
+        s.scalars(select(Profesor).where(Profesor.din_orar).order_by(func.lower(Profesor.nume)))
+    )
+    if not profesori:
+        profesori = list(s.scalars(select(Profesor).order_by(func.lower(Profesor.nume))))
+    return profesori
 
 
 @router.get("/acasa", include_in_schema=False)
@@ -215,6 +226,16 @@ def acasa(
     # Grupele reale, gata de afisat sub fiecare specializare.
     grupe = din_orar("grupa", Grupa.nume)
     pachete = din_orar("optional", Grupa.nume)
+    # Pe prima pagina, "opționalele, facultativele și limbile străine" apar separat, dupa
+    # categoria pachetului (dedusa din titlu, vezi `hierarchy.categorie_pachet`).
+    pachete_pe_categorii = {
+        "optional": [],
+        "facultativ": [],
+        "limbi": [],
+    }
+    for p in pachete:
+        categorie = categorie_pachet(p.nume).value
+        pachete_pe_categorii.setdefault(categorie, pachete_pe_categorii["optional"]).append(p)
     sali = list(s.execute(select(Sala).where(Sala.tip == "fizica").order_by(Sala.nume)).scalars())
 
     pe_specializare: dict[int, list[Grupa]] = {}
@@ -239,6 +260,15 @@ def acasa(
     ctx_sapt = context_saptamana(s=s)
     versiuni = versiuni_generale(s, perioada=sel.perioada)
     ora_inceput_implicita, ora_sfarsit_implicita = _ore_implicite(datetime.now())
+
+    # Orarul profesorilor e doar pentru cine are permisiunea (implicit adminii): lista din
+    # selectorul de pe prima pagina se construieste doar atunci.
+    cont = getattr(request.state, "cont", None)
+    profesori = (
+        _profesori_pentru_selector(s)
+        if cont is not None and cont.poate("orar_profesori")
+        else []
+    )
 
     return templates.TemplateResponse(
         request=request,
@@ -275,7 +305,9 @@ def acasa(
                 for n in niveluri
             ],
             "pachete": pachete,
+            "pachete_pe_categorii": pachete_pe_categorii,
             "sali": sali,
+            "profesori": profesori,
             "feluri_sali": feluri_sali,
             "etaje": etaje,
             "ora_inceput_implicita": ora_inceput_implicita,

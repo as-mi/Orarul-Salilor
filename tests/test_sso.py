@@ -150,7 +150,9 @@ def test_rolul_de_client_da_panoul_tutoriatelor(client, sso_fals):
     client.cookies.clear()
     intra_sso(client, sso_fals, email="edu@asmi.ro", roluri_client=("responsabil-tutoriate",))
     assert client.get("/tutoriate/panou").status_code == 200
-    assert client.get("/admin").status_code == 403
+    # tutoriate e o sectiune a panoului, ca toate permisiunile functionale
+    assert client.get("/admin").status_code == 200
+    assert "Tutoriate" in client.get("/admin").text
 
 
 def test_rolul_retras_in_keycloak_se_pierde_la_reimprospatare(client, s, sso_fals):
@@ -269,11 +271,15 @@ def test_permisiunile_au_oglinda_de_client_pe_roluri():
     assert {c for c, _ in PERMISIUNI} == set(sso.ROLURI_CLIENT.values())
 
 
-def test_secretarul_intra_pe_sesizari_insa_nu_in_panou(client, sso_fals):
+def test_secretarul_intra_pe_sesizari_si_in_panou(client, sso_fals):
     intra_sso(client, sso_fals, email="sec@s.unibuc.ro", realm=("secretar",))
     assert client.get("/admin/sesizari").status_code == 200
-    assert client.get("/admin").status_code == 403  # panoul e doar al lui cddd
+    assert client.get("/admin").status_code == 200  # panoul e pentru toate rolurile cu permisiuni
     assert client.get("/admin/statistici").status_code == 403  # statisticile sunt ale decanatului
+    # in bara vede sectiunile lui, nu pe cele ale altora
+    pagina = client.get("/admin").text
+    assert "Sesizări de tratat" in pagina
+    assert "Orarul în cifre" not in pagina
 
 
 # ------------------------------------------------------------------ grupa propusa

@@ -1,11 +1,15 @@
-{# Selectorul in trepte de pe pagina principala: taburile Grupe / Sali. Porneste ascuns si il
-   arata `static/js/acasa.js`; fara JavaScript raman listele de dedesubt, care duc in aceleasi
-   locuri. Asteapta `sali` si `qv`; datele listelor vin din `#alege-date`. #}
+{# Selectorul in trepte de pe pagina principala: taburile Grupe / Sali / Fereastra si, pentru
+   cine are permisiunea, Profesori. Porneste ascuns si il arata `static/js/acasa.js`; fara
+   JavaScript raman listele de dedesubt, care duc in aceleasi locuri. Asteapta `sali`,
+   `profesori` (gol fara permisiune) si `qv`; datele listelor vin din `#alege-date`. #}
 <section class="alege" id="alege" data-qv="{{ qv }}" hidden>
   <div class="alege-taburi" role="tablist" aria-label="Ce orar cauți">
     <button type="button" role="tab" id="tab-grupe" aria-controls="panou-grupe" aria-selected="true">Grupe</button>
     <button type="button" role="tab" id="tab-sali" aria-controls="panou-sali" aria-selected="false" tabindex="-1">Săli</button>
     <button type="button" role="tab" id="tab-fereastra" aria-controls="panou-fereastra" aria-selected="false" tabindex="-1">Fereastră</button>
+    {% if profesori %}
+      <button type="button" role="tab" id="tab-profesori" aria-controls="panou-profesori" aria-selected="false" tabindex="-1">Profesori</button>
+    {% endif %}
   </div>
 
   <form class="alege-panou" id="panou-grupe" role="tabpanel" aria-labelledby="tab-grupe">
@@ -41,4 +45,16 @@
     <p class="politica"><a href="/confidentialitate"><strong>Citește politica de<br>confidențialitate</strong></a></p>
     <div id="sali-libere-acasa" class="sali-libere-acasa"></div>
   </form>
+
+  {# Orarul profesorilor: tabul apare doar pentru conturile cu permisiunea. #}
+  {% if profesori %}
+  <form class="alege-panou" id="panou-profesori" role="tabpanel" aria-labelledby="tab-profesori" hidden>
+    <label class="lat"><span>Profesor</span>
+      <select id="alege-profesor">
+        <option value="">alege profesorul</option>
+        {% for p in profesori %}<option value="{{ p.slug }}">{{ p.nume }}</option>{% endfor %}
+      </select></label>
+    <button type="submit" class="buton plin" disabled>Vezi orarul profesorului</button>
+  </form>
+  {% endif %}
 </section>

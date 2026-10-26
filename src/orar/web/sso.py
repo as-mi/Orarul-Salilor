@@ -51,6 +51,8 @@ ROLURI_CLIENT = {
     "incarcare": "incarcare",
     "review": "review",
     "editare": "editare",
+    # fara acest rol in Keycloak, permisiunea ramane doar la admini si la cine o primeste din panou
+    "orar-profesori": "orar_profesori",
     "sesizari": "sesizari",
     "evenimente": "evenimente",
     "statistici": "statistici",

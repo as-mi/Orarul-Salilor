@@ -452,7 +452,7 @@ class SursaOrar(Base):
     id: Mapped[int] = mapped_column("ID_SURSA", Integer, primary_key=True)
     an_univ: Mapped[str] = mapped_column("AN_UNIV", String(9), nullable=False)
     semestru: Mapped[int] = mapped_column("SEMESTRU", Integer, nullable=False)
-    #: grupe | profesori
+    #: grupe | profesori | tutoriate
     fel: Mapped[str] = mapped_column("FEL", String(12), nullable=False)
     url: Mapped[str] = mapped_column("URL", String(255), nullable=False)
     #: Data anuntata pe pagina FMI ("actualizat 26.04.2026, ora 19:30").
@@ -464,7 +464,7 @@ class SursaOrar(Base):
 
     __table_args__ = (
         UniqueConstraint("AN_UNIV", "SEMESTRU", "FEL", name="uq_sursa"),
-        CheckConstraint("FEL IN ('grupe','profesori')", name="ck_sursa_fel"),
+        CheckConstraint("FEL IN ('grupe','profesori','tutoriate')", name="ck_sursa_fel"),
         CheckConstraint("SEMESTRU IN (1,2)", name="ck_sursa_semestru"),
     )
 
@@ -928,6 +928,9 @@ PERMISIUNI = (
     ("incarcare", "Încarcă un orar nou și alege orarul implicit"),
     ("review", "Coada de verificare a activităților citite automat"),
     ("editare", "Corecții manuale în orar"),
+    # Orarul profesorilor nu e public: implicit doar adminii il vad, un profesor pe-al lui,
+    # iar celelalte conturi primesc permisiunea de la un admin.
+    ("orar_profesori", "Vede orarele profesorilor"),
     ("sesizari", "Tratează sesizările"),
     ("evenimente", "Evenimente ASMI și rezervări de săli"),
     ("statistici", "Statistici și filtre salvate"),

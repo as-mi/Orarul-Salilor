@@ -1,5 +1,6 @@
-// Selectorul in trepte de pe pagina principala (templates/index.html): taburile Grupe / Sali
-// si listele nivel -> domeniu -> an -> grupa, umplute din JSON-ul `#alege-date`.
+// Selectorul in trepte de pe pagina principala (templates/index.html): taburile Grupe / Sali /
+// Fereastra (si Profesori, pentru cine are permisiunea) si listele nivel -> domeniu -> an ->
+// grupa, umplute din JSON-ul `#alege-date`.
 (() => {
   const radacina = document.getElementById("alege");
   const arbore = JSON.parse(document.getElementById("alege-date").textContent);
@@ -69,4 +70,16 @@
     e.preventDefault();
     if (sala.value) location.href = "/sala/" + sala.value + qv;
   });
+  // profesori: tabul exista doar pentru conturile cu permisiunea
+  const panouProfesori = document.getElementById("panou-profesori");
+  if (panouProfesori) {
+    const profesor = document.getElementById("alege-profesor");
+    profesor.addEventListener("change", () => {
+      panouProfesori.querySelector("button").disabled = !profesor.value;
+    });
+    panouProfesori.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (profesor.value) location.href = "/profesor/" + profesor.value + qv;
+    });
+  }
 })();

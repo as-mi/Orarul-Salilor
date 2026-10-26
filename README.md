@@ -15,8 +15,9 @@ oficial rămâne cel al facultății.
 - `/` e pagina principală: alegi nivelul, domeniul, anul și grupa, sau direct o sală. Tot
   aici sunt toate grupele (licență și master) și sălile, pe etaje.
 - `/grupa/244` arată orarul unei grupe, cu tot cu cursurile pe care le face împreună cu
-  seria și cu anul. Poți alege semigrupa, ce opționale și facultative vezi și data pentru
-  care se calculează săptămâna. Alegerile se țin minte în browser.
+  seria și cu anul. Poți alege semigrupa, ce opționale, facultative și limbi străine vezi
+  (fiecare categorie cu dropdownul ei) și data pentru care se calculează săptămâna.
+  Alegerile se țin minte în browser.
 - `/sala/amf-701` arată cât de ocupată e o sală: când, cu ce materie, cu ce profesor și cu
   ce grupă. `/sala` le listează pe toate, cu procentul de ocupare.
 - `/profesor/popescu-stefan` arată orarul unui profesor.
@@ -54,6 +55,16 @@ oficial rămâne cel al facultății.
   facultății (CSV) și o exporți în același format. Ai acces și la „Orarul în cifre”.
 
 **Ca admin** (`/admin`)
+
+Panoul e pentru orice cont căruia i s-a dat vreo permisiune (din **Utilizatori** sau prin
+rolurile din SSO), nu doar pentru admin: bara din stânga arată doar secțiunile la care
+contul are acces. Ea alege secțiunea (pe telefon, butonul cu trei linii o deschide peste
+conținut): **Panou**, **Utilizatori**, **Încărcări de orar**, **Orarul în cifre**,
+**Orarul profesorilor**, **Adaugă o activitate în calendar**, **Activități de verificat**,
+**Sesizări de tratat**, **Anul universitar**, **Blocarea sălilor**. Se deschide pe
+„Panou”: ce e de făcut acum și acțiunile rapide. „Orarul în cifre”, „Activități de
+verificat” și „Anul universitar” se deschid în panou (nu ca pagini separate), iar un clic pe
+un profesor îi deschide orarul tot în panou.
 
 - Tratezi sesizările primite de la vizitatori.
 - Editezi orarul: adaugi o activitate sau schimbi orice la una existentă (materie, zi, ore,
@@ -136,10 +147,15 @@ Conturile intră doar prin SSO-ul ASMI (Keycloak, OpenID Connect cu PKCE). Clien
 | roluri de client pe `orarul-salilor-web` | câte o permisiune (`ROLURI_CLIENT` din `src/orar/web/sso.py`) |
 
 Permisiunile sunt granularitățile în care se grupează funcționalitățile: `incarcare`,
-`review`, `editare`, `sesizari`, `evenimente`, `statistici`, `structura`, `tutoriate` și
-`utilizatori`. Ele vin din Keycloak (rol de client sau oficiu), dar un admin le poate
-ajusta per cont din panou, în coloana „Permisiuni acordate”: tabela `PERMISIUNE` se adaugă
-peste ce vine din SSO. O rută nouă se protejează cu `Depends(cere_permisiune("cheie"))`.
+`review`, `editare`, `orar_profesori`, `sesizari`, `evenimente`, `statistici`, `structura`,
+`tutoriate` și `utilizatori`. Ele vin din Keycloak (rol de client sau oficiu), dar un admin
+le poate ajusta per cont din panou, în coloana „Permisiuni acordate”: tabela `PERMISIUNE` se
+adaugă peste ce vine din SSO. O rută nouă se protejează cu
+`Depends(cere_permisiune("cheie"))`.
+
+`orar_profesori` deservește paginile `/profesor/...`: implicit o are doar adminul, iar un
+profesor își vede oricând propriul orar; celelalte conturi primesc permisiunea din panou
+(sau, opțional, prin rolul de client `orar-profesori` din Keycloak).
 
 Rolurile se recitesc la 5 minute, deci un rol dat sau retras în Keycloak se vede fără să
 ieși din cont. Logout-ul din Orar te scoate și din SSO. Invers, un logout din alt site ASMI
@@ -177,7 +193,10 @@ Sunt două feluri de a încărca un orar.
 
 **Din panoul de admin.** La „Încarcă un orar” pui linkul orarului grupelor și pe cel al
 orarului profesorilor, alegi semestrul și anul. Încărcarea rulează în fundal, durează
-10-20 de minute, iar panoul îți arată la ce pas a ajuns.
+10-20 de minute, iar panoul îți arată la ce pas a ajuns. Al treilea link, opțional, e al
+**orarului tutoriatelor** (aceeași grilă aSc, dar cu chenare albe): din el se creează
+tutoriatele pe serii, direct publicate, ca să apară imediat în dropdownul „Tutoriate” de
+pe pagina grupei.
 
 **Automat, din linia de comandă.**
 

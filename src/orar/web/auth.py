@@ -58,6 +58,7 @@ __all__ = [
     "autentifica",
     "cere_admin",
     "cere_permisiune",
+    "cere_panou",
     "cheie_secreta",
     "cont_curent",
     "deconecteaza",
@@ -169,6 +170,16 @@ class Cont:
     def poate(self, permisiune: str) -> bool:
         """Adminii pot tot; ceilalti, ce li s-a dat."""
         return self.e_admin or permisiune in self.permisiuni
+
+    def are_panou(self) -> bool:
+        """Are ce cauta in panoul de administrare: e admin sau are macar o permisiune
+        functionala (din `PERMISIUNI`, plus responsabilitatea de tutoriate). Un cont fara
+        niciuna nu vede panoul."""
+        from orar.db.models import PERMISIUNI
+
+        return self.e_admin or any(
+            p in self.permisiuni for p in (*dict(PERMISIUNI), "tutoriate")
+        )
 
 
 def _admin_din_mediu() -> tuple[str, str, str] | None:
@@ -344,6 +355,18 @@ def cere_admin(request: Request, cont: Cont | None = Depends(cont_curent)) -> Co
         raise HTTPException(status_code=303, headers={"Location": f"/login?inapoi={inapoi}"})
     if not cont.e_admin:
         raise HTTPException(status_code=403, detail="Pagina e doar pentru administratori.")
+    return cont
+
+
+def cere_panou(request: Request, cont: Cont | None = Depends(cont_curent)) -> Cont:
+    """Dependinta pentru panoul de administrare: orice cont autentificat care are macar o
+    permisiune functionala (sau e admin). Panoul e pentru toate rolurile, dar un cont fara
+    nicio permisiune nu are ce cauta in el."""
+    if cont is None:
+        inapoi = quote(request.url.path, safe="/")
+        raise HTTPException(status_code=303, headers={"Location": f"/login?inapoi={inapoi}"})
+    if not cont.are_panou():
+        raise HTTPException(status_code=403, detail="Panoul cere cel puțin o permisiune.")
     return cont
 
 

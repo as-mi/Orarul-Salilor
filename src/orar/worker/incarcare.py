@@ -111,6 +111,8 @@ class Cerere:
     an_universitar: str
     #: Orarul profesorilor, pentru verificarea incrucisata si numele intregi. Obligatoriu.
     url_profesori: str = ""
+    #: Orarul tutoriatelor (grila aSc cu celule albe). Optional: fara el nu se aduc tutoriate.
+    url_tutoriate: str = ""
     #: Cine a pornit-o, pentru afisare.
     de_catre: str = ""
 
@@ -226,6 +228,18 @@ def _incarca(cerere: Cerere):  # noqa: ANN202 -- RaportSincronizare
                 s,
                 watcher.StarePublicata(surse=surse),
                 cerere.semestru,
+                an_universitar=cerere.an_universitar,
+                director=director,
+                rap=rap,
+                progres=_etapa,
+            )
+        if cerere.url_tutoriate:
+            tutoriate = watcher.SursaOrar(
+                cerere.semestru, "tutoriate", rezolva_link(cerere.url_tutoriate), acum
+            )
+            sync._ingesteaza_tutoriate(
+                s,
+                tutoriate,
                 an_universitar=cerere.an_universitar,
                 director=director,
                 rap=rap,
