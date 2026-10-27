@@ -1537,3 +1537,62 @@ class ActivitateImportata(Base):
 
     def __repr__(self) -> str:
         return f"<ActivitateImportata {self.materie!r} de la {self.sursa!r}>"
+
+
+class AbonamentCalendar(Base):
+    """Un abonament la calendarul ICS al unei grupe sau al unui profesor.
+
+    Tokenul din URL e singura credentiala a feed-ului: Google Calendar si Apple Calendar il
+    descarca fara sesiune. `MOD` spune de unde vin preferintele: `cont` le citeste live din
+    cont, `instantaneu` le tine in `OPTIUNI` (pentru vizitatorii fara cont).
+
+    Nu are chei straine catre GRUPA, PROFESOR sau PERIOADA: nodurile se pot sterge si
+    recrea la o publicare noua (vezi `worker/sync.py:curata_grupele_disparute`), iar
+    abonamentul trebuie sa supravietuiasca reingestiei. Subiectul se tine pe chei stabile
+    (slug de grupa, nume de profesor), nu pe id-uri.
+    """
+
+    __tablename__ = "ABONAMENT_CALENDAR"
+
+    id: Mapped[int] = mapped_column("ID_ABONAMENT", Integer, primary_key=True)
+    token: Mapped[str] = mapped_column("TOKEN", String(64), nullable=False)
+    #: grupa | profesor
+    fel: Mapped[str] = mapped_column("FEL", String(12), nullable=False)
+    #: cont | instantaneu
+    mod: Mapped[str] = mapped_column("MOD", String(12), nullable=False)
+    user_id: Mapped[int | None] = mapped_column(
+        "ID_USER", ForeignKey("USER.ID", ondelete="CASCADE"), index=True
+    )
+    grupa_slug: Mapped[str | None] = mapped_column("GRUPA_SLUG", String(180))
+    an_univ: Mapped[str | None] = mapped_column("AN_UNIV", String(9))
+    profesor_nume: Mapped[str | None] = mapped_column("PROFESOR_NUME", String(120))
+    #: Semestrul orarului de la care s-a facut abonarea, ca feed-ul sa stie ce perioada citeste.
+    semestru: Mapped[int] = mapped_column("SEMESTRU", Integer, nullable=False)
+    #: Snapshot-ul preferintelor pentru `MOD='instantaneu'`: semigrupa, ascunse, tutoriate.
+    optiuni: Mapped[str | None] = mapped_column("OPTIUNI", Text)
+    #: Cookie opac al browserului care a creat abonamentul anonim (cheia din `AMPRENTA`).
+    client: Mapped[str | None] = mapped_column("CLIENT", String(64), index=True)
+    #: sha256 peste (fel, mod, user/client, subiect). Fara selectie: schimbarea biftelor nu
+    #: creeaza alt token, ci actualizeaza randul.
+    amprenta: Mapped[str] = mapped_column("AMPRENTA", String(64), nullable=False)
+    creat_la: Mapped[datetime] = mapped_column("CREAT_LA", DateTime, nullable=False)
+    modificat_la: Mapped[datetime] = mapped_column("MODIFICAT_LA", DateTime, nullable=False)
+    accesat_la: Mapped[datetime | None] = mapped_column("ACCESAT_LA", DateTime)
+    revocat_la: Mapped[datetime | None] = mapped_column("REVOCAT_LA", DateTime)
+
+    user: Mapped[User | None] = relationship()
+
+    __table_args__ = (
+        CheckConstraint("FEL IN ('grupa','profesor')", name="ck_abonament_fel"),
+        CheckConstraint("MOD IN ('cont','instantaneu')", name="ck_abonament_mod"),
+        CheckConstraint("SEMESTRU IN (1,2)", name="ck_abonament_semestru"),
+        UniqueConstraint("TOKEN", name="uq_abonament_token"),
+        UniqueConstraint("AMPRENTA", name="uq_abonament_amprenta"),
+        Index("ix_abonament_user_fel", "ID_USER", "FEL"),
+        Index("ix_abonament_client_fel", "CLIENT", "FEL"),
+        Index("ix_abonament_accesat", "ACCESAT_LA"),
+    )
+
+    def __repr__(self) -> str:
+        subiect = self.grupa_slug or self.profesor_nume
+        return f"<AbonamentCalendar {self.fel} {subiect!r} {self.mod}>"

@@ -25,6 +25,19 @@
   box-shadow: 0 8px 24px rgb(0 0 0 / .14);
   display: flex; flex-direction: column; gap: .3rem;
 }
+/* Abonarea la calendar: un separator intre imaginile descarcate si calendar, apoi
+   butoanele, care sunt si ele linkuri cand abonamentul exista deja. */
+.meniu-export .separator-meniu { border-top: 1px solid var(--linie); margin: .15rem 0; }
+.meniu-abonament { display: flex; flex-direction: column; gap: .3rem; }
+.meniu-abonament .buton { text-align: left; }
+.ajutor-calendar .link-calendar { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.ajutor-calendar .link-calendar input {
+  flex: 1 1 18rem; font: inherit; font-size: .86rem; padding: .45rem .6rem;
+  border: 1px solid var(--linie-tare); border-radius: 6px;
+  background: var(--fundal); color: var(--text);
+}
+.ajutor-calendar .nota { color: var(--text-slab); font-size: .88rem; }
+.ajutor-calendar .revoca-abonament { display: flex; flex-wrap: wrap; gap: .4rem; }
 .raporteaza { position: relative; }
 .raporteaza > summary { list-style: none; width: fit-content; font-weight: 500; font-size: .82rem; }
 .raporteaza > summary::-webkit-details-marker { display: none; }

@@ -26,6 +26,7 @@ __all__ = [
     "cheie_an",
     "evenimente_asmi",
     "evenimente_in_grila",
+    "evenimente_in_interval",
     "saptamana_calendaristica",
     "sali_libere",
 ]
@@ -162,6 +163,27 @@ def sali_libere(
     return [
         SalaLibera(x, in_zi.get(x.id, 0))
         for x in sorted(sali, key=lambda x: (x.nr_locuri is None, -(x.nr_locuri or 0), x.nume))
+    ]
+
+
+def evenimente_in_interval(
+    s: Session, de_la: date, pana_la: date, *, grupa: Grupa | None = None
+) -> list[Eveniment]:
+    """Evenimentele vizibile pe orarul unei formatiuni care ating intervalul.
+
+    Ca `evenimente_in_grila`, dar pe un interval intreg si cu evenimentele fara ora (toata
+    ziua). Evenimentele puse doar pe o sala nu se vad pe orarul unei formatiuni; cele puse
+    pe specializari si ani se potrivesc dupa aceleasi reguli. Fara grupa (feed-ul unui
+    profesor) raman doar evenimentele vizibile tuturor.
+    """
+    stmt = (
+        select(Eveniment)
+        .options(joinedload(Eveniment.sala))
+        .where(*_in_interval(de_la, pana_la), Eveniment.vizibilitate != "sala")
+        .order_by(Eveniment.data_inceput, Eveniment.ora_inceput.nulls_first(), Eveniment.id)
+    )
+    return [
+        e for e in s.scalars(stmt) if e.vizibilitate != "specializari" or _e_pentru(e, grupa)
     ]
 
 

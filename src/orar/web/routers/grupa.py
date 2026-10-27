@@ -21,6 +21,7 @@ from orar.db.queries import gaseste_grupa, ids_descendenti, ids_stramosi, ore_pe
 from orar.db.tutoriate import oferite_grupei, tutoriate_in_grila
 from orar.db.versiuni import versiuni_pentru_grupa
 from orar.domain.grid import Provenienta, construieste_grila
+from orar.web.abonamente import context_abonament
 from orar.web.afisare import (
     ascunse_din_cont,
     ascunse_pe_pagina,
@@ -260,6 +261,16 @@ def afiseaza_grupa(
             "formatiuni_import": formatiuni_import(s, sel.perioada) if al_meu else [],
             "evenimente_personale": evenimentele_contului(s, al_meu) if al_meu else [],
             "importate": importatele_contului(s, al_meu) if al_meu else [],
+            **context_abonament(
+                s,
+                request,
+                cont,
+                fel="grupa",
+                al_meu=al_meu is not None,
+                activ=not arhiva,
+                grupa_slug=grupa.slug,
+                an_univ=sel.an_universitar or grupa.an_universitar,
+            ),
         },
     )
     if de_salvat != salvata:

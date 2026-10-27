@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block titlu %}Abonează-te în calendar{% endblock %}
+
+{% block continut %}
+<section class="formular lat ajutor-calendar">
+  <h1>Abonează-te în calendar</h1>
+  <p>Orarul devine un <strong>calendar separat</strong> în Google Calendar sau în aplicația
+    de calendar a telefonului. Îl poți ascunde sau arăta oricând, iar el se actualizează
+    singur când se schimbă orarul — fără să-ți umple calendarul personal cu evenimente.</p>
+
+  <h2>Linkul calendarului</h2>
+  <div class="link-calendar">
+    <input id="link-calendar" type="text" readonly value="{{ ics }}" aria-label="Linkul calendarului">
+    <button type="button" class="buton" data-copiaza="link-calendar">Copiază linkul</button>
+  </div>
+  <p class="nota">Linkul ține loc de parolă: cine îl are poate vedea orarul abonat. Nu îl
+    publica și nu îl trimite decât celor în care ai încredere.</p>
+
+  <h2>Google Calendar</h2>
+  <p><a class="buton" href="{{ google }}" target="_blank" rel="noopener">Adaugă în Google
+    Calendar</a></p>
+  <p>Dacă Google nu deschide confirmarea, adaugă-l manual: deschide
+    <a href="https://calendar.google.com/calendar/u/0/r/settings/addbyurl" target="_blank"
+       rel="noopener">„Adaugă calendar prin URL”</a>, lipește linkul de mai sus și apasă
+    „Adaugă calendar”. Pe <strong>Android</strong> nu mai e nimic de făcut: aplicația Google
+    Calendar folosește aceleași calendare ca site-ul.</p>
+
+  <h2>iPhone / iPad</h2>
+  <p><a class="buton" href="{{ webcal }}">Abonează-te pe iPhone / iPad</a></p>
+  <p>Sau manual: <em>Setări → Calendar → Conturi → Adaugă cont → Altul → Adaugă calendar
+    abonat</em>, apoi lipește linkul de mai sus.</p>
+
+  <h2>Ce conține calendarul</h2>
+  <ul>
+    <li>activitățile săptămânale ale orarului, cu sala și profesorul;</li>
+    <li>tutoriatele alese pe pagina orarului (cele anulate apar ca anulate);</li>
+    <li>evenimentele cu dată vizibile pe pagina orarului.</li>
+  </ul>
+  <p>Nu conține evenimentele personale sau activitățile importate în cont, iar feed-ul nu
+    citește și nu publică nimic despre tine.</p>
+
+  <h2>Actualizare</h2>
+  <p>Dacă ești autentificat și pagina abonată e „Orarul meu”, calendarul urmează
+    <strong>live</strong> semigrupa și opțiunile din cont. Fără cont, el păstrează alegerea
+    de la data abonării: revino pe pagina orarului și apasă din nou „Abonează-te în
+    calendar…” ca să o actualizezi — rămâne același calendar, cu același link.</p>
+
+  {% if proprietar %}
+    <h2>Revocare</h2>
+    <p>Dacă nu mai vrei calendarul, îl poți scoate din aplicația de calendar și revoca
+      linkul. După revocare, linkul nu mai funcționează pentru nimeni.</p>
+    <form method="post" action="/calendar/{{ token }}/revoca" class="revoca-abonament">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="inapoi" value="{{ intoarcere }}">
+      <button type="submit" class="buton pericol">Revocă abonamentul</button>
+      <a class="buton" href="{{ intoarcere }}">Înapoi la orar</a>
+    </form>
+  {% endif %}
+
+  <script src="{{ static_versionat(request, 'js/calendar.js') }}" defer></script>
+</section>
+{% endblock %}
