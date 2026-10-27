@@ -20,6 +20,7 @@ load_dotenv()
 from orar.web.auth import cheie_secreta, cont_curent  # noqa: E402
 from orar.web.deps import AICI, context_saptamana, templates  # noqa: E402
 from orar.web.routers import (  # noqa: E402
+    abonamente,
     admin,
     cont,
     editare,
@@ -83,6 +84,7 @@ app.include_router(index.router)
 app.include_router(grupa.router)
 app.include_router(sala.router)
 app.include_router(profesor.router)
+app.include_router(abonamente.router)
 app.include_router(admin.router)
 app.include_router(cont.router)
 app.include_router(sesizari.router)

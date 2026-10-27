@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from orar.db.queries import gaseste_profesor, ore_pentru_profesor
 from orar.domain.grid import construieste_grila
+from orar.web.abonamente import context_abonament
 from orar.web.auth import Cont, cont_curent
 from orar.web.deps import (
     context_saptamana,
@@ -87,6 +88,15 @@ def orar_profesor(
         "sali": sorted({o.sala.nume for o in ore if o.sala}),
         "filtru_saptamana": doar_saptamana,
         "al_meu": al_meu,
+        **context_abonament(
+            s,
+            request,
+            cont,
+            fel="profesor",
+            al_meu=al_meu,
+            activ=al_meu and not fragment,
+            profesor_nume=profesor.nume,
+        ),
     }
     if fragment:
         return templates.TemplateResponse(

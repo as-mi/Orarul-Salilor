@@ -155,6 +155,15 @@ def tutoriate_alese_de(request: Request, cont: Cont | None) -> set[int]:
     """Tutoriatele alese: din cont, daca e cineva intrat; altfel din cookie."""
     if cont is not None and cont.user is not None:
         return alese_din_cont(cont.user)
+    return tutoriate_alese_din_cookie(request)
+
+
+def tutoriate_alese_din_cookie(request: Request) -> set[int]:
+    """Ce e ales in browser, indiferent de cont.
+
+    Abonamentul anonim la calendar trebuie sa inghete exact ce vede vizitatorul acum, chiar
+    daca e logat pe un cont care urmareste alta grupa -- de aceea nu trece prin cont.
+    """
     date_ = _citeste_cookie(request, COOKIE).get("alese", [])
     return {x for x in date_ if isinstance(x, int)} if isinstance(date_, list) else set()
 
